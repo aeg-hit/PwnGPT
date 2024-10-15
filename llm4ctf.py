@@ -8,6 +8,7 @@ from pprint import pprint
 
 
 if __name__ == "__main__":
+    #test base invoke
     decfile=llmgraph.get_decompilefiles('./example/level0.c')[0]
     resultcode=llmgraph.run(decfile.page_content)
     pprint(resultcode.prefix)
