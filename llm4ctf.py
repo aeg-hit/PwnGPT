@@ -9,8 +9,13 @@ from pprint import pprint
 
 if __name__ == "__main__":
     #test base invoke
-    decfile=llmgraph.get_decompilefiles('./example/level0.c')[0]
-    resultcode=llmgraph.run(decfile.page_content)
+    # decfile=llmgraph.get_decompilefiles('./example/level0.c')[0]
+    # resultcode=llmgraph.run(decfile.page_content)
+
+    #test graph
+    resultcode=llmgraph.run_graph()
+
+    #pretty print
     pprint(resultcode.prefix)
     print("\n\nimports\n\n")
     pprint(resultcode.imports)

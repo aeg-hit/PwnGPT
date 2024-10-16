@@ -123,12 +123,16 @@ expt_llm = "qwen-plus"
 base="https://dashscope.aliyuncs.com/compatible-mode/v1"
 chain=MainChain(expt_llm,base)
 
+
+## test chain
 def run(concatenated_content)->code:
     question = "How do I use pwntool to solve this challange?"
     solution = chain.code_gen_chain_retry.invoke(
             {"context": concatenated_content, "messages": [("user", question)]}
         )
     return solution
+
+
 
 concatenated_content=get_decompilefiles('./example/level0.c')[0]
 
@@ -151,7 +155,7 @@ class GraphState(TypedDict):
 ### Parameter
 
 # Max tries
-max_iterations = 3
+max_iterations = 1
 # Reflect
 # flag = 'reflect'
 flag = "do not reflect"
@@ -170,7 +174,7 @@ def generate(state: GraphState):
         state (dict): New key added to state, generation
     """
 
-    print("---GENERATING CODE SOLUTION---")
+    print(f"---GENERATING CODE SOLUTION: {iterations}---")
 
     # State
     messages = state["messages"]
@@ -229,6 +233,7 @@ def code_check(state: GraphState):
         exec(imports)
     except Exception as e:
         print("---CODE IMPORT CHECK: FAILED---")
+        print(f"Your solution failed the import test: {e}")
         error_message = [("user", f"Your solution failed the import test: {e}")]
         messages += error_message
         return {
@@ -243,6 +248,7 @@ def code_check(state: GraphState):
         exec(imports + "\n" + code)
     except Exception as e:
         print("---CODE BLOCK CHECK: FAILED---")
+        print(f"Your solution failed the code execution test: {e}")
         error_message = [("user", f"Your solution failed the code execution test: {e}")]
         messages += error_message
         return {
@@ -273,7 +279,7 @@ def reflect(state: GraphState):
         state (dict): New key added to state, generation
     """
 
-    print("---GENERATING CODE SOLUTION---")
+    print("---REFLECTING ON CODE ERROR---")
 
     # State
     messages = state["messages"]
@@ -337,3 +343,8 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge("reflect", "generate")
 app = workflow.compile()
+
+def run_graph()->code:
+    question = "How do I use pwntool to solve this challange?"
+    solution = app.invoke({"messages": [("user", question)], "iterations": 0, "error": ""})
+    return solution["generation"]
