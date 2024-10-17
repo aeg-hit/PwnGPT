@@ -18,7 +18,7 @@ def _set_env(var: str):
 
 _set_env("OPENAI_API_KEY")
 
-def get_decompilefiles(path):
+def get_decompilefile(path):
     textload=TextLoader(path)
     return textload.load()
 
@@ -134,7 +134,7 @@ def run(concatenated_content)->code:
 
 
 
-concatenated_content=get_decompilefiles('./example/level0.c')[0]
+concatenated_content=get_decompilefile('./example/level0.c')[0]
 
 class GraphState(TypedDict):
     """
