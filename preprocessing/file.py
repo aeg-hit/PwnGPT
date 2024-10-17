@@ -1,7 +1,6 @@
 import sys
 import os
 import subprocess
-from rich.console import Console
 
 def get_filepath():
     if len(sys.argv) < 2:

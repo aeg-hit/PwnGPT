@@ -174,13 +174,14 @@ def generate(state: GraphState):
         state (dict): New key added to state, generation
     """
 
-    print(f"---GENERATING CODE SOLUTION: {iterations}---")
+
 
     # State
     messages = state["messages"]
     iterations = state["iterations"]
     error = state["error"]
 
+    print(f"---  GENERATING CODE SOLUTION: {iterations}  ---")
     # We have been routed back to generation with an error
     if error == "yes":
         messages += [
@@ -344,7 +345,7 @@ workflow.add_conditional_edges(
 workflow.add_edge("reflect", "generate")
 app = workflow.compile()
 
-def run_graph()->code:
+def run_graph():
     question = "How do I use pwntool to solve this challange?"
     solution = app.invoke({"messages": [("user", question)], "iterations": 0, "error": ""})
-    return solution["generation"]
+    return solution
