@@ -29,7 +29,9 @@ def test():
 if __name__ == "__main__":
 
 
-    #retriever
-    retriever=retrieval.get_retriever(['./download/buffer.txt'])
-    res=retriever.invoke("overflow")
-    pprint(res)
+    # #retriever
+    # retriever=retrieval.save_vector(['./download/buffer.txt'])
+    # res=retriever.similarity_search("overflow")
+    # pprint(res)
+    store=retrieval.vectorstore
+    pprint(store.similarity_search("overflow",k=1))

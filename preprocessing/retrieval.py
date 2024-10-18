@@ -1,13 +1,21 @@
 from langchain_community.document_loaders import TextLoader
-
+import os
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import DashScopeEmbeddings
 
 ctfcollection_name="ctf-chroma"
 
-def get_retriever(paths):
+embeddings=DashScopeEmbeddings(dashscope_api_key=os.environ.get("OPENAI_API_KEY"),model="text-embedding-v3" )
+
+vectorstore = Chroma(
+        collection_name=ctfcollection_name,
+        embedding_function=embeddings,
+        persist_directory="./chroma_langchain_qwen_db",
+    )
+
+def save_vector(paths):
 
     docs = [TextLoader(path).load() for path in paths]
     docs_list = [item for sublist in docs for item in sublist]
@@ -18,24 +26,8 @@ def get_retriever(paths):
     doc_splits = text_splitter.split_documents(docs_list)
 
     # Add to vectorDB
-    embedings=OpenAIEmbeddings(model="text-embedding-v3" ,base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
-
-    # vector = embedings.client.create(
-    #     model="text-embedding-v1",
-    #     input=['风急天高猿啸哀', '渚清沙白鸟飞回', '无边落木萧萧下', '不尽长江滚滚来'],
-    #     encoding_format="float"
-    #     )
-    # print(vector.model_dump_json())
-
-    from langchain_core.embeddings import FakeEmbeddings
-    vectorstore = Chroma.from_documents(
-        documents=doc_splits,
-        collection_name=ctfcollection_name,
-        embedding=FakeEmbeddings(size=100),
-    )
 
 
+    vectorstore.add_documents(documents=doc_splits)
 
-
-    retriever = vectorstore.as_retriever()
-    return retriever
+    return vectorstore
