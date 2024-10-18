@@ -1,16 +1,14 @@
-from preprocessing import file
 from processing import llmgraph
+from preprocessing import file,retrieval
+
 
 from pprint import pprint
 
 
-
-
-
-if __name__ == "__main__":
+def test():
     #test base invoke
-    # decfile=llmgraph.get_decompilefile('./example/level0.c')[0]
-    # resultcode=llmgraph.run(decfile.page_content)
+    decfile=llmgraph.get_decompilefile('./example/level0.c')[0]
+    resultcode=llmgraph.run(decfile.page_content)
 
     #test graph
     result=llmgraph.run_graph()
@@ -26,3 +24,12 @@ if __name__ == "__main__":
     #save
     with open('result.txt','w') as f:
         pprint(result, stream=f)
+
+
+if __name__ == "__main__":
+
+
+    #retriever
+    retriever=retrieval.get_retriever(['./download/buffer.txt'])
+    res=retriever.invoke("overflow")
+    pprint(res)
