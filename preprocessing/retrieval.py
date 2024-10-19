@@ -21,7 +21,7 @@ def save_vector(paths):
     docs_list = [item for sublist in docs for item in sublist]
 
     text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-        chunk_size=250, chunk_overlap=0
+        chunk_size=700, chunk_overlap=100
     )
     doc_splits = text_splitter.split_documents(docs_list)
 
