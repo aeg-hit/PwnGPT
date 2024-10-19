@@ -1,10 +1,13 @@
+from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from langchain_community.document_loaders import TextLoader
 
-from typing import List
+from langchain.tools.retriever import create_retriever_tool
+
+from typing import List, Literal
 from typing_extensions import TypedDict
 from langgraph.graph import END, StateGraph, START
 
@@ -15,16 +18,71 @@ def _set_env(var: str):
     if not os.environ.get(var):
         os.environ[var]=getpass.getpass(f"{var}:")
 
-
+### OpenAI api with qwen
 _set_env("OPENAI_API_KEY")
+expt_llm = "qwen-plus"
+base="https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 def get_decompilefile(path):
     textload=TextLoader(path)
     return textload.load()
 
-### OpenAI api
+### retrieve graph
+class grade(BaseModel):
+    """Binary score for relevance check."""
+    binary_score: str = Field(description="Relevance score 'yes' or 'no'")
 
+class GradeChain:
+    prompt = PromptTemplate(
+        template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
+        Here is the retrieved document: \n\n {context} \n\n
+        Here is the user question: {question} \n
+        If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
+        Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.""",
+        input_variables=["context", "question"],
+    )
 
+    def __init__(self, expt_llm, base):
+        ## transfer as stream
+        self.llm= ChatOpenAI(temperature=0, model=expt_llm, base_url=base, streaming=True)
+        self.structured_llm_claude = self.llm.with_structured_output(grade)
+         # Chain
+        self.chain = GradeChain.prompt | self.structured_llm_claude
+
+### Edges
+def grade_documents(state) -> Literal["generate", "rewrite"]:
+    """
+    Determines whether the retrieved documents are relevant to the question.
+
+    Args:
+        state (messages): The current state
+
+    Returns:
+        str: A decision for whether the documents are relevant or not
+    """
+
+    print("---CHECK RELEVANCE---")
+
+    gradellm=GradeChain(expt_llm, base)
+
+    messages = state["messages"]
+    last_message = messages[-1]
+
+    question = messages[0].content
+    docs = last_message.content
+
+    scored_result = gradellm.chain.invoke({"question": question, "context": docs})
+
+    score = scored_result.binary_score
+
+    if score == "yes":
+        print("---DECISION: DOCS RELEVANT---")
+        return "generate"
+
+    else:
+        print("---DECISION: DOCS NOT RELEVANT---")
+        print(score)
+        return "rewrite"
 
 
 # Data model
@@ -34,6 +92,7 @@ class code(BaseModel):
     prefix: str = Field(description="Description of the problem and approach")
     imports: str = Field(description="Code block import statements")
     code: str = Field(description="Code block not including import statements")
+
 
 class MainChain:
     # Grader prompt that use placeholder function
@@ -119,15 +178,13 @@ class MainChain:
 
 
 #init llm
-expt_llm = "qwen-plus"
-base="https://dashscope.aliyuncs.com/compatible-mode/v1"
-chain=MainChain(expt_llm,base)
+mainllm=MainChain(expt_llm, base)
 
 
 ## test chain
 def run(concatenated_content)->code:
     question = "How do I use pwntool to solve this challange?"
-    solution = chain.code_gen_chain_retry.invoke(
+    solution = mainllm.code_gen_chain_retry.invoke(
             {"context": concatenated_content, "messages": [("user", question)]}
         )
     return solution
@@ -192,7 +249,7 @@ def generate(state: GraphState):
         ]
 
     # Solution
-    code_solution = chain.code_gen_chain.invoke(
+    code_solution = mainllm.code_gen_chain.invoke(
         {"context": concatenated_content, "messages": messages}
     )
     messages += [
@@ -290,7 +347,7 @@ def reflect(state: GraphState):
     # Prompt reflection
 
     # Add reflection
-    reflections = chain.code_gen_chain.invoke(
+    reflections = mainllm.code_gen_chain.invoke(
         {"context": concatenated_content, "messages": messages}
     )
     messages += [("assistant", f"Here are reflections on the error: {reflections}")]
