@@ -1,6 +1,9 @@
 # LLM4CTF
 Caputre the flag with Large Language Models. Constructed by langgraph and chromadb, I learn from langgraph doument.
 
+# Workflow
+![workflow](./assert/workflow.png)
+
 ## Method
 RAG (Retrieval Augmented Generation) then check code and reflect.
 
