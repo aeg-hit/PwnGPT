@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from langchain_community.document_loaders import TextLoader
 
-from langchain.tools.retriever import create_retriever_tool
 
 from typing import List, Literal
 from typing_extensions import TypedDict
@@ -26,6 +25,24 @@ base="https://dashscope.aliyuncs.com/compatible-mode/v1"
 def get_decompilefile(path):
     textload=TextLoader(path)
     return textload.load()
+
+class GraphState(TypedDict):
+    """
+    Represents the state of our graph.
+
+    Attributes:
+        error : Binary flag for control flow to indicate whether test error was tripped
+        messages : With user question, error messages, reasoning
+        generation : Code solution
+        iterations : Number of tries
+    """
+
+    error: str
+    messages: List
+    generation: str
+    documents: List[str]
+    iterations: int
+
 
 ### retrieve graph
 class grade(BaseModel):
@@ -83,6 +100,30 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
         print("---DECISION: DOCS NOT RELEVANT---")
         print(score)
         return "rewrite"
+
+### Nodes
+from preprocessing.retrieval import vectorstore
+def retrieval_agent(state: GraphState):
+    """
+    get similar information.
+    """
+    print("---CALL AGENT---")
+    #("user", question)
+    message=state["messages"][0]
+    documents=vectorstore.similarity_search(message[1],k=1)
+    return {"documents":documents}
+
+def rewrite(state: GraphState):
+    """
+    Transform the query to produce a better question. Update first message(question) in state.
+     Returns:
+         dict: The updated state with re-phrased question
+    """
+    pass
+
+def generate(state):
+    pass
+
 
 
 # Data model
@@ -193,21 +234,6 @@ def run(concatenated_content)->code:
 
 concatenated_content=get_decompilefile('./example/level0.c')[0]
 
-class GraphState(TypedDict):
-    """
-    Represents the state of our graph.
-
-    Attributes:
-        error : Binary flag for control flow to indicate whether test error was tripped
-        messages : With user question, error messages, reasoning
-        generation : Code solution
-        iterations : Number of tries
-    """
-
-    error: str
-    messages: List
-    generation: str
-    iterations: int
 
 ### Parameter
 
