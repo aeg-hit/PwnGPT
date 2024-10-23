@@ -67,6 +67,7 @@ class GradeChain:
         self.chain = GradeChain.prompt | self.structured_llm_claude
 
 ### Edges
+#后续再看是否加入文档相关性检查
 def grade_documents(state) -> Literal["generate", "rewrite"]:
     """
     Determines whether the retrieved documents are relevant to the question.
@@ -107,21 +108,19 @@ def retrieval_agent(state: GraphState):
     """
     get similar information.
     """
-    print("---CALL AGENT---")
+    print("---CALL RETRIEVAL---")
     #("user", question)
     message=state["messages"][0]
     documents=vectorstore.similarity_search(message[1],k=1)
     return {"documents":documents}
 
+## search reason of error
 def rewrite(state: GraphState):
     """
     Transform the query to produce a better question. Update first message(question) in state.
      Returns:
          dict: The updated state with re-phrased question
     """
-    pass
-
-def generate(state):
     pass
 
 
@@ -142,8 +141,8 @@ class MainChain:
             (
                 "system",
                 """You are a expert on Capture the Flag (CTF) competition, and are good at Binary Exploitation (pwn) challenges. \n 
-        There is a pwn challenge in the CTF competition, and here is the decompiled C file to you for analysis:  \n ------- \n  {context} \n ------- \n Answer the user 
-        question based on the above provided file. Ensure any code you provide can be executed \n 
+        There is a pwn challenge in the CTF competition, and here is the decompiled C file to you for analysis:  \n ------- \n  {context} \n ------- \n
+          Answer the user question based on the above provided file. Ensure any code you provide can be executed \n 
         with all required imports and variables defined. Structure your answer: 1) a prefix describing the code solution, 2) the imports, 3) the functioning code block. \n
     Invoke the code tool to structure the output correctly. Here is the user question:""",
             ),
@@ -261,6 +260,7 @@ def generate(state: GraphState):
 
     # State
     messages = state["messages"]
+    documents=state["documents"]
     iterations = state["iterations"]
     error = state["error"]
 
