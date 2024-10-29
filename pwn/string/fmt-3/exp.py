@@ -2,8 +2,8 @@ from pwn import *
 context.log_level="debug"
 context.arch="amd64"
 
-sh=process("./pwnme_k0")
-binary=ELF("pwnme_k0")
+sh=process("./fmt3")
+binary=ELF("fmt3")
 #  gdb.attach(sh)
 
 sh.recv()

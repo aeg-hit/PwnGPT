@@ -1,6 +1,6 @@
 from pwn import *
 
-p = process('./int_overflow')
+p = process('./int2')
 #p = remote('ip','port')
 context.log_level = 'debug'
 

