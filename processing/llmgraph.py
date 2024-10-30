@@ -34,6 +34,8 @@ class GraphState(TypedDict):
         error : Binary flag for control flow to indicate whether test error was tripped
         messages : With user question, error messages, reasoning
         generation : Code solution
+        documents: retrieved documents
+        info: information about question (e.g., source code)
         iterations : Number of tries
     """
 
@@ -41,6 +43,7 @@ class GraphState(TypedDict):
     messages: List
     generation: str
     documents: List[str]
+    info: str
     iterations: int
 
 
