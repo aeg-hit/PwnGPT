@@ -1,0 +1,1 @@
+openai.BadRequestError: Error code: 400 - {'error': {'code': 'invalid_parameter_error', 'param': None, 'message': '<400> InternalError.Algo.InvalidParameter: Range of input length should be [1, 129024]', 'type': 'invalid_request_error'}, 'id': 'chatcmpl-794f7400-423e-9039-bd4b-5efc60931a30'}

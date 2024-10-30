@@ -4,14 +4,17 @@ from preprocessing import file, retrieval
 
 from pprint import pprint
 
-
 def test1():
     # test base invoke
     decfile = llmgraph.get_decompilefile('./example/level0.c')[0]
     resultcode = llmgraph.run(decfile.page_content)
 
+
+def test2():
     # test graph
-    result = llmgraph.run_graph()
+    decfile = llmgraph.get_decompilefile('./example/level0.c')[0]
+    c_infohead="\nHere is the decompiled C file:\n"
+    result = llmgraph.run_graph(c_infohead+decfile.page_content)
     resultcode = result["generation"]
 
     # pretty print
@@ -36,31 +39,17 @@ def test_retrieval():
 
 
 if __name__ == "__main__":
-    # #evaluate 1
+    #evaluate 1
     # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
-    # clist=pwn_path.get_clist()
-    # print("file: ")
-    # pprint(clist)
-    # decfile = llmgraph.get_decompilefile(clist[0])[0]
-    # c_infohead="\nHere is the decompiled C file:\n"
-    # resultcode = llmgraph.run(c_infohead+decfile.page_content)
-    # # save
-    # with open(pwn_path.list[0]+'/result.txt', 'w') as f:
-    #     pprint(resultcode, stream=f)
-        # test graph
-    decfile = llmgraph.get_decompilefile('./example/level0.c')[0]
-    c_infohead="\nHere is the decompiled C file:\n"
-    result = llmgraph.run_graph(c_infohead+decfile.page_content)
-    resultcode = result["generation"]
-
-    # pretty print
-    pprint(resultcode.prefix)
-    print("\n\nimports\n\n")
-    pprint(resultcode.imports)
-    print("\n\ncode\n\n")
-    pprint(resultcode.code)
-
-    # save
-    with open('result2_2.txt', 'w') as f:
-        pprint(result, stream=f)
-
+    # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
+    pwn_path=file.PwnInfo("./pwn/integer/", "int")
+    clist=pwn_path.get_clist()
+    print("Start: ")
+    for i in range(len(clist)):
+        pprint(clist[i])
+        decfile = llmgraph.get_decompilefile(clist[i])[0]
+        c_infohead="\nHere is the decompiled C file:\n"
+        resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
+        # save
+        with open(pwn_path.list[i]+'/result_1.txt', 'w') as f:
+            pprint(resultcode, stream=f)

