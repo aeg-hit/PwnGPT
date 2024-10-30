@@ -36,4 +36,31 @@ def test_retrieval():
 
 
 if __name__ == "__main__":
-    pprint(file.PwnInfo("./pwn/stack/", "rop").get_clist())
+    # #evaluate 1
+    # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
+    # clist=pwn_path.get_clist()
+    # print("file: ")
+    # pprint(clist)
+    # decfile = llmgraph.get_decompilefile(clist[0])[0]
+    # c_infohead="\nHere is the decompiled C file:\n"
+    # resultcode = llmgraph.run(c_infohead+decfile.page_content)
+    # # save
+    # with open(pwn_path.list[0]+'/result.txt', 'w') as f:
+    #     pprint(resultcode, stream=f)
+        # test graph
+    decfile = llmgraph.get_decompilefile('./example/level0.c')[0]
+    c_infohead="\nHere is the decompiled C file:\n"
+    result = llmgraph.run_graph(c_infohead+decfile.page_content)
+    resultcode = result["generation"]
+
+    # pretty print
+    pprint(resultcode.prefix)
+    print("\n\nimports\n\n")
+    pprint(resultcode.imports)
+    print("\n\ncode\n\n")
+    pprint(resultcode.code)
+
+    # save
+    with open('result2_2.txt', 'w') as f:
+        pprint(result, stream=f)
+

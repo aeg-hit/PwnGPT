@@ -144,8 +144,8 @@ class MainChain:
             (
                 "system",
                 """You are a expert on Capture the Flag (CTF) competition, and are good at Binary Exploitation (pwn) challenges. \n 
-        There is a pwn challenge in the CTF competition, and here is the decompiled C file to you for analysis:  \n ------- \n  {context} \n ------- \n
-          Answer the user question based on the above provided file. Ensure any code you provide can be executed \n 
+        There is a pwn challenge in the CTF competition, and here is information about the challenge to you for analysis:  \n ------- \n  {context} \n ------- \n
+          Answer the user question based on the above provided information. Ensure any code you provide can be executed \n 
         with all required imports and variables defined. Structure your answer: 1) a prefix describing the code solution, 2) the imports, 3) the functioning code block. \n
     Invoke the code tool to structure the output correctly. Here is the user question:""",
             ),
@@ -234,7 +234,6 @@ def run(concatenated_content)->code:
 
 
 
-concatenated_content=get_decompilefile('./example/level0.c')[0]
 
 
 ### Parameter
@@ -264,6 +263,7 @@ def generate(state: GraphState):
     # State
     messages = state["messages"]
     documents=state["documents"]
+    info=state["info"]
     iterations = state["iterations"]
     error = state["error"]
 
@@ -279,7 +279,7 @@ def generate(state: GraphState):
 
     # Solution
     code_solution = mainllm.code_gen_chain.invoke(
-        {"context": concatenated_content, "messages": messages}
+        {"context": info, "messages": messages}
     )
     messages += [
         (
@@ -372,12 +372,13 @@ def reflect(state: GraphState):
     messages = state["messages"]
     iterations = state["iterations"]
     code_solution = state["generation"]
+    info = state["info"]
 
     # Prompt reflection
 
     # Add reflection
     reflections = mainllm.code_gen_chain.invoke(
-        {"context": concatenated_content, "messages": messages}
+        {"context": info, "messages": messages}
     )
     messages += [("assistant", f"Here are reflections on the error: {reflections}")]
     return {"generation": code_solution, "messages": messages, "iterations": iterations}
@@ -431,7 +432,7 @@ workflow.add_conditional_edges(
 workflow.add_edge("reflect", "generate")
 app = workflow.compile()
 
-def run_graph():
+def run_graph(info:str):
     question = "How do I use pwntool to solve this challange?"
-    solution = app.invoke({"messages": [("user", question)], "iterations": 0, "error": ""})
+    solution = app.invoke({"messages": [("user", question)], "iterations": 0, "error": "", "info":info, "documents":[]})
     return solution
