@@ -37,8 +37,7 @@ def test_retrieval():
     store = retrieval.vectorstore
     pprint(store.similarity_search("overflow", k=1))
 
-
-if __name__ == "__main__":
+def evaluate_1():
     #evaluate 1
     # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
@@ -53,3 +52,13 @@ if __name__ == "__main__":
         # save
         with open(pwn_path.list[i]+'/result_1.txt', 'w') as f:
             pprint(resultcode, stream=f)
+
+if __name__ == "__main__":
+    proc, out =llmgraph.subprocess_check('./pwn/stack/rop-1/try.py')
+    print("wtf",proc.returncode,out)
+    with open('./ctftest.py', 'w') as f:
+        print(out, file=f)
+
+
+
+

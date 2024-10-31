@@ -12,6 +12,7 @@ from langgraph.graph import END, StateGraph, START
 
 import os
 import getpass
+import subprocess
 
 def _set_env(var: str):
     if not os.environ.get(var):
@@ -292,6 +293,17 @@ def generate(state: GraphState):
     iterations = iterations + 1
     return {"generation": code_solution, "messages": messages, "iterations": iterations}
 
+#check code in new process
+def subprocess_check(path):
+    proc = subprocess.Popen(['python',path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out,err=proc.communicate('echo "hello world! Is there a error?"\n')
+    if out and ("interactive mode" in out and ("Got EOF" in out or "hello world! Is there a error?" not in out)):
+        print("Subprocess result:")
+        print(out)
+        raise Exception("The code execution is complete, but the exploit fails, and go into fake interactive mode")
+    if err:
+        raise Exception(err)
+    return proc, out
 
 def code_check(state: GraphState):
     """
@@ -332,7 +344,10 @@ def code_check(state: GraphState):
 
     # Check execution
     try:
-        exec(imports + "\n" + code)
+        # exec(imports + "\n" + code)
+        with open('./ctftest.py', 'w') as f:
+            print(imports + "\n" + code, file=f)
+        proc, out = subprocess_check('./ctftest.py')
     except Exception as e:
         print("---CODE BLOCK CHECK: FAILED---")
         print(f"Your solution failed the code execution test: {e}")
