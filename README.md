@@ -3,6 +3,7 @@ Caputre the flag with Large Language Models. Constructed by langgraph and chroma
 
 # Workflow
 ![workflow](./assert/workflow.png)
+I only implemented the exploit system (RAG section). Decompile by IDA.
 
 ## Method
 RAG (Retrieval Augmented Generation) then check code and reflect.
