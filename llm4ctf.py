@@ -64,12 +64,13 @@ if __name__ == "__main__":
     # pwn_path=file.PwnInfo("./pwn/integer/", "int")
     clist=pwn_path.get_clist()
     blist=pwn_path.get_binarylist()
+    i=1
     print("Start: ")
-    decfile = llmgraph.get_decompilefile(clist[0])[0]
-    c_infohead="\nHere is the decompiled C file (its addresss is "+blist[0]+"):\n"
+    decfile = llmgraph.get_decompilefile(clist[i])[0]
+    c_infohead="\nHere is the decompiled C file (its addresss is "+blist[i]+"):\n"
     resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
     # save
-    with open(pwn_path.list[0]+'/result_2_try_2.txt', 'w') as f:
+    with open(pwn_path.list[i]+'/result_2_try_2.txt', 'w') as f:
         pprint(resultcode, stream=f)
 
 

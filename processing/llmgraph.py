@@ -170,6 +170,7 @@ class MainChain:
 
         # No re-try
         self.code_gen_chain = MainChain.code_gen_prompt | self.structured_llm_claude | MainChain.parse_output
+        self.gen_chain = MainChain.code_gen_prompt | self.llm
 
 
 
@@ -396,10 +397,13 @@ def reflect(state: GraphState):
     # Prompt reflection
 
     # Add reflection
-    reflections = mainllm.code_gen_chain.invoke(
+    # reflections = mainllm.code_gen_chain.invoke(
+    #     {"context": info, "messages": messages}
+    # )
+    reflections = mainllm.gen_chain.invoke(
         {"context": info, "messages": messages}
     )
-    messages += [("assistant", f"Here are reflections on the error: {reflections}")]
+    messages += [("assistant", f"Here are reflections on the error: {reflections.content}")]
     return {"generation": code_solution, "messages": messages, "iterations": iterations}
 
 
