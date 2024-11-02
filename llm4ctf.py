@@ -37,8 +37,12 @@ def test_retrieval():
     store = retrieval.vectorstore
     pprint(store.similarity_search("overflow", k=1))
 
+def test_subprocess():
+    proc, out =llmgraph.subprocess_check('./pwn/stack/rop-1/try.py')
+    print("wtf",proc.returncode,out)
+
 def evaluate_1():
-    #evaluate 1
+    #evaluate 1: pure llm without reflect (max_iterations=1)
     # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
     pwn_path=file.PwnInfo("./pwn/integer/", "int")
@@ -54,10 +58,20 @@ def evaluate_1():
             pprint(resultcode, stream=f)
 
 if __name__ == "__main__":
-    proc, out =llmgraph.subprocess_check('./pwn/stack/rop-1/try.py')
-    print("wtf",proc.returncode,out)
-    with open('./ctftest.py', 'w') as f:
-        print(out, file=f)
+    #evaluate 2:  llm with reflect (max_iterations>1)
+    pwn_path=file.PwnInfo("./pwn/stack/", "rop")
+    # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
+    # pwn_path=file.PwnInfo("./pwn/integer/", "int")
+    clist=pwn_path.get_clist()
+    blist=pwn_path.get_binarylist()
+    print("Start: ")
+    decfile = llmgraph.get_decompilefile(clist[0])[0]
+    c_infohead="\nHere is the decompiled C file (its addresss is "+blist[0]+"):\n"
+    resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
+    # save
+    with open(pwn_path.list[0]+'/result_2_try_2.txt', 'w') as f:
+        pprint(resultcode, stream=f)
+
 
 
 

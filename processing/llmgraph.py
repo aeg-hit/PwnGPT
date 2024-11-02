@@ -240,10 +240,10 @@ def run(concatenated_content)->code:
 ### Parameter
 
 # Max tries
-max_iterations = 1
+max_iterations = 2
 # Reflect
-# flag = 'reflect'
-flag = "do not reflect"
+flag = 'reflect'
+# flag = "do not reflect"
 
 ### Nodes
 
@@ -298,7 +298,7 @@ def subprocess_check(path):
     proc = subprocess.Popen(['python',path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     out,err=proc.communicate('echo "hello world! Is there a error?"\n')
     if out and ("interactive mode" in out and ("Got EOF" in out or "hello world! Is there a error?" not in out)):
-        print("Subprocess result:")
+        print("code subprocess result:")
         print(out)
         raise Exception("The code execution is complete, but the exploit fails, and go into fake interactive mode")
     if err:
@@ -329,11 +329,15 @@ def code_check(state: GraphState):
 
     # Check imports
     try:
-        exec(imports)
-    except Exception as e:
+        path_import='./ctftest_import.py'
+        with open(path_import, 'w') as f:
+            print(imports, file=f)
+        result  = subprocess.run(['python',path_import],check=True,capture_output=True,text=True)
+        print("import test process:", result)
+    except subprocess.CalledProcessError as e:
         print("---CODE IMPORT CHECK: FAILED---")
-        print(f"Your solution failed the import test: {e}")
-        error_message = [("user", f"Your solution failed the import test: {e}")]
+        print(f"Your solution failed the import test: {e.stderr}")
+        error_message = [("user", f"Your solution failed the import test: {e.stderr}")]
         messages += error_message
         return {
             "generation": code_solution,

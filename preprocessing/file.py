@@ -32,6 +32,9 @@ class PwnInfo:
     
     def get_clist(self):
         return [x+"/"+self.filename+x[-1]+self.c_name for x in self.list]
+    
+    def get_binarylist(self):
+        return [x+"/"+self.filename+x[-1] for x in self.list]
 
 
 def get_filepath():

