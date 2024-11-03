@@ -298,12 +298,13 @@ def generate(state: GraphState):
 def subprocess_check(path):
     proc = subprocess.Popen(['python',path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     out,err=proc.communicate('echo "hello world! Is there a error?"\n')
-    if out and ("interactive mode" in out and ("Got EOF" in out or "hello world! Is there a error?" not in out)):
-        print("code subprocess result:")
-        print(out)
+    if out and 'flag' not in out and ("interactive mode" in out and ("Got EOF" in out or "hello world! Is there a error?" not in out)):
         raise Exception("The code execution is complete, but the exploit fails, and go into fake interactive mode")
     if err:
         raise Exception(err)
+
+    print("code subprocess result:")
+    print(out)
     return proc, out
 
 def code_check(state: GraphState):
@@ -455,7 +456,7 @@ workflow.add_conditional_edges(
 workflow.add_edge("reflect", "generate")
 app = workflow.compile()
 
-def run_graph(info:str):
+def run_graph(info:str, messages=[]):
     question = "How do I use pwntool to solve this challange?"
-    solution = app.invoke({"messages": [("user", question)], "iterations": 0, "error": "", "info":info, "documents":[]})
+    solution = app.invoke({"messages": messages+[("user", question)], "iterations": 0, "error": "", "info":info, "documents":[]})
     return solution
