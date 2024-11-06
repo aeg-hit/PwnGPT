@@ -297,7 +297,24 @@ def generate(state: GraphState):
 #check code in new process
 def subprocess_check(path):
     proc = subprocess.Popen(['python',path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    out,err=proc.communicate('echo "hello world! Is there a error?"\n')
+    ## timeout 20s
+    try:
+        out,err=proc.communicate('echo "hello world! Is there a error?"\n', timeout=20)
+    except subprocess.TimeoutExpired as e:
+
+        print(f"Command timed out after {e.timeout} seconds")
+
+        proc.terminate()
+        proc.wait()
+
+        stdoutdata, stderrdata = proc.communicate()
+        print("Standard Output after termination:")
+        print(stdoutdata.decode())
+        print("Standard Error after termination:")
+        print(stderrdata.decode())
+        
+        raise Exception("Command timed out: "+stderrdata.decode())
+
     if out and 'flag' not in out and ("interactive mode" in out and ("Got EOF" in out or "hello world! Is there a error?" not in out)):
         raise Exception("The code execution is complete, but the exploit fails, and go into fake interactive mode")
     if err:

@@ -57,7 +57,7 @@ def evaluate_1():
         with open(pwn_path.list[i]+'/result_1.txt', 'w') as f:
             pprint(resultcode, stream=f)
 
-if __name__ == "__main__":
+def evaluate_2():
     #evaluate 2:  llm with reflect (max_iterations>1)
     # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
@@ -77,6 +77,25 @@ if __name__ == "__main__":
         with open(pwn_path.list[i]+'/result_2_try_2.txt', 'w') as f:
             pprint(resultcode, stream=f)
     print("result: ",str(success)+'/'+str(len(clist)))
+
+if __name__ == "__main__":
+    ##事实证明通义不会用FmtStr
+    pwn_path=file.PwnInfo("./pwn/string/", "fmt")
+    clist=pwn_path.get_clist()
+    blist=pwn_path.get_binarylist()
+    print("Start: ")
+
+    i=0
+
+    decfile = llmgraph.get_decompilefile(clist[i])[0]
+    c_infohead="\nHere is the decompiled C file:\n"
+    messages=[('user',"The challenge is a format string vulnerabilit, you can use FmtStr() to get offset, and fmtstr_payload() to create payload. The binary file addresss of the challenge is '"+blist[i]+"'.")]
+    resultcode = llmgraph.run_graph(c_infohead+decfile.page_content, messages)
+
+    # save
+    with open(pwn_path.list[i]+'/result_2_try_2_withinfo.txt', 'w') as f:
+        pprint(resultcode, stream=f)
+
 
 
 
