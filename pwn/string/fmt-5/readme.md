@@ -1,3 +1,7 @@
+# patchelf修改libc和ld
+ldd 查看
+patchelf --set-interpreter 新的ld文件的路径 当前程序名
+patchelf --replace-needed 原来第二行的==>前的libc名 新的libc文件的路径
 # 动态链接
 call scanf —> scanf的plt表 —>scanf的got表
 把获取数据段存放函数地址的那一小段代码称为PLT（Procedure Linkage Table）

