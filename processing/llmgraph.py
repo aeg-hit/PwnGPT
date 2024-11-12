@@ -14,18 +14,22 @@ import os
 import getpass
 import subprocess
 
+
 def _set_env(var: str):
     if not os.environ.get(var):
-        os.environ[var]=getpass.getpass(f"{var}:")
+        os.environ[var] = getpass.getpass(f"{var}:")
 
-### OpenAI api with qwen
+
+# OpenAI api with qwen
 _set_env("OPENAI_API_KEY")
 expt_llm = "qwen-plus"
-base="https://dashscope.aliyuncs.com/compatible-mode/v1"
+base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
 
 def get_decompilefile(path):
-    textload=TextLoader(path)
+    textload = TextLoader(path)
     return textload.load()
+
 
 class GraphState(TypedDict):
     """
@@ -48,10 +52,11 @@ class GraphState(TypedDict):
     iterations: int
 
 
-### retrieve graph
+# retrieve graph
 class grade(BaseModel):
     """Binary score for relevance check."""
     binary_score: str = Field(description="Relevance score 'yes' or 'no'")
+
 
 class GradeChain:
     prompt = PromptTemplate(
@@ -64,14 +69,17 @@ class GradeChain:
     )
 
     def __init__(self, expt_llm, base):
-        ## transfer as stream
-        self.llm= ChatOpenAI(temperature=0, model=expt_llm, base_url=base, streaming=True)
+        # transfer as stream
+        self.llm = ChatOpenAI(temperature=0, model=expt_llm,
+                              base_url=base, streaming=True)
         self.structured_llm_claude = self.llm.with_structured_output(grade)
-         # Chain
+        # Chain
         self.chain = GradeChain.prompt | self.structured_llm_claude
 
-### Edges
-#后续再看是否加入文档相关性检查
+# Edges
+# 后续再看是否加入文档相关性检查
+
+
 def grade_documents(state) -> Literal["generate", "rewrite"]:
     """
     Determines whether the retrieved documents are relevant to the question.
@@ -85,7 +93,7 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
 
     print("---CHECK RELEVANCE---")
 
-    gradellm=GradeChain(expt_llm, base)
+    gradellm = GradeChain(expt_llm, base)
 
     messages = state["messages"]
     last_message = messages[-1]
@@ -93,7 +101,8 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
     question = messages[0].content
     docs = last_message.content
 
-    scored_result = gradellm.chain.invoke({"question": question, "context": docs})
+    scored_result = gradellm.chain.invoke(
+        {"question": question, "context": docs})
 
     score = scored_result.binary_score
 
@@ -106,19 +115,23 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
         print(score)
         return "rewrite"
 
-### Nodes
+
+# Nodes
+
 from preprocessing.retrieval import vectorstore
 def retrieval_agent(state: GraphState):
     """
     get similar information.
     """
     print("---CALL RETRIEVAL---")
-    #("user", question)
-    message=state["messages"][0]
-    documents=vectorstore.similarity_search(message[1],k=1)
-    return {"documents":documents}
+    # ("user", question)
+    message = state["messages"][0]
+    documents = vectorstore.similarity_search(message[1], k=1)
+    return {"documents": documents}
 
-## search reason of error
+# search reason of error
+
+
 def rewrite(state: GraphState):
     """
     Transform the query to produce a better question. Update first message(question) in state.
@@ -126,7 +139,6 @@ def rewrite(state: GraphState):
          dict: The updated state with re-phrased question
     """
     pass
-
 
 
 # Data model
@@ -155,10 +167,12 @@ class MainChain:
     )
 
     def __init__(self, expt_llm, base):
-        self.llm= ChatOpenAI(temperature=0, model=expt_llm, base_url=base)
-        self.structured_llm_claude = self.llm.with_structured_output(code, include_raw=True)
+        self.llm = ChatOpenAI(temperature=0, model=expt_llm, base_url=base)
+        self.structured_llm_claude = self.llm.with_structured_output(
+            code, include_raw=True)
         # Chain with output check
-        self.code_chain_claude_raw = (MainChain.code_gen_prompt | self.structured_llm_claude | MainChain.check_claude_output)
+        self.code_chain_claude_raw = (
+            MainChain.code_gen_prompt | self.structured_llm_claude | MainChain.check_claude_output)
         # This will be run as a fallback chain
         fallback_chain = MainChain.insert_errors | self.code_chain_claude_raw
         N = 3  # Max re-tries
@@ -172,10 +186,8 @@ class MainChain:
         self.code_gen_chain = MainChain.code_gen_prompt | self.structured_llm_claude | MainChain.parse_output
         self.gen_chain = MainChain.code_gen_prompt | self.llm
 
-
-
-
     # Optional: Check for errors in case tool use is flaky
+
     def check_claude_output(tool_output):
         """Check for parse error or failure to call the tool"""
 
@@ -196,7 +208,7 @@ class MainChain:
                 "You did not use the provided tool! Be sure to invoke the tool to structure the output."
             )
         return tool_output
-    
+
     def insert_errors(inputs):
         """Insert errors for tool parsing in the messages"""
 
@@ -213,7 +225,7 @@ class MainChain:
             "messages": messages,
             "context": inputs["context"],
         }
-    
+
     def parse_output(solution):
         """When we add 'include_raw=True' to structured output,
         it will return a dict w 'raw', 'parsed', 'parsing_error'."""
@@ -221,32 +233,27 @@ class MainChain:
         return solution["parsed"]
 
 
+# init llm
+mainllm = MainChain(expt_llm, base)
 
-#init llm
-mainllm=MainChain(expt_llm, base)
 
-
-## test chain
-def run(concatenated_content)->code:
+# test chain
+def run(concatenated_content) -> code:
     question = "How do I use pwntool to solve this challange?"
     solution = mainllm.code_gen_chain_retry.invoke(
-            {"context": concatenated_content, "messages": [("user", question)]}
-        )
+        {"context": concatenated_content, "messages": [("user", question)]}
+    )
     return solution
 
 
-
-
-
-### Parameter
-
+# Parameter
 # Max tries
 max_iterations = 2
 # Reflect
 flag = 'reflect'
 # flag = "do not reflect"
 
-### Nodes
+# Nodes
 
 
 def generate(state: GraphState):
@@ -260,12 +267,10 @@ def generate(state: GraphState):
         state (dict): New key added to state, generation
     """
 
-
-
     # State
     messages = state["messages"]
-    documents=state["documents"]
-    info=state["info"]
+    documents = state["documents"]
+    info = state["info"]
     iterations = state["iterations"]
     error = state["error"]
 
@@ -294,12 +299,16 @@ def generate(state: GraphState):
     iterations = iterations + 1
     return {"generation": code_solution, "messages": messages, "iterations": iterations}
 
-#check code in new process
+# check code in new process
+
+
 def subprocess_check(path):
-    proc = subprocess.Popen(['python',path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    ## timeout 20s
+    proc = subprocess.Popen(['python', path], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    # timeout 20s
     try:
-        out,err=proc.communicate('echo "hello world! Is there a error?"\n', timeout=20)
+        out, err = proc.communicate(
+            'echo "hello world! Is there a error?"\n', timeout=20)
     except subprocess.TimeoutExpired as e:
 
         print(f"Command timed out after {e.timeout} seconds")
@@ -312,17 +321,19 @@ def subprocess_check(path):
         print(stdoutdata.decode())
         print("Standard Error after termination:")
         print(stderrdata.decode())
-        
+
         raise Exception("Command timed out: "+stderrdata.decode())
 
     if out and 'flag' not in out and ("interactive mode" in out and ("Got EOF" in out or "hello world! Is there a error?" not in out)):
-        raise Exception("The code execution is complete, but the exploit fails, and go into fake interactive mode")
+        raise Exception(
+            "The code execution is complete, but the exploit fails, and go into fake interactive mode")
     if err:
         raise Exception(err)
 
     print("code subprocess result:")
     print(out)
     return proc, out
+
 
 def code_check(state: GraphState):
     """
@@ -348,15 +359,17 @@ def code_check(state: GraphState):
 
     # Check imports
     try:
-        path_import='./ctftest_import.py'
+        path_import = './ctftest_import.py'
         with open(path_import, 'w') as f:
             print(imports, file=f)
-        result  = subprocess.run(['python',path_import],check=True,capture_output=True,text=True)
+        result = subprocess.run(['python', path_import],
+                                check=True, capture_output=True, text=True)
         print("import test process:", result)
     except subprocess.CalledProcessError as e:
         print("---CODE IMPORT CHECK: FAILED---")
         print(f"Your solution failed the import test: {e.stderr}")
-        error_message = [("user", f"Your solution failed the import test: {e.stderr}")]
+        error_message = [
+            ("user", f"Your solution failed the import test: {e.stderr}")]
         messages += error_message
         return {
             "generation": code_solution,
@@ -374,7 +387,8 @@ def code_check(state: GraphState):
     except Exception as e:
         print("---CODE BLOCK CHECK: FAILED---")
         print(f"Your solution failed the code execution test: {e}")
-        error_message = [("user", f"Your solution failed the code execution test: {e}")]
+        error_message = [
+            ("user", f"Your solution failed the code execution test: {e}")]
         messages += error_message
         return {
             "generation": code_solution,
@@ -421,11 +435,12 @@ def reflect(state: GraphState):
     reflections = mainllm.gen_chain.invoke(
         {"context": info, "messages": messages}
     )
-    messages += [("assistant", f"Here are reflections on the error: {reflections.content}")]
+    messages += [("assistant",
+                  f"Here are reflections on the error: {reflections.content}")]
     return {"generation": code_solution, "messages": messages, "iterations": iterations}
 
 
-### Edges
+# Edges
 
 
 def decide_to_finish(state: GraphState):
@@ -450,7 +465,8 @@ def decide_to_finish(state: GraphState):
             return "reflect"
         else:
             return "generate"
-        
+
+
 workflow = StateGraph(GraphState)
 
 # Define the nodes
@@ -473,7 +489,9 @@ workflow.add_conditional_edges(
 workflow.add_edge("reflect", "generate")
 app = workflow.compile()
 
-def run_graph(info:str, messages=[]):
+
+def run_graph(info: str, messages=[]):
     question = "How do I use pwntool to solve this challange?"
-    solution = app.invoke({"messages": messages+[("user", question)], "iterations": 0, "error": "", "info":info, "documents":[]})
+    solution = app.invoke(
+        {"messages": messages+[("user", question)], "iterations": 0, "error": "", "info": info, "documents": []})
     return solution
