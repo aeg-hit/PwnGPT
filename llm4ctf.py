@@ -41,21 +41,6 @@ def test_subprocess():
     proc, out =llmgraph.subprocess_check('./pwn/stack/rop-1/try.py')
     print("wtf",proc.returncode,out)
 
-def evaluate_1():
-    #evaluate 1: pure llm without reflect (max_iterations=1)
-    # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
-    # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
-    pwn_path=file.PwnInfo("./pwn/integer/", "int")
-    clist=pwn_path.get_clist()
-    print("Start: ")
-    for i in range(len(clist)):
-        pprint(clist[i])
-        decfile = llmgraph.get_decompilefile(clist[i])[0]
-        c_infohead="\nHere is the decompiled C file:\n"
-        resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
-        # save
-        with open(pwn_path.list[i]+'/result_1.txt', 'w') as f:
-            pprint(resultcode, stream=f)
 
 def evaluate_2():
     #evaluate 2:  llm with reflect (max_iterations>1)
