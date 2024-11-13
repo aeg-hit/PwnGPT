@@ -1,0 +1,21 @@
+Here is the key function for exploit in decompiled C file, with each function starting with its address:
+
+//----- (080484A4) --------------------------------------------------------
+int not_called()
+{
+  return system("/bin/bash");
+}
+//----- (080484B8) --------------------------------------------------------
+ssize_t vulnerable_function()
+{
+  char buf[136]; // [esp+10h] [ebp-88h] BYREF
+
+  return read(0, buf, 0x100u);
+}
+//----- (0804850A) --------------------------------------------------------
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  be_nice_to_people();
+  vulnerable_function();
+  return write(1, "Hello, World\n", 0xDu);
+}

