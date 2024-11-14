@@ -1,7 +1,7 @@
 from pwn import *
 
-#r=process('./level0')
-r= remote("node5.buuoj.cn",27199)
+r=process('./pwn/stack/rop-5/rop5')
+
 context.arch="amd64"# x64
 context.terminal=["tmux","splitw","-h"]
 

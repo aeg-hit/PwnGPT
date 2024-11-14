@@ -1,0 +1,69 @@
+Challenge is a ELF 32-bit LSB executable file, which is named as rop. 
+1.Here is the key function for exploit in the C file decompiled from rop, with each function starting with its address:
+
+//----- (080484A4) --------------------------------------------------------
+int not_called()
+{
+  return system("/bin/date");
+}
+
+//----- (080484B8) --------------------------------------------------------
+ssize_t vulnerable_function()
+{
+  char buf[136]; // [esp+10h] [ebp-88h] BYREF
+
+  return read(0, buf, 0x100u);
+}
+// 80484B8: using guessed type char buf[136];
+
+//----- (080484E1) --------------------------------------------------------
+int be_nice_to_people()
+{
+  __gid_t v1; // [esp+1Ch] [ebp-Ch]
+
+  v1 = getegid();
+  return setresgid(v1, v1, v1);
+}
+// 80483E0: using guessed type int __cdecl setresgid(_DWORD, _DWORD, _DWORD);
+
+//----- (0804850A) --------------------------------------------------------
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  be_nice_to_people();
+  vulnerable_function();
+  return write(1, "Hello, World\n", 0xDu);
+}
+
+
+2.Here is Relocation section '.rel.plt' at offset 0x300 in rop:
+
+ Offset     Info    Type            Sym.Value  Sym. Name
+0804a000  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0
+0804a004  00000207 R_386_JUMP_SLOT   00000000   getegid@GLIBC_2.0
+0804a008  00000307 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0
+0804a00c  00000407 R_386_JUMP_SLOT   00000000   __gmon_start__
+0804a010  00000507 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
+0804a014  00000607 R_386_JUMP_SLOT   00000000   write@GLIBC_2.0
+0804a018  00000707 R_386_JUMP_SLOT   00000000   setresgid@GLIBC_2.0
+
+
+3.Here is printable strings in the data sections in rop:
+
+/lib/ld-linux.so.2
+__gmon_start__
+libc.so.6
+_IO_stdin_used
+read
+setresgid
+system
+getegid
+__libc_start_main
+write
+GLIBC_2.0
+PTRh
+UWVS
+[^_]
+/bin/bash
+/bin/date
+Hello, World
+;*2$"

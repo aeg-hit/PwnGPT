@@ -1,4 +1,5 @@
-Here is the key function for exploit in decompiled C file, with each function starting with its address:
+Challenge is a ELF 32-bit LSB executable file. 
+1.Here is the key function for exploit in decompiled C file, with each function starting with its address:
 
 //----- (080484A4) --------------------------------------------------------
 int not_called()

