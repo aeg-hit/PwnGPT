@@ -15,4 +15,5 @@ preprocessing/ load file, embedding and save.
 
 processing/ llm application with langgraph.
 
-pwn/ pwn challenges that are collected online. rop8-9 shellcode; rop10 canary.
+pwn/ pwn challenges that are collected online. rop8-9 shellcode; rop10 canary. 
+problems.txt: (1) file (2) decompile (3) readelf -r  (4) strings -d 
