@@ -1,6 +1,5 @@
 from pwn import *
-# r=process("./pwn")
-r=remote("challenge-7412d58be4a4365c.sandbox.ctfhub.com",24638)
+r=process("./pwn/stack/rop-8/rop8")
 
 context.arch="amd64"
 context.terminal=["tmux","splitw","-h"]

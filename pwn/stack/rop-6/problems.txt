@@ -1,0 +1,126 @@
+Challenge is a ELF 64-bit LSB executable file, which is named as rop. 
+1.Here is the key function for exploit in the C file decompiled from rop, with each function starting with its address:
+
+//----- (00000000004005F6) ----------------------------------------------------
+ssize_t vulnerable_function()
+{
+  char buf[128]; // [rsp+0h] [rbp-80h] BYREF
+
+  system("echo Input:");
+  return read(0, buf, 0x200uLL);
+}
+// 4005F6: using guessed type char buf[128];
+
+//----- (0000000000400620) ----------------------------------------------------
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  vulnerable_function();
+  return system("echo 'Hello World!'");
+}
+
+2.Here is printable strings in the data sections in rop:
+/lib64/ld-linux-x86-64.so.2
+libdl.so.2
+_ITM_deregisterTMCloneTable
+__gmon_start__
+_Jv_RegisterClasses
+_ITM_registerTMCloneTable
+libc.so.6
+read
+system
+__libc_start_main
+GLIBC_2.2.5
+fffff.
+[]A\A]A^A_
+echo Input:
+echo 'Hello World!'
+;*3$"
+/bin/sh
+
+3.We use ROPgadget to search gadgets on rop:
+Gadgets information
+============================================================
+0x000000000040054e : adc dword ptr [rbp - 0x41], ebx ; cwde ; or ah, byte ptr [rax] ; jmp rax
+0x00000000004005c6 : add al, 0x20 ; add byte ptr [rcx], al ; ret
+0x00000000004004e7 : add al, byte ptr [rax] ; add byte ptr [rax], al ; jmp 0x4004b0
+0x00000000004006bf : add bl, dh ; ret
+0x00000000004006bd : add byte ptr [rax], al ; add bl, dh ; ret
+0x00000000004006bb : add byte ptr [rax], al ; add byte ptr [rax], al ; add bl, dh ; ret
+0x00000000004004c7 : add byte ptr [rax], al ; add byte ptr [rax], al ; jmp 0x4004b0
+0x000000000040055c : add byte ptr [rax], al ; add byte ptr [rax], al ; pop rbp ; ret
+0x00000000004006bc : add byte ptr [rax], al ; add byte ptr [rax], al ; ret
+0x000000000040049b : add byte ptr [rax], al ; add rsp, 8 ; ret
+0x00000000004004c9 : add byte ptr [rax], al ; jmp 0x4004b0
+0x000000000040055e : add byte ptr [rax], al ; pop rbp ; ret
+0x00000000004006be : add byte ptr [rax], al ; ret
+0x00000000004005d8 : add byte ptr [rbp + 5], dh ; jmp 0x400570
+0x00000000004005c8 : add byte ptr [rcx], al ; ret
+0x00000000004006a0 : add dword ptr [rax + 0x39], ecx ; jmp 0x40071a
+0x00000000004004d7 : add dword ptr [rax], eax ; add byte ptr [rax], al ; jmp 0x4004b0
+0x00000000004005c4 : add eax, 0x2004ce ; add ebx, esi ; ret
+0x00000000004004f7 : add eax, dword ptr [rax] ; add byte ptr [rax], al ; jmp 0x4004b0
+0x00000000004005c9 : add ebx, esi ; ret
+0x000000000040049e : add esp, 8 ; ret
+0x000000000040049d : add rsp, 8 ; ret
+0x00000000004005c7 : and byte ptr [rax], al ; add ebx, esi ; ret
+0x00000000004004c4 : and byte ptr [rax], al ; push 0 ; jmp 0x4004b0
+0x00000000004004d4 : and byte ptr [rax], al ; push 1 ; jmp 0x4004b0
+0x00000000004004e4 : and byte ptr [rax], al ; push 2 ; jmp 0x4004b0
+0x00000000004004f4 : and byte ptr [rax], al ; push 3 ; jmp 0x4004b0
+0x0000000000400783 : call qword ptr [rax]
+0x00000000004005f5 : call qword ptr [rbp + 0x48]
+0x00000000004005ee : call rax
+0x00000000004005d6 : cmp dword ptr [rdi], 0 ; jne 0x4005e0 ; jmp 0x400570
+0x00000000004005d5 : cmp qword ptr [rdi], 0 ; jne 0x4005e0 ; jmp 0x400570
+0x0000000000400551 : cwde ; or ah, byte ptr [rax] ; jmp rax
+0x000000000040061d : dec ecx ; ret
+0x000000000040069c : fmul qword ptr [rax - 0x7d] ; ret
+0x00000000004005e9 : int1 ; push rbp ; mov rbp, rsp ; call rax
+0x000000000040054d : je 0x400560 ; pop rbp ; mov edi, 0x600a98 ; jmp rax
+0x000000000040059b : je 0x4005a8 ; pop rbp ; mov edi, 0x600a98 ; jmp rax
+0x00000000004005e8 : je 0x4005db ; push rbp ; mov rbp, rsp ; call rax
+0x00000000004004cb : jmp 0x4004b0
+0x00000000004005db : jmp 0x400570
+0x00000000004006a3 : jmp 0x40071a
+0x00000000004007eb : jmp qword ptr [rbp]
+0x0000000000400555 : jmp rax
+0x00000000004005d9 : jne 0x4005e0 ; jmp 0x400570
+0x000000000040061e : leave ; ret
+0x00000000004005c3 : mov byte ptr [rip + 0x2004ce], 1 ; ret
+0x00000000004005ec : mov ebp, esp ; call rax
+0x0000000000400550 : mov edi, 0x600a98 ; jmp rax
+0x00000000004005eb : mov rbp, rsp ; call rax
+0x0000000000400558 : nop dword ptr [rax + rax] ; pop rbp ; ret
+0x00000000004006b8 : nop dword ptr [rax + rax] ; ret
+0x00000000004005a5 : nop dword ptr [rax] ; pop rbp ; ret
+0x0000000000400552 : or ah, byte ptr [rax] ; jmp rax
+0x00000000004005d2 : or byte ptr [rax], ah ; cmp qword ptr [rdi], 0 ; jne 0x4005e0 ; jmp 0x400570
+0x000000000040059c : or ebx, dword ptr [rbp - 0x41] ; cwde ; or ah, byte ptr [rax] ; jmp rax
+0x00000000004006ac : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006ae : pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006b0 : pop r14 ; pop r15 ; ret
+0x00000000004006b2 : pop r15 ; ret
+0x00000000004005f0 : pop rbp ; jmp 0x400570
+0x00000000004005c2 : pop rbp ; mov byte ptr [rip + 0x2004ce], 1 ; ret
+0x000000000040054f : pop rbp ; mov edi, 0x600a98 ; jmp rax
+0x00000000004006ab : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006af : pop rbp ; pop r14 ; pop r15 ; ret
+0x0000000000400560 : pop rbp ; ret
+0x00000000004006b3 : pop rdi ; ret
+0x00000000004006b1 : pop rsi ; pop r15 ; ret
+0x00000000004006ad : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004004c6 : push 0 ; jmp 0x4004b0
+0x00000000004004d6 : push 1 ; jmp 0x4004b0
+0x00000000004004e6 : push 2 ; jmp 0x4004b0
+0x00000000004004f6 : push 3 ; jmp 0x4004b0
+0x00000000004005ea : push rbp ; mov rbp, rsp ; call rax
+0x00000000004004a1 : ret
+0x000000000040059a : sal byte ptr [rbx + rcx + 0x5d], 0xbf ; cwde ; or ah, byte ptr [rax] ; jmp rax
+0x000000000040054c : sal byte ptr [rcx + rdx + 0x5d], 0xbf ; cwde ; or ah, byte ptr [rax] ; jmp rax
+0x00000000004005e7 : sal byte ptr [rcx + rsi*8 + 0x55], 0x48 ; mov ebp, esp ; call rax
+0x00000000004006c5 : sub esp, 8 ; add rsp, 8 ; ret
+0x00000000004006c4 : sub rsp, 8 ; add rsp, 8 ; ret
+0x000000000040055a : test byte ptr [rax], al ; add byte ptr [rax], al ; add byte ptr [rax], al ; pop rbp ; ret
+0x00000000004006ba : test byte ptr [rax], al ; add byte ptr [rax], al ; add byte ptr [rax], al ; ret
+0x00000000004005e6 : test eax, eax ; je 0x4005db ; push rbp ; mov rbp, rsp ; call rax
+0x00000000004005e5 : test rax, rax ; je 0x4005db ; push rbp ; mov rbp, rsp ; call rax

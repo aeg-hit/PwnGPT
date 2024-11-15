@@ -15,5 +15,6 @@ preprocessing/ load file, embedding and save.
 
 processing/ llm application with langgraph.
 
-pwn/ pwn challenges that are collected online. rop8-9 shellcode; rop10 canary. 
-problems.txt: (1) file (2) decompile (3) readelf -r  (4) strings -d 
+pwn/ pwn challenges that are collected online. rop1-2 and rop4 ret2text, rop3 ret2libc(replace), 
+rop5 ret2text(64bit), rop6 ret2text(64bit, gadget), rop7 ret2text(64bit, gadget, rop chain), rop8-9 ret2shellcode, rop10 canary. fmt1 write, fmt2 read, fmt3 hijack retaddr,
+problems.txt: (1) file (2) decompile (3) readelf -r  (4) strings -d (5) ROPgadget --binary rop --only "pop|ret" > g.txt

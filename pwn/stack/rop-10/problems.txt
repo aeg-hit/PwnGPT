@@ -1,0 +1,123 @@
+Challenge is a ELF 64-bit LSB executable file, which is named as rop. 
+1.Here is the security properties identified by 'checksec' command:
+{ "relro":"full","canary":"yes","nx":"yes","pie":"yes","rpath":"no","runpath":"no","symbols":"yes","fortify_source":"no","fortified":"0","fortify-able":"2" }
+
+2.Here is the key function for exploit in the C file decompiled from rop, with each function starting with its address:
+
+//----- (00000000000011E9) ----------------------------------------------------
+void init()
+{
+  setbuf(stdin, 0LL);
+  setbuf(stdout, 0LL);
+  setbuf(stderr, 0LL);
+}
+
+//----- (0000000000001230) ----------------------------------------------------
+int hello()
+{
+  char s1[16]; // [rsp+0h] [rbp-30h] BYREF
+  char buf[24]; // [rsp+10h] [rbp-20h] BYREF
+  unsigned __int64 v3; // [rsp+28h] [rbp-8h]
+
+  v3 = __readfsqword(0x28u);
+  puts("Hello. What's your name?");
+  read(0, buf, 0x100uLL);
+  printf("Is your name `%s` correct (yes/no)?\n", buf);
+  read(0, s1, 0x100uLL);
+  return strncmp(s1, "yes", 3uLL);
+}
+
+//----- (00000000000012D2) ----------------------------------------------------
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  init(argc, argv, envp);
+  while ( (unsigned int)hello() )
+    ;
+  puts("See you~");
+  return 0;
+}
+
+2.Here is Relocation section '.rel.plt' at offset 0x790 in rop:
+
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000003fa8  000200000007 R_X86_64_JUMP_SLO 0000000000000000 strncmp@GLIBC_2.2.5 + 0
+000000003fb0  000400000007 R_X86_64_JUMP_SLO 0000000000000000 puts@GLIBC_2.2.5 + 0
+000000003fb8  000500000007 R_X86_64_JUMP_SLO 0000000000000000 __stack_chk_fail@GLIBC_2.4 + 0
+000000003fc0  000600000007 R_X86_64_JUMP_SLO 0000000000000000 setbuf@GLIBC_2.2.5 + 0
+000000003fc8  000700000007 R_X86_64_JUMP_SLO 0000000000000000 printf@GLIBC_2.2.5 + 0
+000000003fd0  000800000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
+
+
+3.We get the libc file(libc.so.6) that is dependent by rop. And we use ROPgadget to search gadgets on the libc file:
+Gadgets information
+============================================================
+0x000000000011dd6c : pop r11 ; pop rbp ; pop r12 ; pop r13 ; pop r14 ; ret
+0x000000000002a73e : pop r12 ; pop r13 ; pop r14 ; pop r15 ; pop rbp ; ret
+0x000000000002a3de : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000002be4c : pop r12 ; pop r13 ; pop r14 ; ret
+0x0000000000044d41 : pop r12 ; pop r13 ; pop rbp ; ret
+0x0000000000041c48 : pop r12 ; pop r13 ; ret
+0x000000000011b768 : pop r12 ; pop r14 ; ret
+0x0000000000133b2f : pop r12 ; pop rbp ; ret
+0x0000000000035731 : pop r12 ; ret
+0x000000000002a740 : pop r13 ; pop r14 ; pop r15 ; pop rbp ; ret
+0x000000000002a3e0 : pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000002be4e : pop r13 ; pop r14 ; ret
+0x0000000000044d43 : pop r13 ; pop rbp ; ret
+0x0000000000041c4a : pop r13 ; ret
+0x000000000002a742 : pop r14 ; pop r15 ; pop rbp ; ret
+0x000000000002a3e2 : pop r14 ; pop r15 ; ret
+0x000000000002be50 : pop r14 ; ret
+0x000000000002a744 : pop r15 ; pop rbp ; ret
+0x000000000002a3e4 : pop r15 ; ret
+0x0000000000147b28 : pop rax ; pop rbx ; pop rbp ; ret
+0x00000000000904a8 : pop rax ; pop rdx ; pop rbx ; ret
+0x0000000000045eb0 : pop rax ; ret
+0x00000000000719aa : pop rax ; ret 0xffff
+0x000000000002a3dd : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000002be4b : pop rbp ; pop r12 ; pop r13 ; pop r14 ; ret
+0x0000000000041c47 : pop rbp ; pop r12 ; pop r13 ; ret
+0x0000000000035730 : pop rbp ; pop r12 ; ret
+0x000000000013cdbe : pop rbp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000002a741 : pop rbp ; pop r14 ; pop r15 ; pop rbp ; ret
+0x000000000002a3e1 : pop rbp ; pop r14 ; pop r15 ; ret
+0x000000000002be4f : pop rbp ; pop r14 ; ret
+0x0000000000044d44 : pop rbp ; pop rbp ; ret
+0x0000000000054618 : pop rbp ; pop rbx ; ret
+0x000000000002a2e0 : pop rbp ; ret
+0x0000000000044d40 : pop rbx ; pop r12 ; pop r13 ; pop rbp ; ret
+0x00000000000910c0 : pop rbx ; pop r12 ; pop r13 ; ret
+0x0000000000053813 : pop rbx ; pop r12 ; ret
+0x0000000000040487 : pop rbx ; pop rbp ; pop r12 ; pop r13 ; pop r14 ; ret
+0x0000000000041c46 : pop rbx ; pop rbp ; pop r12 ; pop r13 ; ret
+0x0000000000035850 : pop rbx ; pop rbp ; pop r12 ; ret
+0x000000000013cdbd : pop rbx ; pop rbp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x0000000000112ae8 : pop rbx ; pop rbp ; pop r14 ; ret
+0x000000000002a2df : pop rbx ; pop rbp ; ret
+0x0000000000035dd1 : pop rbx ; ret
+0x00000000001344c1 : pop rbx ; ret 6
+0x000000000011f260 : pop rcx ; pop rbp ; pop r12 ; pop r13 ; ret
+0x00000000001268f0 : pop rcx ; pop rbx ; pop rbp ; pop r12 ; pop r13 ; pop r14 ; ret
+0x0000000000108b04 : pop rcx ; pop rbx ; ret
+0x000000000003d1ee : pop rcx ; ret
+0x000000000011efb7 : pop rcx ; ret 0xf66
+0x0000000000144563 : pop rcx ; ret 0xfff1
+0x000000000002a745 : pop rdi ; pop rbp ; ret
+0x000000000002a3e5 : pop rdi ; ret
+0x000000000011f2e7 : pop rdx ; pop r12 ; ret
+0x00000000000904a9 : pop rdx ; pop rbx ; ret
+0x0000000000108b03 : pop rdx ; pop rcx ; pop rbx ; ret
+0x00000000000a5722 : pop rdx ; ret 0x13
+0x0000000000170337 : pop rdx ; ret 6
+0x000000000002a743 : pop rsi ; pop r15 ; pop rbp ; ret
+0x000000000002a3e3 : pop rsi ; pop r15 ; ret
+0x000000000002be51 : pop rsi ; ret
+0x000000000002a73f : pop rsp ; pop r13 ; pop r14 ; pop r15 ; pop rbp ; ret
+0x000000000002a3df : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000002be4d : pop rsp ; pop r13 ; pop r14 ; ret
+0x0000000000044d42 : pop rsp ; pop r13 ; pop rbp ; ret
+0x0000000000041c49 : pop rsp ; pop r13 ; ret
+0x000000000011b769 : pop rsp ; pop r14 ; ret
+0x0000000000133b30 : pop rsp ; pop rbp ; ret
+0x0000000000035732 : pop rsp ; ret
+0x0000000000029139 : ret

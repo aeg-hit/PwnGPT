@@ -53,7 +53,7 @@ def evaluate_1():
                                   check=True, capture_output=True, text=True)
 
     pprint(blist[i])
-    contest = f"\nHere is the file infomation created by 'file' command:\n{file_result.stdout}\n\nHere is the file security infomation created by 'checksec' command:\n{check_result.stdout}"
+    contest = f"\nHere is the file infomation created by 'file' command:\n{file_result.stdout}\n\nHere is the security properties identified by 'checksec' command:\n{check_result.stdout}"
     question = "Please analyse these information."
     resultcode = gen_chain.invoke(
         {"context": contest, "messages": [("user", question)]}

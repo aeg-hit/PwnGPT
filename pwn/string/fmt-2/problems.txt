@@ -1,0 +1,43 @@
+Challenge is a ELF 64-bit LSB executable file, which is named as fmt. 
+1.Here is the key function for exploit in the C file decompiled from fmt, with each function starting with its address:
+
+//----- (00000000004007A6) ----------------------------------------------------
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  char v4; // [rsp+3h] [rbp-3Dh]
+  int i; // [rsp+4h] [rbp-3Ch]
+  int j; // [rsp+4h] [rbp-3Ch]
+  char *format; // [rsp+8h] [rbp-38h] BYREF
+  _IO_FILE *fp; // [rsp+10h] [rbp-30h]
+  char *v9; // [rsp+18h] [rbp-28h]
+  char v10[24]; // [rsp+20h] [rbp-20h] BYREF
+  unsigned __int64 v11; // [rsp+38h] [rbp-8h]
+
+  v11 = __readfsqword(0x28u);
+  fp = fopen("flag.txt", "r");
+  for ( i = 0; i <= 21; ++i )
+    v10[i] = _IO_getc(fp);
+  fclose(fp);
+  v9 = v10;
+  puts("what's the flag");
+  fflush(_bss_start);
+  format = 0LL;
+  __isoc99_scanf("%ms", &format);
+  for ( j = 0; j <= 21; ++j )
+  {
+    v4 = format[j];
+    if ( !v4 || v10[j] != v4 )
+    {
+      puts("You answered:");
+      printf(format);
+      puts("\nBut that was totally wrong lol get rekt");
+      fflush(_bss_start);
+      return 0;
+    }
+  }
+  printf("That's right, the flag is %s\n", v9);
+  fflush(_bss_start);
+  return 0;
+}
+// 400690: using guessed type __int64 __isoc99_scanf(const char *, ...);
+// 4007A6: using guessed type char var_20[24];

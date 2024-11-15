@@ -1,7 +1,7 @@
 from pwn import *
 
-#r=process('./level2_x64')
-r= remote("node5.buuoj.cn",25960)
+r=process('./pwn/stack/rop-6/rop6')
+
 context.arch="amd64"# x64
 context.terminal=["tmux","splitw","-h"]
 #gdb.attach(r)

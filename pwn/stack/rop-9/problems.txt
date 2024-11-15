@@ -1,0 +1,197 @@
+Challenge is a ELF 64-bit LSB executable file, which is named as rop. 
+1.Here is the key function for exploit in the C file decompiled from rop, with each function starting with its address:
+
+//----- (0806EB20) --------------------------------------------------------
+int getpagesize()
+{
+  int result; // eax
+
+  result = dl_pagesize;
+  if ( !dl_pagesize )
+    _assert_fail("GLRO(dl_pagesize) != 0", "../sysdeps/unix/sysv/linux/getpagesize.c", 28, "__getpagesize");
+  return result;
+}
+// 80496A0: using guessed type void __cdecl __noreturn _assert_fail(_DWORD, _DWORD, _DWORD, _DWORD);
+// 80EBA08: using guessed type int dl_pagesize;
+
+//----- (0806EB50) --------------------------------------------------------
+int getdtablesize()
+{
+  bool v0; // sf
+  int result; // eax
+  int v2[5]; // [esp+10h] [ebp-14h] BYREF
+
+  v0 = (getrlimit(7, (int)v2) & 0x80000000) != 0;
+  result = 256;
+  if ( !v0 )
+    return v2[0];
+  return result;
+}
+// 806EB50: using guessed type int var_14[5];
+
+//----- (0806EB70) --------------------------------------------------------
+unsigned int __cdecl mmap(int a1, int a2, int a3, int a4, int a5, __int16 a6)
+{
+  unsigned int result; // eax
+
+  if ( (a6 & 0xFFF) != 0 )
+  {
+    result = -22;
+    return _syscall_error(result);
+  }
+  result = dl_sysinfo(a2);
+  if ( result > 0xFFFFF000 )
+    return _syscall_error(result);
+  return result;
+}
+// 80EB9F0: using guessed type int (__fastcall *dl_sysinfo)(_DWORD);
+
+//----- (0806EBC0) --------------------------------------------------------
+unsigned int __cdecl mmap64(int a1, int a2, int a3, int a4, int a5, __int64 a6)
+{
+  unsigned int result; // eax
+
+  if ( (a6 & 0xFFF) != 0 )
+  {
+    result = -22;
+    return _syscall_error(result);
+  }
+  result = dl_sysinfo(a2);
+  if ( result > 0xFFFFF000 )
+    return _syscall_error(result);
+  return result;
+}
+// 80EB9F0: using guessed type __int64 (__fastcall *dl_sysinfo)(_DWORD);
+
+//----- (0806EC50) --------------------------------------------------------
+unsigned int __cdecl munmap(int a1, int a2)
+{
+  unsigned int result; // eax
+
+  result = dl_sysinfo(a2);
+  if ( result >= 0xFFFFF001 )
+    return _syscall_error(result);
+  return result;
+}
+// 80EB9F0: using guessed type __int64 (__fastcall *dl_sysinfo)(_DWORD);
+
+//----- (0806EC80) --------------------------------------------------------
+unsigned int __cdecl mprotect(int a1, int a2)
+{
+  unsigned int result; // eax
+
+  result = dl_sysinfo(a2);
+  if ( result >= 0xFFFFF001 )
+    return _syscall_error(result);
+  return result;
+}
+// 80EB9F0: using guessed type __int64 (__fastcall *dl_sysinfo)(_DWORD);
+
+//----- (0806ECB0) --------------------------------------------------------
+unsigned int __cdecl madvise(int a1, int a2)
+{
+  unsigned int result; // eax
+
+  result = dl_sysinfo(a2);
+  if ( result >= 0xFFFFF001 )
+    return _syscall_error(result);
+  return result;
+}
+// 80EB9F0: using guessed type __int64 (__fastcall *dl_sysinfo)(_DWORD);
+
+//----- (0804E6A0) --------------------------------------------------------
+void __usercall __noreturn exit(long double a1@<st0>, int status)
+{
+  _run_exit_handlers(a1, status, (_DWORD **)&_exit_funcs, 1);
+}
+
+//----- (080489A0) --------------------------------------------------------
+void __cdecl get_flag(int a1, int a2)
+{
+  int v2; // esi
+  unsigned __int8 v3; // al
+  int v4; // ecx
+  unsigned __int8 v5; // al
+
+  if ( a1 == 814536271 && a2 == 425138641 )
+  {
+    v2 = fopen("flag.txt", "rt");
+    v3 = getc(v2);
+    if ( v3 != 255 )
+    {
+      v4 = (char)v3;
+      do
+      {
+        putchar(v4);
+        v5 = getc(v2);
+        v4 = (char)v5;
+      }
+      while ( v5 != 255 );
+    }
+    fclose(v2);
+  }
+}
+// 804F1D0: using guessed type _DWORD __cdecl fclose(_DWORD);
+// 804F610: using guessed type _DWORD __cdecl fopen(_DWORD, _DWORD);
+// 804F7A0: using guessed type _DWORD __cdecl putchar(_DWORD);
+// 8051160: using guessed type _DWORD __cdecl getc(_DWORD);
+
+//----- (08048A20) --------------------------------------------------------
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  long double v3; // fst7s
+  char v5[56]; // [esp+4h] [ebp-38h] BYREF
+
+  printf(v3, (unsigned int)"Qual a palavrinha magica? ");
+  gets(v5);
+  return 0;
+}
+// 8048A2A: variable 'v3' is possibly undefined
+// 8048A20: using guessed type char var_38[56];
+
+2.We use ROPgadget to search gadgets on rop:
+Gadgets information
+============================================================
+0x0809e102 : pop ds ; pop ebx ; pop esi ; pop edi ; ret
+0x0809e0fa : pop eax ; pop ebx ; pop esi ; pop edi ; ret
+0x080b91e6 : pop eax ; ret
+0x0804c56d : pop eax ; ret 0x80e
+0x080d9ff8 : pop eax ; ret 0xfff7
+0x080dfcd8 : pop eax ; ret 0xfff9
+0x0805bf3d : pop ebp ; pop ebx ; pop esi ; pop edi ; ret
+0x0809e4c5 : pop ebp ; pop esi ; pop edi ; ret
+0x080483ba : pop ebp ; ret
+0x080a25b9 : pop ebp ; ret 0x10
+0x08096b21 : pop ebp ; ret 0x14
+0x080718b4 : pop ebp ; ret 0xc
+0x0804ab69 : pop ebp ; ret 4
+0x08049a98 : pop ebp ; ret 8
+0x0809e4c4 : pop ebx ; pop ebp ; pop esi ; pop edi ; ret
+0x0809a7dc : pop ebx ; pop edi ; ret
+0x0806fc09 : pop ebx ; pop edx ; ret
+0x0804f460 : pop ebx ; pop esi ; pop ebp ; ret
+0x080483b7 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret
+0x080a25b6 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret 0x10
+0x08096b1e : pop ebx ; pop esi ; pop edi ; pop ebp ; ret 0x14
+0x080718b1 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret 0xc
+0x0804ab66 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret 4
+0x08049a95 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret 8
+0x080509a5 : pop ebx ; pop esi ; pop edi ; ret
+0x080498af : pop ebx ; pop esi ; pop edi ; ret 4
+0x08049923 : pop ebx ; pop esi ; ret
+0x080481ad : pop ebx ; ret
+0x080d413c : pop ebx ; ret 0x6f9
+0x08099f96 : pop ebx ; ret 8
+0x0806fc31 : pop ecx ; pop ebx ; ret
+0x080483b9 : pop edi ; pop ebp ; ret
+0x080a25b8 : pop edi ; pop ebp ; ret 0x10
+0x08096b20 : pop edi ; pop ebp ; ret 0x14
+0x080718b3 : pop edi ; pop ebp ; ret 0xc
+0x0804ab68 : pop edi ; pop ebp ; ret 4
+0x08049a97 : pop edi ; pop ebp ; ret 8
+0x08063adb : pop edi ; pop esi ; pop ebx ; ret
+0x0805cd88 : pop edi ; pop esi ; ret
+0x0805099d : pop edi ; ret
+0x080498b1 : pop edi ; ret 4
+0x0806fc30 : pop edx ; pop ecx ; pop ebx ; ret
+0x0806fc0a : pop edx ; ret

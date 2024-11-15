@@ -1,0 +1,83 @@
+Challenge is a ELF 32-bit LSB executable file (statically linked), which is named as rop.
+1.Here is the key function for exploit in the C file decompiled from rop, with each function starting with its address:
+
+//----- (08048ED0) --------------------------------------------------------
+int __usercall exec_the_string@<eax>(long double a1@<st0>)
+{
+  int v2; // [esp+Ch] [ebp-Ch]
+
+  return execlp(a1, (char *)&exec_string, (int)&exec_string, 0, v2);
+}
+// 8048EED: variable 'v2' is possibly undefined
+// 80F112C: using guessed type int exec_string;
+
+//----- (08048F0E) --------------------------------------------------------
+int __cdecl call_me_with_two_args(int a1, int a2)
+{
+  int result; // eax
+
+  if ( a2 == -889275714 && a1 == -559038737 )
+  {
+    strcpy((char *)&exec_string, "/bin");
+    return (unsigned __int8)aBin[4];
+  }
+  return result;
+}
+// 80F112C: using guessed type int exec_string;
+
+//----- (08048F3B) --------------------------------------------------------
+int vulnerable_function()
+{
+  char v1[136]; // [esp+10h] [ebp-88h] BYREF
+  int savedregs; // [esp+98h] [ebp+0h] BYREF
+
+  return read((int)&savedregs, 0, (int)v1);
+}
+// 8048F3B: using guessed type char var_88[136];
+
+//----- (08048F64) --------------------------------------------------------
+unsigned int __fastcall be_nice_to_people(int a1)
+{
+  int v2; // [esp+8h] [ebp-20h]
+
+  v2 = getegid(a1);
+  return setresgid(v2, v2);
+}
+
+//----- (08048F8D) --------------------------------------------------------
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  int v3; // ecx
+
+  LOBYTE(exec_string) = 0;
+  be_nice_to_people(v3);
+  return vulnerable_function();
+}
+
+2.Here is printable strings (grep "sh") in the data sections in rop:
+clflush
+/usr/share/locale
+/usr/share/locale-langpack
+/usr/share/zoneinfo
+/bin/sh
+cannot create shared object descriptor
+shared object cannot be dlopen()ed
+cannot enable executable stack as shared object requires
+failed to map segment from shared object
+cannot open shared object file
+cannot stat shared object
+file too short
+_dl_setup_hash
+%s: Symbol `%s' has different size in shared object, consider re-linking
+error while loading shared libraries
+deriv->steps[cnt].__shlib_handle != ((void *)0)
+__gconv_find_shlib
+do_release_shlib
+Can not access a needed shared library
+Accessing a corrupted shared library
+Attempting to link in too many shared libraries
+Cannot exec a shared library directly
+Interrupted system call should be restarted
+Cannot send after transport endpoint shutdown
+! should_be_there
+shared object not open

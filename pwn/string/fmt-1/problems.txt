@@ -1,0 +1,32 @@
+Challenge is a ELF 32-bit LSB executable file, which is named as fmt. 
+1.Here is the key function for exploit in the C file decompiled from fmt, with each function starting with its address:
+
+//----- (08048524) --------------------------------------------------------
+int be_nice_to_people()
+{
+  __gid_t v1; // [esp+1Ch] [ebp-Ch]
+
+  v1 = getegid();
+  return setresgid(v1, v1, v1);
+}
+// 8048460: using guessed type int __cdecl setresgid(_DWORD, _DWORD, _DWORD);
+
+//----- (0804854D) --------------------------------------------------------
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  char buf[80]; // [esp+2Ch] [ebp-5Ch] BYREF
+  unsigned int v5; // [esp+7Ch] [ebp-Ch]
+
+  v5 = __readgsdword(0x14u);
+  be_nice_to_people();
+  memset(buf, 0, sizeof(buf));
+  read(0, buf, 0x50u);
+  printf(buf);
+  printf("%d!\n", x);
+  if ( x == 4 )
+  {
+    puts("running sh...");
+    system("/bin/sh");
+  }
+  return 0;
+}

@@ -1,7 +1,7 @@
 from pwn import *
 
-#r=process('./rop')
-r=remote("train2024.hitctf.cn",26779)
+r=process('./pwn/stack/rop-7/rop7')
+
 context.arch="amd64"# x64
 context.terminal=["tmux","splitw","-h"]
 
