@@ -1,77 +1,34 @@
 Challenge is a ELF 32-bit LSB executable file, which is named as fmt. 
 1.Here is the key function for exploit in the C file decompiled from fmt, with each function starting with its address:
 
-//----- (0000000000400DD8) ----------------------------------------------------
-__int64 __fastcall main(int a1, char **a2, char **a3)
+//----- (0804854B) --------------------------------------------------------
+int __cdecl __noreturn main(int argc, const char **argv, const char **envp)
 {
-  int v3; // edx
-  int v4; // ecx
-  int v5; // r8d
-  int v6; // r9d
-  int v7; // edi
-  int v8; // edx
-  int v9; // ecx
-  int v10; // r8d
-  int v11; // r9d
-  char format[8]; // [rsp+10h] [rbp-60h] BYREF
-  __int64 v14; // [rsp+18h] [rbp-58h]
-  __int128 dest; // [rsp+20h] [rbp-50h]
-  __int64 v16; // [rsp+30h] [rbp-40h]
-  __int64 buf; // [rsp+40h] [rbp-30h]
-  __int64 v18; // [rsp+48h] [rbp-28h]
-  __int64 v19[3]; // [rsp+50h] [rbp-20h]
+  char buf[100]; // [esp+8h] [ebp-70h] BYREF
+  unsigned int v4; // [esp+6Ch] [ebp-Ch]
 
-  buf = 48LL;
-  v18 = 0LL;
-  LODWORD(v19[0]) = 0;
-  *(__int64 *)((char *)v19 + 4) = 48LL;
-  *(__int64 *)((char *)&v19[1] + 4) = 0LL;
-  HIDWORD(v19[2]) = 0;
-  sub_4008BB();
+  v4 = __readgsdword(0x14u);
+  setbuf(stdin, 0);
+  setbuf(stdout, 0);
+  setbuf(stderr, 0);
+  puts("Do you know repeater?");
   while ( 1 )
   {
-    sub_400903(format, (int)a2, v3, v4, v5, v6, buf, v18, v19[0], v19[1], v19[2]);
-    if ( format[0] != 48 )
-      break;
-    puts("Register failure,try again...");
-    fflush(stdout);
+    read(0, buf, 0x64u);
+    printf(buf);
+    putchar(10);
   }
-  puts("Register Success!!");
-  v7 = (int)stdout;
-  fflush(stdout);
-  sub_400D2B(v7, (int)a2, v8, v9, v10, v11, *(__int64 *)format, v14, dest, v16);
-  return 0LL;
 }
 
-2.Here is Relocation section '.rel.plt' at offset 0x300 in fmt:
+2.Here is Relocation section '.rel.plt' at offset 0x370 in fmt:
 
  Offset     Info    Type            Sym.Value  Sym. Name
-0804a000  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0
-0804a004  00000207 R_386_JUMP_SLOT   00000000   getegid@GLIBC_2.0
-0804a008  00000307 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0
-0804a00c  00000407 R_386_JUMP_SLOT   00000000   __gmon_start__
-0804a010  00000507 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
-0804a014  00000607 R_386_JUMP_SLOT   00000000   write@GLIBC_2.0
-0804a018  00000707 R_386_JUMP_SLOT   00000000   setresgid@GLIBC_2.0
+0804a00c  00000107 R_386_JUMP_SLOT   00000000   setbuf@GLIBC_2.0
+0804a010  00000207 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0
+0804a014  00000307 R_386_JUMP_SLOT   00000000   printf@GLIBC_2.0
+0804a018  00000407 R_386_JUMP_SLOT   00000000   puts@GLIBC_2.0
+0804a01c  00000607 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
+0804a020  00000707 R_386_JUMP_SLOT   00000000   putchar@GLIBC_2.0
 
 
-3.Here is printable strings in the data sections in fmt:
-
-/lib/ld-linux.so.2
-__gmon_start__
-libc.so.6
-_IO_stdin_used
-read
-setresgid
-system
-getegid
-__libc_start_main
-write
-GLIBC_2.0
-PTRh
-UWVS
-[^_]
-/bin/bash
-/bin/date
-Hello, World
-;*2$"
+3.We get the libc file(libc.so.6) that is dependent by fmt.

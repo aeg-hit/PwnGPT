@@ -1,5 +1,204 @@
-Challenge is a ELF 32-bit LSB executable file, which is named as fmt. 
+Challenge is a ELF 64-bit LSB executable file, which is named as fmt. 
 1.Here is the key function for exploit in the C file decompiled from fmt, with each function starting with its address:
+
+//----- (0000000000400D2B) ----------------------------------------------------
+int __fastcall sub_400D2B(
+        int a1,
+        int a2,
+        int a3,
+        int a4,
+        int a5,
+        int a6,
+        __int64 format,
+        __int64 a8,
+        __int128 dest,
+        __int64 a10)
+{
+  int v10; // edi
+  int v11; // eax
+  int v12; // edx
+  int v13; // ecx
+  int v14; // r8d
+  int v15; // r9d
+
+  v10 = (int)stdin;
+  setbuf(stdin, 0LL);
+  while ( 1 )
+  {
+    v11 = sub_400A75();
+    switch ( v11 )
+    {
+      case 2:
+        sub_400B41((__int64)&format, 0, v12, v13, v14, v15, format, a8, dest, a10);
+        break;
+      case 3:
+        return sub_400D1A();
+      case 1:
+        sub_400B07(v10, 0, v12, v13, v14, v15, format, a8, dest);
+        break;
+      default:
+        puts("error options");
+        fflush(stdout);
+        break;
+    }
+    v10 = (int)stdout;
+    fflush(stdout);
+  }
+}
+
+//----- (0000000000400D1A) ----------------------------------------------------
+int sub_400D1A()
+{
+  return puts("byebyeT.T");
+}
+
+//----- (0000000000400B41) ----------------------------------------------------
+__int64 __fastcall sub_400B41(
+        __int64 a1,
+        int a2,
+        int a3,
+        int a4,
+        int a5,
+        int a6,
+        __int64 s,
+        __int64 a8,
+        __int128 dest,
+        __int64 a10)
+{
+  char buf[304]; // [rsp+10h] [rbp-260h] BYREF
+  char src[302]; // [rsp+140h] [rbp-130h] BYREF
+  unsigned __int8 v13; // [rsp+26Eh] [rbp-2h]
+  char v14; // [rsp+26Fh] [rbp-1h]
+
+  puts("please input new username(max lenth:20): ");
+  fflush(stdout);
+  v14 = read(0, buf, 0x12CuLL);
+  if ( v14 <= 0 || v14 > 20 )
+  {
+    puts("len error(max lenth:20)!try again..");
+    fflush(stdout);
+    *(_QWORD *)a1 = s;
+    *(_QWORD *)(a1 + 8) = a8;
+    *(_OWORD *)(a1 + 16) = dest;
+    *(_QWORD *)(a1 + 32) = a10;
+  }
+  else
+  {
+    memset(&s, 0, 0x14uLL);
+    strcpy((char *)&s, buf);
+    puts("please input new password(max lenth:20): ");
+    fflush(stdout);
+    v13 = read(0, src, 0x12CuLL);
+    if ( v13 && v13 <= 0x14u )
+    {
+      memset((char *)&dest + 4, 0, 0x14uLL);
+      sub_400AE5(src);
+      memcpy((char *)&dest + 4, src, v13);
+      fflush(stdout);
+      *(_QWORD *)a1 = s;
+      *(_QWORD *)(a1 + 8) = a8;
+      *(_OWORD *)(a1 + 16) = dest;
+      *(_QWORD *)(a1 + 32) = a10;
+    }
+    else
+    {
+      puts("len error(max lenth:10)!try again..");
+      fflush(stdout);
+      *(_QWORD *)a1 = s;
+      *(_QWORD *)(a1 + 8) = a8;
+      *(_OWORD *)(a1 + 16) = dest;
+      *(_QWORD *)(a1 + 32) = a10;
+    }
+  }
+  return a1;
+}
+
+//----- (0000000000400B07) ----------------------------------------------------
+int __fastcall sub_400B07(int a1, int a2, int a3, int a4, int a5, int a6, char format, int a8, __int64 a9)
+{
+  write(0, "Welc0me to sangebaimao!\n", 0x1AuLL);
+  printf(&format);
+  return printf((const char *)&a9 + 4);
+}
+
+//----- (0000000000400A75) ----------------------------------------------------
+__int64 sub_400A75()
+{
+  int buf; // [rsp+8h] [rbp-8h] BYREF
+
+  buf = 0;
+  puts("1.Sh0w Account Infomation!");
+  puts("2.Ed1t Account Inf0mation!");
+  puts("3.QUit sangebaimao:(");
+  putchar(62);
+  fflush(stdout);
+  read(0, &buf, 5uLL);
+  return (unsigned int)atol((const char *)&buf);
+}
+
+//----- (0000000000400903) ----------------------------------------------------
+_QWORD *__fastcall sub_400903(
+        _QWORD *a1,
+        int a2,
+        int a3,
+        int a4,
+        int a5,
+        int a6,
+        __int64 buf,
+        __int64 a8,
+        __int64 a9,
+        __int64 a10,
+        __int64 a11)
+{
+  unsigned __int8 v12; // [rsp+1Fh] [rbp-1h]
+
+  puts("Register Account first!");
+  puts("Input your username(max lenth:20): ");
+  fflush(stdout);
+  v12 = read(0, &buf, 0x14uLL);
+  if ( v12 && v12 <= 0x14u )
+  {
+    puts("Input your password(max lenth:20): ");
+    fflush(stdout);
+    read(0, (char *)&a9 + 4, 0x14uLL);
+    fflush(stdout);
+    *a1 = buf;
+    a1[1] = a8;
+    a1[2] = a9;
+    a1[3] = a10;
+    a1[4] = a11;
+  }
+  else
+  {
+    LOBYTE(buf) = 48;
+    puts("error lenth(username)!try again");
+    fflush(stdout);
+    *a1 = buf;
+    a1[1] = a8;
+    a1[2] = a9;
+    a1[3] = a10;
+    a1[4] = a11;
+  }
+  return a1;
+}
+
+//----- (00000000004008BB) ----------------------------------------------------
+int sub_4008BB()
+{
+  puts("**********************************************");
+  puts("*                                            *");
+  puts("*Welcome to sangebaimao,Pwnn me and have fun!*");
+  puts("*                                            *");
+  puts("**********************************************");
+  return fflush(stdout);
+}
+
+//----- (00000000004008A6) ----------------------------------------------------
+// positive sp value has been detected, the output may be wrong!
+int sub_4008A6()
+{
+  return system("/bin/sh");
+}
 
 //----- (0000000000400DD8) ----------------------------------------------------
 __int64 __fastcall main(int a1, char **a2, char **a3)
@@ -42,36 +241,3 @@ __int64 __fastcall main(int a1, char **a2, char **a3)
   sub_400D2B(v7, (int)a2, v8, v9, v10, v11, *(__int64 *)format, v14, dest, v16);
   return 0LL;
 }
-
-2.Here is Relocation section '.rel.plt' at offset 0x300 in fmt:
-
- Offset     Info    Type            Sym.Value  Sym. Name
-0804a000  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0
-0804a004  00000207 R_386_JUMP_SLOT   00000000   getegid@GLIBC_2.0
-0804a008  00000307 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0
-0804a00c  00000407 R_386_JUMP_SLOT   00000000   __gmon_start__
-0804a010  00000507 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
-0804a014  00000607 R_386_JUMP_SLOT   00000000   write@GLIBC_2.0
-0804a018  00000707 R_386_JUMP_SLOT   00000000   setresgid@GLIBC_2.0
-
-
-3.Here is printable strings in the data sections in fmt:
-
-/lib/ld-linux.so.2
-__gmon_start__
-libc.so.6
-_IO_stdin_used
-read
-setresgid
-system
-getegid
-__libc_start_main
-write
-GLIBC_2.0
-PTRh
-UWVS
-[^_]
-/bin/bash
-/bin/date
-Hello, World
-;*2$"

