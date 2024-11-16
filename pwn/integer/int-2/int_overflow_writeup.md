@@ -68,7 +68,7 @@ char *__cdecl check(int a1, char *src)
 
 此文件主要功能为：
 
-输入一段passwd，如果passwd的长度大于4或者小于等于8，则输出``good！``，并且把passwd复制给passwd_buf，否则输出``bad！``
+输入一段passwd，如果passwd的长度大于4且小于等于8，则输出``good！``，并且把passwd复制给passwd_buf，否则输出``bad！``
 
 **但代码中存在整数溢出的漏洞**
 
