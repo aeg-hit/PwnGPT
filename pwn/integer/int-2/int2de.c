@@ -11,59 +11,57 @@
 // Function declarations
 
 void *init_proc();
-int sub_8048330();
+int sub_8049020();
+// int __cdecl __libc_start_main(int (__cdecl *main)(int, char **, char **), int argc, char **ubp_av, void (*init)(void), void (*fini)(void), void (*rtld_fini)(void), void *stack_end);
+// int mprotect(void *addr, size_t len, int prot);
 // char *gets(char *s);
+// void perror(const char *s);
 // char *strcpy(char *dest, const char *src);
 // int puts(const char *s);
+// void exit(int status);
 // size_t strlen(const char *s);
-// int __cdecl __libc_start_main(int (__cdecl *main)(int, char **, char **), int argc, char **ubp_av, void (*init)(void), void (*fini)(void), void (*rtld_fini)(void), void *stack_end);
-// int _gmon_start__(void); weak
+// int getpagesize(void);
 // void __usercall __noreturn start(int a1@<eax>, void (*a2)(void)@<edx>);
-void sub_80483D3();
+void sub_80490E9();
 void _x86_get_pc_thunk_bx();
 void *deregister_tm_clones();
 int register_tm_clones();
 void *_do_global_dtors_aux();
 int frame_dummy();
-char *__cdecl check(unsigned __int8 a1, char *src);
-char *validate_passwd();
+int __cdecl check(unsigned __int8 a1, char *src);
+int validate_passwd();
 int __cdecl main(int argc, const char **argv, const char **envp);
-int (**_libc_csu_init())();
-int _libc_csu_fini(); // weak
 void term_proc();
 
 //-------------------------------------------------------------------------
 // Data declarations
 
-int (*_frame_dummy_init_array_entry[2])() = { &frame_dummy, &_do_global_dtors_aux }; // weak
-int (*_do_global_dtors_aux_fini_array_entry)() = &_do_global_dtors_aux; // weak
-int (*dword_804A008)(void) = NULL; // weak
+int (*dword_804BFFC)(void) = NULL; // weak
 _UNKNOWN _bss_start; // weak
-char completed_7283; // weak
-char passwd_buf[500]; // idb
-// extern _UNKNOWN __gmon_start__; weak
+char completed_0; // weak
+char passwd_buf[500]; // weak
+// extern _UNKNOWN _gmon_start__; weak
 
 
-//----- (0804830C) --------------------------------------------------------
+//----- (08049000) --------------------------------------------------------
 void *init_proc()
 {
   void *result; // eax
 
-  result = &__gmon_start__;
-  if ( &__gmon_start__ )
-    return (void *)_gmon_start__();
+  result = &_gmon_start__;
+  if ( &_gmon_start__ )
+    return (void *)((int (*)(void))_gmon_start__)();
   return result;
 }
-// 8048390: using guessed type int _gmon_start__(void);
 
-//----- (08048330) --------------------------------------------------------
-int sub_8048330()
+//----- (08049020) --------------------------------------------------------
+int sub_8049020()
 {
-  return dword_804A008();
+  return dword_804BFFC();
 }
-// 804A008: using guessed type int (*dword_804A008)(void);
+// 804BFFC: using guessed type int (*dword_804BFFC)(void);
 
-//----- (080483A0) --------------------------------------------------------
+//----- (080490C0) --------------------------------------------------------
 // positive sp value has been detected, the output may be wrong!
 void __usercall __noreturn start(int a1@<eax>, void (*a2)(void)@<edx>)
 {
@@ -73,77 +71,82 @@ void __usercall __noreturn start(int a1@<eax>, void (*a2)(void)@<edx>)
 
   v2 = v3;
   v3 = a1;
-  __libc_start_main(
-    (int (__cdecl *)(int, char **, char **))main,
-    v2,
-    &retaddr,
-    (void (*)(void))_libc_csu_init,
-    (void (*)(void))_libc_csu_fini,
-    a2,
-    &v3);
+  __libc_start_main((int (__cdecl *)(int, char **, char **))main, v2, &retaddr, 0, 0, a2, &v3);
   __halt();
 }
-// 80483A3: positive sp value 4 has been found
-// 8048620: using guessed type int _libc_csu_fini();
+// 80490C3: positive sp value 4 has been found
 
-//----- (080483D3) --------------------------------------------------------
-void sub_80483D3()
+//----- (080490E9) --------------------------------------------------------
+void sub_80490E9()
 {
   ;
 }
 
-//----- (080483F0) --------------------------------------------------------
+//----- (08049100) --------------------------------------------------------
 void _x86_get_pc_thunk_bx()
 {
   ;
 }
 
-//----- (08048400) --------------------------------------------------------
+//----- (08049110) --------------------------------------------------------
 void *deregister_tm_clones()
 {
   return &_bss_start;
 }
-// 8048400: could not find valid save-restore pair for ebp
+// 8049110: could not find valid save-restore pair for ebp
 
-//----- (08048440) --------------------------------------------------------
+//----- (08049150) --------------------------------------------------------
 int register_tm_clones()
 {
   return 0;
 }
-// 8048440: could not find valid save-restore pair for ebp
+// 8049150: could not find valid save-restore pair for ebp
 
-//----- (08048480) --------------------------------------------------------
+//----- (08049190) --------------------------------------------------------
 void *_do_global_dtors_aux()
 {
   void *result; // eax
 
-  if ( !completed_7283 )
+  if ( !completed_0 )
   {
     result = deregister_tm_clones();
-    completed_7283 = 1;
+    completed_0 = 1;
   }
   return result;
 }
-// 8048480: could not find valid save-restore pair for ebp
-// 804A040: using guessed type char completed_7283;
+// 8049190: could not find valid save-restore pair for ebp
+// 804C040: using guessed type char completed_0;
 
-//----- (080484B0) --------------------------------------------------------
+//----- (080491C0) --------------------------------------------------------
 int frame_dummy()
 {
   return register_tm_clones();
 }
 
-//----- (080484B6) --------------------------------------------------------
-char *__cdecl check(unsigned __int8 a1, char *src)
+//----- (080491C6) --------------------------------------------------------
+int __cdecl check(unsigned __int8 a1, char *src)
 {
+  int v2; // eax
+  int result; // eax
+  void *addr; // [esp+1Ch] [ebp-Ch]
+
   if ( a1 <= 3u || a1 > 8u )
-    return (char *)puts("bad!");
+    return puts("bad!");
   puts("good!");
-  return strcpy(passwd_buf, src);
+  strcpy(passwd_buf, src);
+  addr = (void *)(-getpagesize() & (unsigned int)passwd_buf);
+  v2 = getpagesize();
+  result = mprotect(addr, v2, 7);
+  if ( result == -1 )
+  {
+    perror("mprotect");
+    exit(1);
+  }
+  return result;
 }
 
-//----- (0804851B) --------------------------------------------------------
-char *validate_passwd()
+//----- (08049277) --------------------------------------------------------
+int validate_passwd()
 {
   char s[50]; // [esp+Dh] [ebp-3Bh] BYREF
   unsigned __int8 v2; // [esp+3Fh] [ebp-9h]
@@ -153,40 +156,21 @@ char *validate_passwd()
   return check(v2, s);
 }
 
-//----- (08048568) --------------------------------------------------------
+//----- (080492C4) --------------------------------------------------------
 int __cdecl main(int argc, const char **argv, const char **envp)
 {
-  puts("##### Welcome to MOCSCTF #####");
+  puts("##### Welcome to LLM4CTF #####");
   puts("Plz input your passwd:");
-  validate_passwd();
+  validate_passwd(&argc);
   return 0;
 }
+// 8049277: using guessed type int __cdecl validate_passwd(_DWORD);
 
-//----- (080485C0) --------------------------------------------------------
-int (**_libc_csu_init())()
-{
-  int (**result)(); // eax
-  int v1; // esi
-  int i; // edi
-
-  init_proc();
-  result = _frame_dummy_init_array_entry;
-  v1 = &_do_global_dtors_aux_fini_array_entry - _frame_dummy_init_array_entry;
-  if ( v1 )
-  {
-    for ( i = 0; i != v1; ++i )
-      result = (int (**)())_frame_dummy_init_array_entry[i]();
-  }
-  return result;
-}
-// 8049F0C: using guessed type int (*_frame_dummy_init_array_entry[2])();
-// 8049F10: using guessed type int (*_do_global_dtors_aux_fini_array_entry)();
-
-//----- (08048624) --------------------------------------------------------
+//----- (08049318) --------------------------------------------------------
 void term_proc()
 {
   ;
 }
 
-// nfuncs=28 queued=14 decompiled=14 lumina nreq=0 worse=0 better=0
-// ALL OK, 14 function(s) have been successfully decompiled
+// nfuncs=32 queued=13 decompiled=13 lumina nreq=0 worse=0 better=0
+// ALL OK, 13 function(s) have been successfully decompiled
