@@ -84,16 +84,23 @@ def evaluate_2():
     for i in range(len(clist)):
         print(clist[i])
         decfile = llmgraph.get_decompilefile(clist[i])[0]
-        c_infohead = "\nHere is the decompiled C file:\n"
-        question = "What vulnerabilities exist in the code? Please tell me the location and type of vulnerabilities."
-        resultcode = gen_chain.invoke(
-            {"context": c_infohead+decfile.page_content,
-                "messages": [("user", question)]}
-        )
-        print(resultcode)
+        # limit 128k token
+        if len(decfile.page_content.split()) > 128000:
+            resultcode="Invalid_request_error: Input is too big."
+            print("Input words are more than 128k.")
+        else:
+            c_infohead = "\nHere is the decompiled C file:\n"
+            question = "What vulnerabilities exist in the code? Please tell me the location and type of vulnerabilities."
+            resultcode = gen_chain.invoke(
+                {"context": c_infohead+decfile.page_content,
+                    "messages": [("user", question)]}
+            )
         # save
         with open(pwn_path.list[i]+f'/evaluate_2_{llmgraph.expt_llm}.txt', 'w') as f:
-            print(resultcode.content, file=f)
+            if hasattr(resultcode,'content'): 
+                print(resultcode.content, file=f)
+            else:
+                print(resultcode, file=f)
 
 
 def evaluate_3():
@@ -120,4 +127,4 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
-    evaluate_1()
+    evaluate_2()
