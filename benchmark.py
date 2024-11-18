@@ -10,19 +10,27 @@ from langchain_openai import ChatOpenAI
 
 def evaluate_0():
     # evaluate 0: pure llm without reflect (flag = "do not reflect" max_iterations=1)
-    # pwn_path=file.PwnInfo("./pwn/stack/", "rop")
+    llmgraph.max_iterations = 1
+    pwn_path=file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
-    pwn_path = file.PwnInfo("./pwn/integer/", "int")
+    # pwn_path = file.PwnInfo("./pwn/integer/", "int")
     clist = pwn_path.get_clist()
     print("Start: ")
     for i in range(len(clist)):
         pprint(clist[i])
         decfile = llmgraph.get_decompilefile(clist[i])[0]
-        c_infohead = "\nHere is the decompiled C file:\n"
-        resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
+        # limit 128k token
+        if len(decfile.page_content.split()) > 128000:
+            resultcode="Invalid_request_error: Input is too big."
+            print("Input words are more than 128k.")
+        else:
+            c_infohead = "\nHere is the decompiled C file:\n"
+            resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
         # save
         with open(pwn_path.list[i]+f'/result_1_{llmgraph.expt_llm}.txt', 'w') as f:
             pprint(resultcode, stream=f)
+            if 'generation' in resultcode:
+                f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
 
 
 llm = ChatOpenAI(temperature=0, model=llmgraph.expt_llm,
@@ -87,7 +95,7 @@ def evaluate_2():
 
 
 def evaluate_3():
-    #exploit chain construction and code
+    # exploit chain construction and code
     pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
     # pwn_path = file.PwnInfo("./pwn/integer/", "int")
@@ -109,6 +117,5 @@ def evaluate_3():
         break
 
 
-
 if __name__ == "__main__":
-    evaluate_3()
+    evaluate_0()

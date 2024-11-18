@@ -14,8 +14,9 @@ class PwnInfo:
         self.filename = filename
         if not os.path.exists(path):
             raise Exception(
-            "Please provide a existed path.")
-        self.list=self.get_pwnlist(path,filename)
+                "Please provide a existed path.")
+        self.list = self.get_pwnlist(path, filename)
+        self.num = len(self.list)
 
     def get_pwnlist(self, path: str, filename: str):
         """
@@ -29,12 +30,12 @@ class PwnInfo:
             result.append(path+filename+"-"+str(i))
             i += 1
         return result
-    
+
     def get_clist(self):
-        return [x+"/"+self.filename+x[-1]+self.c_name for x in self.list]
-    
+        return [self.list[x]+"/"+self.filename+str(x+1)+self.c_name for x in range(self.num)]
+
     def get_binarylist(self):
-        return [x+"/"+self.filename+x[-1] for x in self.list]
+        return [self.list[x]+"/"+self.filename+str(x+1) for x in range(self.num)]
 
 
 def get_filepath():
@@ -54,6 +55,7 @@ def retdec():
         print("decompiling with retdec-decompile")
         subprocess.run(command)
     else:
-        print(f" File {output_file} already exists, thank god. \n skipping \"retdec-decompile\", lets continue")
+        print(
+            f" File {output_file} already exists, thank god. \n skipping \"retdec-decompile\", lets continue")
 
     return input_file, output_file

