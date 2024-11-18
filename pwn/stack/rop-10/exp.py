@@ -1,7 +1,7 @@
 from pwn import *
 
 #can not run in "/LLM4CTF" file path
-r=process('./canarypie')
+r=process('./rop10')
 
 context.arch="amd64"# x64
 context.terminal=["tmux","splitw","-h"]

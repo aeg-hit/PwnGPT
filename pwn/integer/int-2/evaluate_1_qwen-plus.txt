@@ -1,0 +1,64 @@
+Certainly! Let's analyze the provided information about the binary `int2` and its security properties.
+
+### File Information
+
+The `file` command output indicates that:
+
+- **File Type**: The file is an ELF (Executable and Linkable Format) 32-bit LSB (Little Endian) executable.
+- **Architecture**: It is compiled for Intel 80386, which means it is a 32-bit x86 binary.
+- **Linking**: The binary is dynamically linked, meaning it depends on shared libraries.
+- **Interpreter**: The interpreter used is `/lib/ld-linux.so.2`, which is the dynamic linker/loader for 32-bit binaries.
+- **Build ID**: The build ID is `da9b4ce87ac1f25e96be07d8fe313eb99c5987e1`.
+- **Target OS**: The binary is built for GNU/Linux 3.2.0.
+- **Stripping**: The binary is not stripped, which means it contains debugging symbols and other metadata.
+
+### Security Properties
+
+The `checksec` command output provides the following security properties:
+
+- **RELRO (Relocation Read-Only)**: Partial. This means that some relocations are made read-only after loading, but not all. Full RELRO would provide better protection against certain types of attacks.
+- **Canary**: No. Stack canaries are not enabled, which makes the binary more vulnerable to stack buffer overflow attacks.
+- **NX (Non-Executable Stack)**: Yes. The stack is marked as non-executable, which helps prevent code injection attacks.
+- **PIE (Position Independent Executable)**: No. The binary is not position-independent, making it easier to predict addresses in memory.
+- **RPATH**: No. The binary does not use a run-time search path.
+- **RUNPATH**: No. The binary does not use a run-time search path.
+- **Symbols**: Yes. The binary contains symbols, which can be useful for reverse engineering and debugging.
+- **Fortify Source**: No. The binary was not compiled with the `-D_FORTIFY_SOURCE` flag, which can help mitigate certain types of buffer overflow vulnerabilities.
+- **Fortified**: 0. No functions have been fortified.
+- **Fortify-able**: 2. There are 2 functions that could have been fortified but were not.
+
+### Analysis
+
+1. **Binary Type and Architecture**:
+   - The binary is a 32-bit x86 executable, which is common in CTF challenges. This can make it easier to work with compared to 64-bit binaries, especially if you are using tools or scripts designed for 32-bit systems.
+
+2. **Dynamic Linking**:
+   - The binary is dynamically linked, so it will depend on shared libraries. This can be important if you need to understand how the binary interacts with system libraries.
+
+3. **Security Features**:
+   - **Partial RELRO**: While partial RELRO provides some protection, it is not as strong as full RELRO. This means that some relocations are still writable, which could be exploited.
+   - **No Stack Canaries**: The lack of stack canaries makes the binary more vulnerable to stack-based buffer overflow attacks. This is a significant weakness.
+   - **NX Enabled**: The stack is non-executable, which helps prevent code injection attacks. However, this can be bypassed using techniques like Return-Oriented Programming (ROP).
+   - **No PIE**: The binary is not position-independent, which means that the base address of the binary is fixed. This can make it easier to predict addresses in memory, which is useful for exploits like ROP.
+   - **Symbols Present**: The presence of symbols can be very helpful for reverse engineering and understanding the binary's structure and behavior.
+   - **No Fortify Source**: The binary was not compiled with fortification, which means that certain functions are not protected against buffer overflows.
+
+### Potential Exploits
+
+Given the security properties, the following exploits might be feasible:
+
+1. **Stack Buffer Overflow**: Since there are no stack canaries, a stack buffer overflow vulnerability could be exploited to overwrite the return address and gain control of the instruction pointer (EIP).
+
+2. **Return-Oriented Programming (ROP)**: Even though NX is enabled, the lack of PIE and the presence of symbols can make it easier to find gadgets and construct a ROP chain to execute arbitrary code.
+
+3. **Format String Vulnerability**: If the binary uses format strings without proper validation, this could be another vector for exploitation.
+
+4. **Use-After-Free or Double Free**: If the binary manages memory dynamically, these types of vulnerabilities could also be present.
+
+### Next Steps
+
+1. **Reverse Engineering**: Use tools like `gdb`, `radare2`, or `IDA Pro` to reverse engineer the binary and understand its functionality.
+2. **Fuzzing**: Fuzz the binary to identify potential vulnerabilities, such as buffer overflows or format string issues.
+3. **Exploit Development**: Once a vulnerability is identified, develop an exploit to gain control of the binary. This might involve crafting a payload to overwrite the return address, constructing a ROP chain, or exploiting a format string vulnerability.
+
+By leveraging the weaknesses in the security properties, you can increase your chances of successfully exploiting the binary. Good luck with the challenge!

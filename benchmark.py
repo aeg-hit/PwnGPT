@@ -51,25 +51,27 @@ gen_chain = code_gen_prompt | llm
 
 def evaluate_1():
     # evaluate 1: key information analysis
-    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+    # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+    # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
+    pwn_path = file.PwnInfo("./pwn/integer/", "int")
     blist = pwn_path.get_binarylist()
-    i = 0
-    file_result = subprocess.run(['file', blist[i]],
-                                 check=True, capture_output=True, text=True)
+    for i in range(len(blist)):
 
-    check_result = subprocess.run(['checksec', '--format=json', '--file='+blist[i]],
-                                  check=True, capture_output=True, text=True)
-
-    pprint(blist[i])
-    contest = f"\nHere is the file infomation created by 'file' command:\n{file_result.stdout}\n\nHere is the security properties identified by 'checksec' command:\n{check_result.stdout}"
-    question = "Please analyse these information."
-    resultcode = gen_chain.invoke(
-        {"context": contest, "messages": [("user", question)]}
-    )
-    print(resultcode)
-    # save
-    with open(pwn_path.list[i]+f'/evaluate_1_{llmgraph.expt_llm}.txt', 'w') as f:
-        print(resultcode.content, stream=f)
+        file_result = subprocess.run(['file', blist[i]],
+                                     check=True, capture_output=True, text=True)
+    
+        check_result = subprocess.run(['checksec', '--format=json', '--file='+blist[i]],
+                                      check=True, capture_output=True, text=True)
+    
+        print(blist[i])
+        contest = f"\nHere is the file infomation created by 'file' command:\n{file_result.stdout}\n\nHere is the security properties identified by 'checksec' command:\n{check_result.stdout}"
+        question = "Please analyse these information."
+        resultcode = gen_chain.invoke(
+            {"context": contest, "messages": [("user", question)]}
+        )
+        # save
+        with open(pwn_path.list[i]+f'/evaluate_1_{llmgraph.expt_llm}.txt', 'w') as f:
+            print(resultcode.content, file=f)
 
 
 def evaluate_2():
@@ -118,4 +120,4 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
-    evaluate_0()
+    evaluate_1()

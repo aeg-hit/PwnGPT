@@ -1,0 +1,71 @@
+Certainly! Let's analyze the provided information about the binary challenge named `fmt3`:
+
+### File Information
+```plaintext
+./pwn/string/fmt-3/fmt3: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=fca1e29210ffbe4aea1e56559306590dfe00c35b, stripped
+```
+- **ELF 64-bit LSB executable**: This indicates that the binary is a 64-bit executable for the x86-64 architecture.
+- **Dynamically linked**: The binary uses shared libraries, which means it depends on external libraries to function.
+- **Interpreter /lib64/ld-linux-x86-64.so.2**: This is the dynamic linker/loader used to load the shared libraries.
+- **Stripped**: The binary has been stripped of its symbol table, making reverse engineering more challenging.
+
+### Security Properties
+```json
+{
+  "./pwn/string/fmt-3/fmt3": {
+    "relro": "full",
+    "canary": "no",
+    "nx": "yes",
+    "pie": "no",
+    "rpath": "no",
+    "runpath": "no",
+    "symbols": "no",
+    "fortify_source": "no",
+    "fortified": "0",
+    "fortify-able": "5"
+  }
+}
+```
+- **RELRO (Relocation Read-Only)**: Full RELRO is enabled, which means that all the relocations are performed at program start, and the GOT (Global Offset Table) is marked as read-only. This helps prevent certain types of attacks.
+- **Canary**: No stack canary is used, which makes the binary vulnerable to stack buffer overflow attacks.
+- **NX (Non-Executable Stack)**: NX is enabled, meaning the stack is not executable. This prevents code injection via the stack.
+- **PIE (Position Independent Executable)**: PIE is not enabled, so the base address of the binary is fixed. This makes ASLR (Address Space Layout Randomization) less effective.
+- **RPATH and RUNPATH**: Both are not set, which means the binary does not have a hardcoded path to search for shared libraries.
+- **Symbols**: The binary is stripped, so there are no symbols available.
+- **Fortify Source**: Fortify Source is not enabled, which means the compiler did not add additional checks to common functions like `strcpy`, `sprintf`, etc., to prevent buffer overflows.
+- **Fortified and Fortify-able**: No functions are fortified, and there are 5 functions that could be fortified but are not.
+
+### Analysis
+Given the security properties and file information, here are some key points to consider for exploiting this binary:
+
+1. **Format String Vulnerability**:
+   - The challenge is named `fmt3`, which strongly suggests a format string vulnerability.
+   - Since the binary is stripped, you will need to use techniques like partial overwriting or brute-forcing to find addresses.
+
+2. **Stack Buffer Overflow**:
+   - No stack canary is present, so a stack buffer overflow is possible if there is an input buffer that can be overflowed.
+   - However, NX is enabled, so you cannot directly execute code on the stack. You might need to use techniques like Return-Oriented Programming (ROP) to bypass NX.
+
+3. **Lack of PIE**:
+   - The lack of PIE means that the base address of the binary is fixed, which simplifies finding gadgets for ROP chains.
+
+4. **Dynamic Linking**:
+   - Since the binary is dynamically linked, you can use shared libraries to your advantage. For example, you might be able to overwrite function pointers in the GOT to redirect execution.
+
+### Steps to Approach the Challenge
+1. **Identify the Vulnerability**:
+   - Use tools like `gdb` or `pwntools` to analyze the binary and identify the format string vulnerability or stack buffer overflow.
+
+2. **Exploit the Vulnerability**:
+   - If it's a format string vulnerability, use format string exploits to leak addresses or write values to specific memory locations.
+   - If it's a stack buffer overflow, craft an exploit to overflow the buffer and control the return address. Use ROP gadgets to bypass NX.
+
+3. **Bypass Protections**:
+   - Use ROP chains to execute system calls or to call functions like `system("/bin/sh")`.
+   - Leverage the fixed base address due to the lack of PIE to find and use gadgets.
+
+4. **Test and Refine**:
+   - Test your exploit in a controlled environment to ensure it works as expected.
+   - Refine your exploit to handle any edge cases or unexpected behavior.
+
+By following these steps and leveraging the weaknesses in the binary's security properties, you should be able to successfully exploit the `fmt3` challenge. Good luck!
