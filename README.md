@@ -5,17 +5,22 @@ Caputre the flag with Large Language Models. Constructed by langgraph and chroma
 ![workflow](./assert/workflow.png)
 I only implemented the exploit system (RAG section). Decompile by IDA.
 
-## Method
+# Method
 RAG (Retrieval Augmented Generation) then check code and reflect.
 
-## Directory
-download/ some data document about ctf (datasets).
+# Directory
+## download/
+some data document about ctf (datasets).
 
-preprocessing/ load file, embedding and save.
+## preprocessing/ 
+load file, embedding and save.
 
-processing/ llm application with langgraph.
+## processing/ 
+llm application with langgraph.
 
-pwn/ pwn challenges that are collected online. rop1-2 and rop4 ret2text, rop3 ret2libc(replace), 
+## pwn/ 
+pwn challenges that are collected online. 
+rop1-2 and rop4 ret2text, rop3 ret2libc(replace), 
 rop5 ret2text(64bit), rop6 ret2text(64bit, gadget), rop7 ret2text(64bit, gadget, rop chain), rop8-9 ret2shellcode, rop10 canary.
 fmt1 write, fmt2 read, fmt3 hijack retaddr, fmt4-5 hijack GOT.
 int1 Integer Overflow and ret2text, int1 Integer Overflow and ret2shellcode.
