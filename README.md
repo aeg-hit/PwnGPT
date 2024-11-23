@@ -24,4 +24,5 @@ rop1-2 and rop4 ret2text, rop3 ret2libc(replace),
 rop5 ret2text(64bit), rop6 ret2text(64bit, gadget), rop7 ret2text(64bit, gadget, rop chain), rop8-9 ret2shellcode, rop10 canary.
 fmt1 write, fmt2 read, fmt3 hijack retaddr, fmt4-5 hijack GOT.
 int1 Integer Overflow and ret2text, int1 Integer Overflow and ret2shellcode.
-problems.txt: (1) file info (2) decompile (3) readelf -r  (4) strings -d (5) ROPgadget --binary rop --only "pop|ret" > g.txt (5)
+### problems.txt: 
+(1) file info (2) decompile (3) readelf -r  (4) strings -d (5) ROPgadget --binary rop --only "pop|ret" > g.txt (5)
