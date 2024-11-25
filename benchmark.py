@@ -52,8 +52,8 @@ gen_chain = code_gen_prompt | llm
 def evaluate_1():
     # evaluate 1: key information analysis
     # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
-    # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
-    pwn_path = file.PwnInfo("./pwn/integer/", "int")
+    pwn_path=file.PwnInfo("./pwn/string/", "fmt")
+    # pwn_path = file.PwnInfo("./pwn/integer/", "int")
     blist = pwn_path.get_binarylist()
     for i in range(len(blist)):
 
@@ -126,4 +126,4 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
-    evaluate_3()
+    evaluate_1()
