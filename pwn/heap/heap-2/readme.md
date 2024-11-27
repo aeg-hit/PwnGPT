@@ -1,7 +1,7 @@
 # COMPFEST CTF 2020: Binary Exploitation is Ez
 
 # Solve
-this is an easy challenge, there is buffer overflow in edit_mem().
+there is buffer overflow in edit_mem().
 ```c
 void edit_meme()	{
 	unsigned int idx;

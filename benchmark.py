@@ -8,9 +8,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
-
+pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int")]
 def evaluate_0():
-    # evaluate 0: pure llm without reflect (flag = "do not reflect" max_iterations=1)
+    # evaluate 0: pure llm without reflect (max_iterations=1 without reflect)
     llmgraph.max_iterations = 1
     for name in pathName:
         pwn_path=file.PwnInfo(*name)
@@ -129,4 +129,4 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
-    evaluate_2()
+    evaluate_0()

