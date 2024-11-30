@@ -109,28 +109,24 @@ def evaluate_3():
     # exploit chain construction and code
     # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path=file.PwnInfo("./pwn/string/", "fmt")
-    for name in pathName:
-        pwn_path = file.PwnInfo(*name)
-        list = pwn_path.list
-        print("Start: ")
-        for i in range(len(list)):
-            print(list[i])
-            decfile = llmgraph.get_decompilefile(list[i]+"/problems.txt")[0]
-
-            question = "How do I use pwntool to solve this challange? Please tell me steps and code."
-            resultcode = gen_chain.invoke(
-                {"context": decfile.page_content,
-                    "messages": [("user", question)]}
-            )
-            # save
-            with open(pwn_path.list[i]+f'/evaluate_3_{llmgraph.expt_llm}.txt', 'w') as f:
-                print(resultcode.content, file=f)
+    pwn_path=file.PwnInfo("./pwn/string/", "fmt")
+    clist = pwn_path.get_clist()
+    print("Start: ")
+    i=2
+    list=pwn_path.list
+    print(list[i])
+    decfile = llmgraph.get_decompilefile(list[i]+"/problems.txt")[0]
+    question = "How do I use pwntool to solve this challange? Please tell me steps and code."
+    resultcode = gen_chain.invoke(
+        {"context": decfile.page_content,
+            "messages": [("user", question)]}
+    )
+    # save
+    with open(pwn_path.list[i]+f'/evaluate_3_{llmgraph.expt_llm}.txt', 'w') as f:
+        print(resultcode.content, file=f)
 
 
 
 if __name__ == "__main__":
-    evaluate_0()
-    evaluate_1()
-    evaluate_2()
     evaluate_3()
 
