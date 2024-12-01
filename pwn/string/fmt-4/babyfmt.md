@@ -36,7 +36,7 @@ void main(undefined4 param_1,undefined4 param_2)
 }
 ```
 
-粗略分析程序，main函数内部有无限循环的格式化字符串漏洞。同时还给了个后门函数backdoor，直接getshell。我唯一看不懂的地方是这个gift是干啥用的，都无pie了我直接在程序里记录backdoor的地址不就好了吗？这还用了malloc，相当于给了一个指向指向backdoor指针的指针，不是很有记录的必要。Partial RELRO代表got表可写，你看那个printf是不是和system很像，直接把printf的got表改成system，这样调用的就是system了。[ctf wiki](https://ctf-wiki.org/en/pwn/linux/user-mode/fmtstr/fmtstr-example/#hijack-got)有一模一样的题，还更难。直接用pwntools自带的fmtstr_payload就行了。
+粗略分析程序，main函数内部有无限循环的格式化字符串漏洞。同时还给了个后门函数backdoor，直接getshell。gift是陷阱，printf("gift: %p\n", s);打印的是s这个字符串指针的值，也就是malloc给的地址，如果要打印backdoor地址应该为printf("gift: %s\n", s);。Partial RELRO代表got表可写，你看那个printf是不是和system很像，直接把printf的got表改成system，这样调用的就是system了。[ctf wiki](https://ctf-wiki.org/en/pwn/linux/user-mode/fmtstr/fmtstr-example/#hijack-got)有一模一样的题，还更难。直接用pwntools自带的fmtstr_payload就行了。
 
 ```python
 from pwn import *
