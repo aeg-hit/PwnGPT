@@ -37,7 +37,7 @@ int __fastcall main(int argc, const char **argv, const char **envp)
   return 0;
 }
 
-2.Here is Relocation section '.rel.plt' at offset 0x790 in rop:
+3.Here is Relocation section '.rel.plt' at offset 0x790 in rop:
 
   Offset          Info           Type           Sym. Value    Sym. Name + Addend
 000000003fa8  000200000007 R_X86_64_JUMP_SLO 0000000000000000 strncmp@GLIBC_2.2.5 + 0
@@ -48,7 +48,7 @@ int __fastcall main(int argc, const char **argv, const char **envp)
 000000003fd0  000800000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
 
 
-3.We get the libc file(libc.so.6) that is dependent by rop. And we use ROPgadget to search gadgets on the libc file:
+4.We get the libc file(libc.so.6) that is dependent by rop. And we use ROPgadget to search gadgets on the libc file:
 Gadgets information
 ============================================================
 0x000000000011dd6c : pop r11 ; pop rbp ; pop r12 ; pop r13 ; pop r14 ; ret
