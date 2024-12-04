@@ -1,0 +1,109 @@
+To solve this CTF challenge using Pwntools, you'll need to exploit a format string vulnerability in the given binary. Here's a step-by-step guide to help you through the process:
+
+### Step 1: Understand the Binary
+
+The binary is a 32-bit ELF executable with the following properties:
+
+- **Partial Relro**: Some protections are in place, but not full RELRO.
+- **No Canary**: No stack canaries are used.
+- **NX enabled**: Non-executable stack is enabled.
+- **No PIE**: Position Independent Executable is not enabled.
+
+The main function does the following:
+
+1. Reads a pointer to a backdoor function and prints it as "gift".
+2. Enters a loop where it reads input from stdin and prints it using `printf`.
+
+### Step 2: Identify the Vulnerability
+
+The vulnerability lies in the way the input is handled:
+
+- The binary reads input into a buffer of size 255 bytes.
+- This buffer is then passed directly to `printf`, which interprets it as a format string.
+
+This is a classic format string vulnerability, where an attacker can control the format specifiers and potentially leak information or perform other attacks.
+
+### Step 3: Exploit the Format String Vulnerability
+
+Our goal is to exploit the format string vulnerability to leak the address of the backdoor function and then call it to spawn a shell.
+
+#### Steps to Exploit:
+
+1. **Leak the Address of the Backdoor Function**:
+   - The backdoor function address is printed as "gift: <address>".
+   - We can read this address and use it in our exploit.
+
+2. **Overflow the Buffer and Control the Stack**:
+   - Since the binary is vulnerable to format string attacks, we can use format specifiers to write data to specific addresses.
+
+3. **Call the Backdoor Function**:
+   - By controlling the stack or certain registers, we can call the backdoor function to spawn a shell.
+
+### Step 4: Craft the Exploit Using Pwntools
+
+Pwntools is a powerful Python framework for exploit development. We'll use it to automate the exploit.
+
+#### Code Explanation:
+
+1. **Connect to the Binary**:
+   - Use `process` to spawn the binary locally or `remote` to connect to a remote server.
+
+2. **Read the Gift Address**:
+   - Read the line containing the backdoor address and parse it.
+
+3. **Craft the Payload**:
+   - Use format string specifiers to overwrite a function pointer or modify the stack to call the backdoor function.
+
+4. **Send the Payload**:
+   - Send the crafted payload to the binary.
+
+5. **Interact with the Shell**:
+   - If successful, interact with the spawned shell.
+
+#### Sample Code:
+
+```python
+from pwn import *
+
+# Start the binary locally
+p = process('./fmt')
+
+# Read the gift address
+p.recvuntil('gift: ')
+gift_addr = p.recvline().strip()
+gift_addr = int(gift_addr, 16)
+log.info(f'Gift address: {hex(gift_addr)}')
+
+# Craft the payload
+# We need to overwrite a function pointer or modify the stack to call the backdoor
+# For simplicity, assume we can overwrite the return address on the stack
+
+# Calculate the offset to the return address
+offset = 256  # Assuming the buffer is 256 bytes
+
+# Create the payload
+payload = b'A' * offset  # Padding to reach the return address
+payload += p32(gift_addr)  # Overwrite the return address with the backdoor address
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Step 5: Run the Exploit
+
+Execute the Python script to run the exploit:
+
+```sh
+python exploit.py
+```
+
+### Notes:
+
+- **Address Calculation**: Ensure that the address of the backdoor function is correctly parsed and used.
+- **Buffer Size**: Adjust the offset if the buffer size is different.
+- **Stack Layout**: Understand the stack layout to correctly overwrite the return address or other critical data.
+
+This should give you a basic framework to exploit the format string vulnerability and achieve code execution to spawn a shell. Adjustments may be needed based on the specific binary and environment.

