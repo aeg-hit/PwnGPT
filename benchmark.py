@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 import re
 
 pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
-pathName=[("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
+
 
 
 def sanitize_filename(filename):
@@ -146,6 +146,7 @@ def evaluate_3():
 
 if __name__ == "__main__":
 
+    evaluate_2()
     evaluate_3()
 
 

