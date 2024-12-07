@@ -33,6 +33,7 @@ fun_edit(r)
 r.recvuntil('Choice: ')
 #print memes[1]
 r.sendline('3')
+#index 1 (the second meme)
 r.recvuntil('Index: ')
 r.sendline('1')
 
