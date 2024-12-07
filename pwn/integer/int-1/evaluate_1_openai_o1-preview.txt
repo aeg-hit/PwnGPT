@@ -1,0 +1,159 @@
+Based on the information you've provided, let's analyze the binary executable `int1` to assess its security features and potential vulnerabilities that could be exploited in a Capture the Flag (CTF) challenge.
+
+### **1. File Information**
+
+```
+./pwn/integer/int-1/int1: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=..., not stripped
+```
+
+- **Architecture**: **32-bit** executable for **Intel x86 (i386)** architecture.
+- **Endianness**: Little-Endian (`LSB` stands for Least Significant Byte first).
+- **Dynamically Linked**: The binary is dynamically linked, meaning it relies on external libraries at runtime.
+- **Interpreter**: Uses `/lib/ld-linux.so.2` as the dynamic linker/loader.
+- **Build ID**: Contains a BuildID, which can help in debugging and symbol resolution.
+- **Not Stripped**: **Symbols are present**, making reverse engineering and analysis easier because function names and other symbols are included.
+
+### **2. Security Properties (Checksec Output)**
+
+```
+{
+  "./pwn/integer/int-1/int1": {
+    "relro": "partial",
+    "canary": "no",
+    "nx": "yes",
+    "pie": "no",
+    "rpath": "no",
+    "runpath": "no",
+    "symbols": "yes",
+    "fortify_source": "no",
+    "fortified": "0",
+    "fortify-able": "4"
+  }
+}
+```
+
+Let's break down each security feature and its implications:
+
+#### **a. RELRO (Relocation Read-Only): Partial**
+
+- **Description**: Partial RELRO sets certain sections of the binary as read-only after initialization but leaves the **Global Offset Table (GOT)** writable.
+- **Implication**: Attackers can overwrite GOT entries at runtime, enabling **GOT overwrite attacks** to hijack function pointers.
+
+#### **b. Stack Canary: No**
+
+- **Description**: Stack canaries are special values placed on the stack to detect buffer overflows before overwriting return addresses.
+- **Implication**: Absence of stack canaries means the binary is vulnerable to **stack-based buffer overflow attacks**, allowing overwriting of the return address without detection.
+
+#### **c. NX (No eXecute): Yes**
+
+- **Description**: The stack is marked as non-executable, preventing execution of code injected into the stack (e.g., shellcode).
+- **Implication**: Attackers cannot execute code directly on the stack. Instead, they must use techniques like **Return-Oriented Programming (ROP)** or **Return-to-libc** to execute existing code in memory.
+
+#### **d. PIE (Position Independent Executable): No**
+
+- **Description**: The binary is not compiled as PIE, so it has a fixed base address when loaded into memory.
+- **Implication**: Address spaces (e.g., code segment addresses) are predictable, simplifying the exploitation process because addresses of functions and gadgets are consistent across executions.
+
+#### **e. RPATH & RUNPATH: No**
+
+- **Description**: No runtime library search paths are specified.
+- **Implication**: There are no additional library search paths that could introduce vulnerabilities or be manipulated.
+
+#### **f. Symbols: Yes**
+
+- **Description**: Symbol information is present in the binary.
+- **Implication**: Easier to reverse engineer and identify function names, which aids in understanding the binary's functionality and crafting an exploit.
+
+#### **g. Fortify Source: No**
+
+- **Description**: The binary was not compiled with `_FORTIFY_SOURCE`, a compile-time macro that adds checks to detect certain buffer overflows.
+- **Implication**: Functions vulnerable to overflows (like `strcpy`, `sprintf`, etc.) are not fortified, increasing the risk of exploitation.
+
+#### **h. Fortified Functions: 0 out of 4**
+
+- **Description**: None of the 4 functions that could be fortified are protected.
+- **Implication**: Potential unsafe functions are unprotected, offering more opportunities for exploitation.
+
+### **3. Potential Exploitation Strategies**
+
+Based on the analysis above, several vulnerabilities could be exploited:
+
+#### **A. Stack-Based Buffer Overflow**
+
+- **Opportunity**: Lack of stack canaries allows overwriting the **saved return address** on the stack.
+- **Challenge**: **NX** is enabled, so injected shellcode on the stack cannot be executed directly.
+
+#### **B. Return-to-libc Attack**
+
+- **Technique**: Overwrite the return address to point to standard library functions like `system()`, `execve()`, etc.
+- **Advantage**:
+  - **Non-PIE Binary**: Fixed addresses simplify locating functions.
+  - **Symbols Present**: Easier to find function addresses.
+- **Steps**:
+  1. Find the address of `system()` or another suitable function.
+  2. Overwrite the return address to jump to `system("/bin/sh")` or similar.
+
+#### **C. Return-Oriented Programming (ROP)**
+
+- **Technique**: Chain together small snippets of existing code (**gadgets**) ending with `ret` to perform arbitrary operations.
+- **Advantage**:
+  - **Non-PIE Binary**: Gadgets are at known addresses.
+  - **Symbols Present**: Easier to locate gadgets and functions.
+- **Steps**:
+  1. Identify necessary gadgets (e.g., for setting up registers).
+  2. Build a ROP chain to call desired functions with controlled arguments.
+
+#### **D. GOT Overwrite Attack**
+
+- **Opportunity**: Partial RELRO means the **GOT is writable**.
+- **Technique**: Overwrite a GOT entry of a frequently called function (e.g., `puts()`) to point to malicious code or another function like `system()`.
+- **Steps**:
+  1. Overwrite the GOT entry of a function used in the program.
+  2. When the program calls that function, control flow is redirected.
+
+### **4. Recommendations for Exploitation**
+
+Given the binary's security properties:
+
+- **Start by Analyzing Input Handling**:
+  - Look for functions like `gets()`, `strcpy()`, `sprintf()`, or any custom input functions that do not enforce bounds checking.
+  - These functions are often entry points for buffer overflows.
+
+- **Leverage Fixed Memory Addresses**:
+  - Since ASLR (Address Space Layout Randomization) mitigation is not indicated, and PIE is disabled, memory addresses for code segments are predictable.
+  - Use tools like `objdump`, `nm`, or `readelf` to find addresses of functions and gadgets.
+
+- **Prepare for NX Mitigation**:
+  - Plan to avoid executing code on the stack.
+  - Focus on reusing existing executable code segments in memory.
+
+- **Check for Available Functions**:
+  - Identify if functions like `system()`, `execve()`, or `mprotect()` are available for use in your exploit.
+  - If they are not directly available, consider leveraging `dlsym()` or similar functions if possible.
+
+- **Use the Presence of Symbols**:
+  - Take advantage of the symbol information to understand the program's flow and find useful functions and gadgets.
+
+### **5. Conclusion**
+
+The binary `int1` presents several classic vulnerabilities that can be exploited using standard techniques in binary exploitation:
+
+- **Buffer Overflows**: Due to the absence of stack canaries and fortification.
+- **Control Flow Hijacking**: By overwriting the return address or function pointers.
+- **Bypassing NX**: Through ROP or return-to-libc attacks.
+
+**Key Strategies**:
+
+- **Return-to-libc Attacks**: Utilize known function addresses to execute code.
+- **ROP Chains**: Build chains to perform complex operations without injecting code.
+- **GOT Overwrite**: Manipulate GOT entries to redirect function calls.
+
+**Note**: Always ensure that any exploitation attempts are conducted in a controlled environment and are compliant with the rules of the CTF competition.
+
+### **Next Steps**
+
+- **Dynamic Analysis**: Run the binary under a debugger (e.g., GDB) to observe how it handles input and to confirm vulnerabilities.
+- **Exploit Development**: Craft input payloads to exploit identified vulnerabilities.
+- **Testing**: Test your exploits thoroughly to ensure reliability.
+
+By understanding the security properties and potential vulnerabilities of `int1`, you can develop a targeted approach to the challenge and apply appropriate exploitation techniques.

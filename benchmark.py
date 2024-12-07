@@ -146,7 +146,9 @@ def evaluate_3():
 
 if __name__ == "__main__":
 
+    evaluate_0()
     evaluate_2()
     evaluate_3()
+    
 
 

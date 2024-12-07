@@ -1,0 +1,194 @@
+Based on the information you've provided, let's analyze the binary to identify potential vulnerabilities and exploitation strategies for the CTF pwn challenge.
+
+---
+
+### **File Information Analysis**
+
+**Output of `file` command:**
+
+```
+./pwn/integer/int-2/int2: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, BuildID[sha1]=da9b4ce87ac1f25e96be07d8fe313eb99c5987e1, for GNU/Linux 3.2.0, not stripped
+```
+
+**Analysis:**
+
+1. **ELF 32-bit LSB executable:**
+   - The binary is a 32-bit executable in the ELF (Executable and Linkable Format) format.
+   - LSB (Least Significant Byte first) indicates little-endian architecture.
+
+2. **Intel 80386:**
+   - The executable is built for the Intel 80386 architecture, which is compatible with modern 32-bit Intel and AMD processors.
+
+3. **Dynamically Linked:**
+   - The binary relies on shared libraries at runtime rather than including all library code within the executable.
+   - This means functions from standard libraries (like libc) are used and resolved at runtime.
+
+4. **Interpreter `/lib/ld-linux.so.2`:**
+   - This is the standard ELF interpreter for 32-bit Linux binaries.
+   - It's responsible for loading the binary and its dependencies.
+
+5. **BuildID:**
+   - A unique identifier for the binary, which can help in debugging or symbol resolution.
+
+6. **For GNU/Linux 3.2.0:**
+   - Indicates the minimum required Linux kernel version. This is generally not critical unless using specific kernel-level features.
+
+7. **Not Stripped:**
+   - The binary contains symbol information (function and variable names).
+   - This is advantageous for analysis, as it provides more context when examining the binary in tools like GDB or IDA Pro.
+
+---
+
+### **Security Properties Analysis**
+
+**Output of `checksec` command:**
+
+```json
+{
+  "./pwn/integer/int-2/int2": {
+    "relro": "partial",
+    "canary": "no",
+    "nx": "yes",
+    "pie": "no",
+    "rpath": "no",
+    "runpath": "no",
+    "symbols": "yes",
+    "fortify_source": "no",
+    "fortified": "0",
+    "fortify-able": "2"
+  }
+}
+```
+
+**Analysis:**
+
+1. **RELRO (Relocation Read-Only): Partial**
+   - **Partial RELRO:**
+     - Only the `.got.plt` (Global Offset Table for Procedure Linkage Table) is not read-only.
+     - The GOT (Global Offset Table) remains writable, making it possible to overwrite GOT entries.
+   - **Exploitation Implication:**
+     - An attacker can potentially overwrite GOT entries to hijack control flow (e.g., redirect function pointers).
+
+2. **Canary: No**
+   - **Stack Canaries Disabled:**
+     - There is no protection against stack buffer overflows corrupting the return address.
+   - **Exploitation Implication:**
+     - Stack-based buffer overflows can be exploited without needing to bypass canaries.
+
+3. **NX (No eXecute): Yes**
+   - **NX Enabled:**
+     - Stack and other data sections are non-executable.
+     - Prevents execution of code injected into these regions.
+   - **Exploitation Implication:**
+     - Return-Oriented Programming (ROP) or Return-to-libc attacks are required instead of injecting shellcode.
+
+4. **PIE (Position Independent Executable): No**
+   - **PIE Disabled:**
+     - The binary and its code sections are loaded at fixed addresses in memory.
+   - **Exploitation Implication:**
+     - Predictable memory addresses make it easier to craft exploits, as offsets are consistent between runs.
+
+5. **RPATH and RUNPATH: No**
+   - **No Custom Library Paths:**
+     - The binary does not specify custom runtime library search paths.
+   - **Exploitation Implication:**
+     - Less likely to be vulnerable to certain dynamic linker manipulation attacks.
+
+6. **Symbols: Yes**
+   - **Symbols Present:**
+     - Function and variable names are included in the binary.
+   - **Exploitation Implication:**
+     - Easier to analyze and find useful functions (like `system`, `puts`, etc.) during reverse engineering.
+
+7. **Fortify Source: No**
+   - **Fortify Source Disabled:**
+     - GCC's `-D_FORTIFY_SOURCE` is not used, which enhances security for certain functions.
+   - **Exploitation Implication:**
+     - Functions susceptible to buffer overflows are not fortified, increasing potential vulnerabilities.
+
+8. **Fortified: 0 / Fortify-able: 2**
+   - **No Functions Fortified:**
+     - There are 2 functions that could be fortified, but none are.
+   - **Exploitation Implication:**
+     - Potential for exploiting unsafe function usage (e.g., `strcpy`, `gets`).
+
+---
+
+### **Potential Exploitation Strategies**
+
+Given the security properties, here are possible avenues for exploitation:
+
+1. **Stack Buffer Overflow:**
+   - Absence of stack canaries and NX enabled suggests that a classic stack buffer overflow exploit is viable.
+   - Since the stack is non-executable, injected shellcode cannot be run directly.
+   - Overwriting the return address to redirect execution flow is possible.
+
+2. **Return-Oriented Programming (ROP):**
+   - With NX enabled and PIE disabled, crafting a ROP chain is feasible.
+   - Fixed addresses due to PIE being disabled simplify gadget address prediction.
+   - Symbols present make it easier to locate gadgets and functions.
+
+3. **Return-to-libc Attack:**
+   - Redirecting execution to standard library functions (e.g., calling `system("/bin/sh")`).
+   - Since the binary is dynamically linked and symbols are available, addresses of libc functions can be found.
+
+4. **GOT Overwrite:**
+   - Due to partial RELRO and writable GOT, overwriting GOT entries is possible.
+   - An attacker could overwrite a GOT entry (e.g., for `exit`) to point to a malicious function or `system`.
+
+5. **Integer Overflows/Underflows:**
+   - Given the challenge is under the "integer" category, there might be integer-related vulnerabilities.
+   - Possible integer overflows or sign errors that lead to buffer overflows or arbitrary memory access.
+
+---
+
+### **Next Steps for Analysis**
+
+1. **Static Analysis:**
+   - Use disassemblers like IDA Pro or Ghidra to inspect the code.
+   - Look for functions that handle user input (e.g., `gets`, `scanf`, `read`).
+   - Identify any use of unsafe functions (e.g., `strcpy`, `strcat`).
+
+2. **Dynamic Analysis:**
+   - Run the binary in a controlled environment (like a VM or sandbox).
+   - Use a debugger (e.g., GDB with `pwndbg`, `gef`, or `pedal`) to step through execution.
+   - Monitor how inputs affect program flow and memory.
+
+3. **Look for Integer Vulnerabilities:**
+   - Since the challenge is likely focused on integer issues, pay attention to how integers are used.
+   - Check for:
+     - Integer overflows when performing arithmetic operations.
+     - Sign errors where signed and unsigned integers are mixed.
+     - Incorrect bounds checking due to integer wrapping.
+
+4. **Identify Exploitation Points:**
+   - Find where buffer overflows or memory corruption can occur.
+   - Determine if input sizes are incorrectly calculated due to integer vulnerabilities.
+   - Assess if you can control the size of memory operations (e.g., using an oversized `memcpy`).
+
+5. **Crafting the Exploit:**
+   - Develop a payload that takes advantage of the identified vulnerability.
+   - Ensure that the payload accounts for ASLR if present (though not indicated in the given info).
+   - Leverage known addresses (due to PIE being disabled) to redirect execution flow.
+
+6. **Testing the Exploit:**
+   - Continuously test and refine the exploit in the controlled environment.
+   - Use breakpoints and watchpoints in the debugger to monitor the state.
+
+---
+
+### **Conclusion**
+
+The binary presents several potential vulnerabilities due to its security properties:
+
+- Lack of stack canaries allows stack overflows.
+- NX enabled requires ROP or return-to-libc techniques.
+- Disabled PIE and presence of symbols simplify exploit development.
+- Partial RELRO allows for GOT overwrite attacks.
+- Since the challenge is in the "integer" category, focus on integer-related vulnerabilities that may facilitate these attacks.
+
+A methodical approach combining static and dynamic analysis will help in identifying the exact vulnerability and crafting a working exploit.
+
+---
+
+**Note:** Always ensure that all exploit development and testing are conducted within legal boundaries and in environments designed for such activities, like CTFs or approved labs.

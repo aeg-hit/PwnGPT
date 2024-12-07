@@ -1,0 +1,136 @@
+Based on the information provided, let's analyze the binary and its security properties to understand potential vulnerabilities and exploitation strategies.
+
+### File Information Analysis
+
+**Command Output:**
+```
+./pwn/string/fmt-2/fmt2: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=81593855a5562e175ec76c6d4f3a88cf2e85ebbb, not stripped
+```
+
+**Analysis:**
+
+- **ELF 64-bit LSB executable**: The binary is a 64-bit executable for Linux, using Little Endian byte order.
+- **x86-64 architecture**: It runs on 64-bit Intel/AMD processors.
+- **Dynamically linked**: The binary relies on shared libraries at runtime. This may include standard libraries like `libc`, which can be leveraged during exploitation.
+- **Interpreter `/lib64/ld-linux-x86-64.so.2`**: The dynamic linker/loader used to run the program.
+- **For GNU/Linux 2.6.32**: The binary is compatible with Linux kernel version 2.6.32 and above.
+- **BuildID**: An identifier for the specific build of the binary.
+- **Not stripped**: Symbol and debugging information are present. This makes reverse engineering and analysis easier because function names and symbols are retained.
+
+### Security Properties Analysis
+
+**Command Output:**
+```json
+{
+  "./pwn/string/fmt-2/fmt2": {
+    "relro": "partial",
+    "canary": "yes",
+    "nx": "yes",
+    "pie": "no",
+    "rpath": "no",
+    "runpath": "no",
+    "symbols": "yes",
+    "fortify_source": "no",
+    "fortified": "0",
+    "fortify-able": "1"
+  }
+}
+```
+
+**Analysis:**
+
+1. **RELRO (Relocation Read-Only): Partial**
+
+   - **Partial RELRO**: Only the `.got` (Global Offset Table) is not fully protected. While some sections are read-only, the GOT remains writable.
+   - **Implication**: An attacker might overwrite GOT entries to redirect function calls, which is a common strategy in format string attacks.
+
+2. **Canary: Yes**
+
+   - **Stack Canaries Enabled**: The binary includes stack canaries to detect stack-based buffer overflows.
+   - **Implication**: Simple buffer overflow attacks that overwrite the return address will likely fail due to canary checks. Exploitation strategies should avoid overwriting the canary or find ways to bypass it.
+
+3. **NX (No eXecute Bit): Yes**
+
+   - **Non-Executable Stack and Heap**: The stack and heap are marked as non-executable.
+   - **Implication**: Injected shellcode cannot be executed from these regions. Return-oriented programming (ROP) or similar techniques must be used instead.
+
+4. **PIE (Position-Independent Executable): No**
+
+   - **PIE Disabled**: The binary and its code are loaded at fixed memory addresses each time.
+   - **Implication**: Predictable memory addresses make it easier to perform return-to-libc attacks or ROP chains since the addresses of functions and gadgets are known.
+
+5. **Symbols: Yes**
+
+   - **Symbols Present**: Function names and other symbols are included in the binary.
+   - **Implication**: Easier to identify important functions (like `printf`, `system`, etc.) and useful for constructing exploits.
+
+6. **Fortify Source: No**
+
+   - **Source Fortification Disabled**: The binary is not compiled with `-D_FORTIFY_SOURCE`.
+   - **Implication**: Additional security checks for buffer overflows in certain `libc` functions are not present.
+
+7. **Fortified: 0 / Fortify-able: 1**
+
+   - **No Functions Fortified**: Although one function is capable of being fortified, none are.
+   - **Implication**: Potential vulnerabilities in standard library function usage are not mitigated.
+
+### Potential Vulnerabilities and Exploitation Strategies
+
+Given the above analysis, here's how an attacker might approach exploiting the binary:
+
+#### 1. Format String Vulnerability
+
+- **Context**: The binary is located in a path suggesting a format string challenge (`./pwn/string/fmt-2/fmt2`), and the filename `fmt2` hints at this as well.
+- **Exploitation**:
+  - **Leak Information**: Using format specifiers like `%x` or `%s` to read memory contents, possibly leaking stack canary values or addresses.
+  - **Arbitrary Write**: Exploiting the `%n` format specifier to write arbitrary values to memory locations.
+  - **Overwriting GOT Entries**: Since RELRO is partial, the GOT is writable. An attacker can overwrite GOT entries of functions like `exit` or `printf` to redirect execution flow.
+  
+#### 2. Bypassing Stack Canaries
+
+- **Challenge**: Directly overwriting the return address on the stack would trigger the canary check and abort the program.
+- **Solution**:
+  - **Avoid Stack Overflows**: Use vulnerabilities that don't involve overwriting the stack canary, such as format string exploits or heap-based overflows (if possible).
+  - **Leak Canary**: If the canary value can be leaked using a format string vulnerability, an attacker could include it in their payload to pass the check.
+
+#### 3. Return-Oriented Programming (ROP)
+
+- **Fixed Addresses**: With PIE disabled, memory addresses are known.
+- **Strategy**:
+  - **Build ROP Chain**: Use gadgets within the binary or linked libraries to construct a ROP chain leading to code execution.
+  - **Jump to `system()`**: Redirect execution to the `system()` function with a controlled argument (e.g., `/bin/sh`).
+
+#### 4. Leveraging Symbol Information
+
+- **Ease of Analysis**: Symbols make it easier to locate functions and variables necessary for crafting the exploit.
+- **Usage**:
+  - **Identify GOT Entries**: Quickly find and target specific GOT entries for overwriting.
+  - **Locate Useful Functions**: Find functions like `system`, `puts`, `gets`, etc., which can be useful in crafting the payload.
+
+### Summary
+
+- **Primary Attack Vector**: Format string vulnerability exploiting the `%n` specifier to perform arbitrary writes.
+- **Target**: Overwrite GOT entries due to partial RELRO.
+- **Challenges**:
+  - **Stack Canaries**: Must avoid overwriting or find ways to bypass.
+  - **Non-Executable Memory**: Cannot execute injected shellcode directly.
+- **Advantages**:
+  - **Non-PIE Binary**: Predictable memory addresses for functions and gadgets.
+  - **Symbols Present**: Simplifies reverse engineering and exploit development.
+- **Potential Exploit Steps**:
+  1. **Leak Memory Addresses**: Use format string to leak addresses or canary values.
+  2. **Calculate Offsets**: Determine the correct offsets for payload insertion.
+  3. **Overwrite GOT Entry**: Use `%n` to overwrite a GOT entry with the address of `system()` or another useful function.
+  4. **Trigger Function Call**: Cause the program to call the overwritten function, leading to code execution.
+
+### Recommendations for Further Analysis
+
+- **Disassemble the Binary**: Analyze the code to identify where user input is used in `printf`-like functions without proper formatting, confirming the presence of a format string vulnerability.
+- **Identify Vulnerable Functions**: Look for functions like `printf(user_input)` or similar patterns.
+- **Test Exploitation Locally**: Craft payloads to test the format string vulnerability and observe the program's behavior.
+- **Consider Protections**: Always be mindful of the binary's protections to avoid common pitfalls (e.g., watch for canaries when dealing with the stack).
+
+### Ethical Considerations
+
+- **Responsible Exploitation**: Ensure that any exploitation is conducted within legal boundaries and is limited to the CTF environment.
+- **Learning Objective**: Use this challenge as an opportunity to understand format string vulnerabilities and common mitigation bypass techniques.
