@@ -22,9 +22,9 @@ def _set_env(var: str):
 
 # OpenAI api with qwen
 _set_env("OPENAI_API_KEY")
-expt_llm = "openai/o1-preview"
-base="https://openrouter.ai/api/v1"
-# base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+expt_llm = "qwen-plus"
+# base="https://openrouter.ai/api/v1"
+base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 
 def get_decompilefile(path):
@@ -249,7 +249,7 @@ def run(concatenated_content) -> code:
 
 # Parameter
 # Max tries
-max_iterations = 2
+max_iterations = 1
 # Reflect
 flag = 'reflect'
 # flag = "do not reflect"

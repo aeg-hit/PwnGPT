@@ -1,7 +1,7 @@
 from processing import llmgraph
-from preprocessing import file, retrieval
+from preprocessing import constructInfo, file, retrieval
 
-
+import re,os
 from pprint import pprint
 
 
@@ -75,9 +75,8 @@ def evaluate_2():
                 f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
     print("result: ", str(success)+'/'+str(len(clist)))
 
-
-if __name__ == "__main__":
-    # 事实证明通义不会用FmtStr
+def evaluate_fmtstr():
+        # 事实证明通义不会用FmtStr
     pwn_path = file.PwnInfo("./pwn/string/", "fmt")
     clist = pwn_path.get_clist()
     blist = pwn_path.get_binarylist()
@@ -91,5 +90,42 @@ if __name__ == "__main__":
     resultcode = llmgraph.run_graph(c_infohead+decfile.page_content, messages)
 
     # save
-    with open(pwn_path.list[i]+'/result_2_try_2_withinfo.txt', 'w') as f:
+    with open(pwn_path.list[i]+f'/result_2_try_1_withinfo_{modelName}.txt', 'w') as f:
         pprint(resultcode, stream=f)
+
+pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
+
+
+
+def sanitize_filename(filename):
+
+    illegal_chars = r'[\\/:*?"<>|\r\n]+'
+    
+    sanitized = re.sub(illegal_chars, '_', filename)
+    
+    sanitized = sanitized.rstrip()
+    
+    return sanitized
+
+modelName=sanitize_filename(llmgraph.expt_llm)
+
+
+
+if __name__ == "__main__":
+    # 事实证明通义不会用FmtStr
+    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+    clist = pwn_path.get_clist()
+    blist = pwn_path.get_binarylist()
+    print("Start: ")
+
+    i = 1
+    if not os.path.exists(pwn_path.list[i]+modelName):
+        os.makedirs(pwn_path.list[i]+f'/{modelName}')
+
+    decfile = llmgraph.get_decompilefile(clist[i])[0]
+    c_infohead = "\nHere is the decompiled C file:\n"
+    res=constructInfo.get_funclist("qwen-plus-2024-11-27",llmgraph.base,decfile)
+
+    # save
+    with open(pwn_path.list[i]+f'/{modelName}/codeInfo.txt', 'w') as f:
+        f.write(res)
