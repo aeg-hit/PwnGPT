@@ -1,7 +1,8 @@
 from processing import llmgraph
 from preprocessing import constructInfo, file, retrieval
 
-import re,os
+import re
+import os
 from pprint import pprint
 
 
@@ -58,7 +59,7 @@ def evaluate_2():
         decfile = llmgraph.get_decompilefile(clist[i])[0]
         # limit 128k token
         if len(decfile.page_content.split()) > 128000:
-            resultcode="Invalid_request_error: Input is too big."
+            resultcode = "Invalid_request_error: Input is too big."
             print("Input words are more than 128k.")
         else:
             c_infohead = "\nHere is the decompiled C file:\n"
@@ -72,11 +73,13 @@ def evaluate_2():
         with open(pwn_path.list[i]+'/result_2_try_2.txt', 'w') as f:
             pprint(resultcode, stream=f)
             if 'generation' in resultcode:
-                f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
+                f.write(resultcode["generation"].imports +
+                        "\n" + resultcode["generation"].code)
     print("result: ", str(success)+'/'+str(len(clist)))
 
+
 def evaluate_fmtstr():
-        # 事实证明通义不会用FmtStr
+    # 事实证明通义不会用FmtStr
     pwn_path = file.PwnInfo("./pwn/string/", "fmt")
     clist = pwn_path.get_clist()
     blist = pwn_path.get_binarylist()
@@ -93,22 +96,23 @@ def evaluate_fmtstr():
     with open(pwn_path.list[i]+f'/result_2_try_1_withinfo_{modelName}.txt', 'w') as f:
         pprint(resultcode, stream=f)
 
-pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
 
+pathName = [("./pwn/stack/", "rop"), ("./pwn/string/", "fmt"),
+            ("./pwn/integer/", "int"), ("./pwn/heap/", "heap")]
 
 
 def sanitize_filename(filename):
 
     illegal_chars = r'[\\/:*?"<>|\r\n]+'
-    
+
     sanitized = re.sub(illegal_chars, '_', filename)
-    
+
     sanitized = sanitized.rstrip()
-    
+
     return sanitized
 
-modelName=sanitize_filename(llmgraph.expt_llm)
 
+modelName = sanitize_filename(llmgraph.expt_llm)
 
 
 if __name__ == "__main__":
@@ -118,14 +122,17 @@ if __name__ == "__main__":
     blist = pwn_path.get_binarylist()
     print("Start: ")
 
-    i = 1
-    if not os.path.exists(pwn_path.list[i]+modelName):
+    i = 0
+    if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
         os.makedirs(pwn_path.list[i]+f'/{modelName}')
 
     decfile = llmgraph.get_decompilefile(clist[i])[0]
-    c_infohead = "\nHere is the decompiled C file:\n"
-    res=constructInfo.get_funclist("qwen-plus-2024-11-27",llmgraph.base,decfile)
 
-    # save
-    with open(pwn_path.list[i]+f'/{modelName}/codeInfo.txt', 'w') as f:
-        f.write(res)
+    problem=constructInfo.get_problem(blist[i],pwn_path.filename)
+
+    print(problem)
+    # funclist=constructInfo.get_funclist("qwen-plus-2024-11-27",llmgraph.base,decfile)
+
+    # # save
+    # with open(pwn_path.list[i]+f'/{modelName}/codeInfo.txt', 'w') as f:
+    #     f.write(funclist)
