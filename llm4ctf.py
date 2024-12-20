@@ -122,17 +122,33 @@ if __name__ == "__main__":
     blist = pwn_path.get_binarylist()
     print("Start: ")
 
-    i = 9
-    if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
-        os.makedirs(pwn_path.list[i]+f'/{modelName}')
+    for i in range(len(clist)):
+        if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
+            os.makedirs(pwn_path.list[i]+f'/{modelName}')
 
-    decfile = llmgraph.get_decompilefile(clist[i])[0]
+        decfile = llmgraph.get_decompilefile(clist[i])[0]
 
-    problem=constructInfo.get_problem(blist[i],pwn_path.filename)
+        
+        # limit 128k token
+        if len(decfile.page_content.split()) > 128000:
+            resultcode = "Invalid_request_error: Input is too big."
+            print("Input words are more than 128k.")
+        else:
+            funclist=constructInfo.get_funclist(llmgraph.expt_llm, llmgraph.base, decfile.page_content)
+            problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), funclist)
+        
+            # save problem
+            with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
+                f.write(problem)
+            
+            resultcode = llmgraph.run_graph(problem)
+        # save
+        with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
+            pprint(resultcode, stream=f)
+            if 'generation' in resultcode:
+                f.write(resultcode["generation"].imports +
+                        "\n" + resultcode["generation"].code)
+        
+        break
+            
 
-    print(problem)
-    # funclist=constructInfo.get_funclist("qwen-plus-2024-11-27",llmgraph.base,decfile)
-
-    # # save
-    # with open(pwn_path.list[i]+f'/{modelName}/codeInfo.txt', 'w') as f:
-    #     f.write(funclist)

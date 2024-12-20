@@ -39,6 +39,9 @@ def get_funclist(expt_llm, base, de_str):
                                                 '''), ("placeholder", "{messages}")])
     flist = (prompt | structured_llm_claude).invoke({"context": de_str, "messages": [
         ("human", "Please find the functions that affect our exploit code, just give me a list of function names.")]})
+    
+    if 'main' not in flist.func_name:
+        flist.func_name.append('main')
     print(flist.func_name)
 
     # add other relate function, but this will add 'put' and 'print' sometime
@@ -107,11 +110,11 @@ def get_plt(path):
     return result
 
 
-def get_problem(path, filename):
+def get_problem(path, filename, funclist):
     baseinfo = get_baseinfo(path)
     info_num = 1
-    problem = f'Challenge is a{baseinfo[0]} file, which is named as {filename}.\n1.Here is the key function for exploit in the C file decompiled from {filename}:\n'
-    funclist = 'this is code.\n\n'
+    problem = f'Challenge is a{baseinfo[0]} file and the file path is "{path}".\n1.Here is the key function for exploit in the C file decompiled from {filename}:\n'
+    funclist += '\n\n'
     problem += funclist
     info_num += 1
     # checksec
@@ -132,7 +135,7 @@ def get_problem(path, filename):
     problem += f"{info_num}.We use ROPgadget to search gadgets on {filename}:\n"
     info_num += 1
     problem += ROPgadget+'\n'
-    # Relocation section 
+    # Relocation section (.plt is useful for read. When relro is full, .rel.plt (.got.plt) is unuseful)
     if secinfo['relro'] != 'full':
         relplt = get_plt(path)
         problem += f"{info_num}.Here is information of the file's relocation section:\n"
