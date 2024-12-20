@@ -116,13 +116,13 @@ modelName = sanitize_filename(llmgraph.expt_llm)
 
 
 if __name__ == "__main__":
-    # 事实证明通义不会用FmtStr
+
     pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     clist = pwn_path.get_clist()
     blist = pwn_path.get_binarylist()
     print("Start: ")
 
-    i = 0
+    i = 9
     if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
         os.makedirs(pwn_path.list[i]+f'/{modelName}')
 

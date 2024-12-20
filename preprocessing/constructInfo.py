@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 import subprocess
 import getpass
 import re
+import json
 
 info_expt_llm = "qwen-plus-2024-11-27"
 # base="https://openrouter.ai/api/v1"
@@ -114,10 +115,10 @@ def get_problem(path, filename):
     problem += funclist
     info_num += 1
     # checksec
-    secinfo = get_secinfo(path)
+    secinfo = json.loads(get_secinfo(path))[path]
     problem += f"{info_num}.Here is the file security infomation identified by 'checksec' command:\n"
     info_num += 1
-    problem += secinfo+'\n\n'
+    problem += json.dumps(secinfo)+'\n\n'
     # printable strings
     strings = get_strings(path)
     if strings:
@@ -132,8 +133,9 @@ def get_problem(path, filename):
     info_num += 1
     problem += ROPgadget+'\n'
     # Relocation section 
-    relplt = get_plt(path)
-    problem += f"{info_num}.Here is information of the file's relocation section:\n"
-    info_num += 1
-    problem += relplt+'\n'
+    if secinfo['relro'] != 'full':
+        relplt = get_plt(path)
+        problem += f"{info_num}.Here is information of the file's relocation section:\n"
+        info_num += 1
+        problem += relplt+'\n'
     return problem

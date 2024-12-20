@@ -26,4 +26,4 @@ fmt1 write, fmt2 read, fmt3 hijack retaddr, fmt4-5 hijack GOT.
 int1 Integer Overflow and ret2text, int1 Integer Overflow and ret2shellcode.
 heap1 UAF, heap2 heap overflow. (heap challenges with libc are too difficult to llm)
 ### problems.txt: 
-(1) file info (2) decompile (3) readelf -r  (4) strings -d (5) ROPgadget --binary rop --only "pop|ret" > g.txt (6) checksec --format=json --file=
+(1) file info (2) decompile (3) readelf -r  (get plt: objdump -d ./pwn/stack/rop-2/rop2 | grep @plt) (4) strings -d (5) ROPgadget --binary rop --only "pop|ret" > g.txt (6) checksec --format=json --file=
