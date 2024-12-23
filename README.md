@@ -13,7 +13,7 @@ RAG (Retrieval Augmented Generation) then check code and reflect.
 some data document about ctf (datasets).
 
 ## preprocessing/ 
-load file, embedding and save.
+load file, analysis, embedding and save.
 
 ## processing/ 
 llm application with langgraph.
