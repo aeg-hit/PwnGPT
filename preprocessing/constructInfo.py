@@ -109,6 +109,15 @@ def get_plt(path):
             result=section
     return result
 
+def flawfinder(path):
+    result = subprocess.run(['flawfinder', path],
+                            check=True, capture_output=True, text=True)
+    strs = result.stdout.split('\n\n')
+    result=''
+    for section in strs:
+        if section.startswith("Relocation section '.rel.plt'"):
+            result=section
+    return result
 
 def get_problem(path, filename, funclist):
     baseinfo = get_baseinfo(path)

@@ -114,9 +114,7 @@ def sanitize_filename(filename):
 
 modelName = sanitize_filename(llmgraph.expt_llm)
 
-
-if __name__ == "__main__":
-
+def evaluate_last():
     pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     clist = pwn_path.get_clist()
     blist = pwn_path.get_binarylist()
@@ -149,6 +147,33 @@ if __name__ == "__main__":
                 f.write(resultcode["generation"].imports +
                         "\n" + resultcode["generation"].code)
         
-        break
+
+if __name__ == "__main__":
+
+    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+    clist = pwn_path.get_clist()
+    blist = pwn_path.get_binarylist()
+    print("Start: ")
+
+    for i in range(len(clist)):
+        if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
+            os.makedirs(pwn_path.list[i]+f'/{modelName}')
+
+        decfile = llmgraph.get_decompilefile(clist[i])[0]
+
+        
+        # limit 128k token
+        if len(decfile.page_content.split()) > 128000:
+            resultcode = constructInfo.flawfinder(llmgraph.expt_llm, llmgraph.base, decfile.page_content)
+            print("Input words are more than 128k.")
+                        # save problem
+            with open(pwn_path.list[i]+f'/{modelName}/flawfinder.txt', 'w') as f:
+                f.write(resultcode)
+        else:
+            pass
+        
+
+            
+
             
 
