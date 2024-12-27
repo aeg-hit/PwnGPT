@@ -164,11 +164,12 @@ if __name__ == "__main__":
         
         # limit 128k token
         if len(decfile.page_content.split()) > 128000:
-            resultcode = constructInfo.flawfinder(llmgraph.expt_llm, llmgraph.base, decfile.page_content)
-            print("Input words are more than 128k.")
-                        # save problem
-            with open(pwn_path.list[i]+f'/{modelName}/flawfinder.txt', 'w') as f:
-                f.write(resultcode)
+            print(clist[i])
+            resultcode = constructInfo.static_analysis(decfile.page_content)
+            problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), resultcode)
+            # save problem
+            with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
+                f.write(problem)
         else:
             pass
         

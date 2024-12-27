@@ -8,6 +8,8 @@ import getpass
 import re
 import json
 
+from preprocessing import analysis
+
 info_expt_llm = "qwen-plus-2024-11-27"
 # base="https://openrouter.ai/api/v1"
 info_base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -39,7 +41,7 @@ def get_funclist(expt_llm, base, de_str):
                                                 '''), ("placeholder", "{messages}")])
     flist = (prompt | structured_llm_claude).invoke({"context": de_str, "messages": [
         ("human", "Please find the functions that affect our exploit code, just give me a list of function names.")]})
-    
+
     if 'main' not in flist.func_name:
         flist.func_name.append('main')
     print(flist.func_name)
@@ -99,25 +101,26 @@ def get_gadget(path):
 
     return strs
 
+
 def get_plt(path):
     result = subprocess.run(['readelf', '-r', path],
                             check=True, capture_output=True, text=True)
     strs = result.stdout.split('\n\n')
-    result=''
+    result = ''
     for section in strs:
         if section.startswith("Relocation section '.rel.plt'"):
-            result=section
+            result = section
     return result
 
-def flawfinder(path):
-    result = subprocess.run(['flawfinder', path],
-                            check=True, capture_output=True, text=True)
-    strs = result.stdout.split('\n\n')
-    result=''
-    for section in strs:
-        if section.startswith("Relocation section '.rel.plt'"):
-            result=section
+
+def static_analysis(code):
+    result = ''
+    functions = analysis.find_functions(code)
+    extracted_funcs = analysis.extract_main_and_calls(functions)
+    for func_name, func_code in extracted_funcs.items():
+        result += func_code+"\n\n"
     return result
+
 
 def get_problem(path, filename, funclist):
     baseinfo = get_baseinfo(path)
