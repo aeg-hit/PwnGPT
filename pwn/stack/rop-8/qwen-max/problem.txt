@@ -1,0 +1,119 @@
+Challenge is a ELF 64-bit LSB executable file and the file path is "./pwn/stack/rop-8/rop8".
+1.Here is the key function for exploit in the C file decompiled from rop8:
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  __int64 buf[2]; // [rsp+0h] [rbp-10h] BYREF
+
+  buf[0] = 0LL;
+  buf[1] = 0LL;
+  setvbuf(_bss_start, 0LL, 1, 0LL);
+  puts("Welcome to CTFHub ret2shellcode!");
+  printf("What is it : [%p] ?\n", buf);
+  puts("Input someting : ");
+  read(0, buf, 0x400uLL);
+  return 0;
+}
+
+__int64 (**init_proc())(void)
+{
+  __int64 (**result)(void); // rax
+
+  result = &_gmon_start__;
+  if ( &_gmon_start__ )
+    return (__int64 (**)(void))_gmon_start__();
+  return result;
+}
+
+__int64 sub_4004D0()
+{
+  return qword_601010();
+}
+
+void term_proc()
+{
+  ;
+}
+
+void __fastcall __noreturn start(__int64 a1, __int64 a2, void (*a3)(void))
+{
+  __int64 v3; // rax
+  int v4; // esi
+  __int64 v5; // [rsp-8h] [rbp-8h] BYREF
+  char *retaddr; // [rsp+0h] [rbp+0h] BYREF
+
+  v4 = v5;
+  v5 = v3;
+  _libc_start_main(
+    (int (__fastcall *)(int, char **, char **))main,
+    v4,
+    &retaddr,
+    (void (*)(void))_libc_csu_init,
+    _libc_csu_fini,
+    a3,
+    &v5);
+  __halt();
+}
+
+void __fastcall _libc_csu_init(unsigned int a1, __int64 a2, __int64 a3)
+{
+  signed __int64 v4; // rbp
+  __int64 i; // rbx
+
+  v4 = &_do_global_dtors_aux_fini_array_entry - &_frame_dummy_init_array_entry;
+  init_proc();
+  if ( v4 )
+  {
+    for ( i = 0LL; i != v4; ++i )
+      ((void (__fastcall *)(_QWORD, __int64, __int64))*(&_frame_dummy_init_array_entry + i))(a1, a2, a3);
+  }
+}
+
+FILE **deregister_tm_clones()
+{
+  return &_bss_start;
+}
+
+__int64 register_tm_clones()
+{
+  return 0LL;
+}
+
+FILE **_do_global_dtors_aux()
+{
+  FILE **result; // rax
+
+  if ( !completed_7698 )
+  {
+    result = deregister_tm_clones();
+    completed_7698 = 1;
+  }
+  return result;
+}
+
+__int64 frame_dummy()
+{
+  return register_tm_clones();
+}
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "partial", "canary": "no", "nx": "no", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "2"}
+
+3.We use ROPgadget to search gadgets on rop8:
+Gadgets information
+============================================================
+0x00000000004006ec : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006ee : pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006f0 : pop r14 ; pop r15 ; ret
+0x00000000004006f2 : pop r15 ; ret
+0x00000000004006eb : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006ef : pop rbp ; pop r14 ; pop r15 ; ret
+0x0000000000400588 : pop rbp ; ret
+0x00000000004006f3 : pop rdi ; ret
+0x00000000004006f1 : pop rsi ; pop r15 ; ret
+0x00000000004006ed : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004004c6 : ret
+
+Unique gadgets found: 11
+
+4.Here is information of the file's relocation section:
+

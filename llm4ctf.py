@@ -114,64 +114,47 @@ def sanitize_filename(filename):
 
 modelName = sanitize_filename(llmgraph.expt_llm)
 
-def evaluate_last():
-    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
-    clist = pwn_path.get_clist()
-    blist = pwn_path.get_binarylist()
-    print("Start: ")
-
-    for i in range(len(clist)):
-        if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
-            os.makedirs(pwn_path.list[i]+f'/{modelName}')
-
-        decfile = llmgraph.get_decompilefile(clist[i])[0]
-
-        
-        # limit 128k token
-        if len(decfile.page_content.split()) > 128000:
-            resultcode = "Invalid_request_error: Input is too big."
-            print("Input words are more than 128k.")
-        else:
-            funclist=constructInfo.get_funclist(llmgraph.expt_llm, llmgraph.base, decfile.page_content)
-            problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), funclist)
-        
-            # save problem
-            with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
-                f.write(problem)
-            
-            resultcode = llmgraph.run_graph(problem)
-        # save
-        with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
-            pprint(resultcode, stream=f)
-            if 'generation' in resultcode:
-                f.write(resultcode["generation"].imports +
-                        "\n" + resultcode["generation"].code)
         
 
 if __name__ == "__main__":
+    for name in pathName:
+        pwn_path = file.PwnInfo(*name)
+        # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+        clist = pwn_path.get_clist()
+        blist = pwn_path.get_binarylist()
+        print("Start: ")
 
-    pwn_path = file.PwnInfo("./pwn/stack/", "rop")
-    clist = pwn_path.get_clist()
-    blist = pwn_path.get_binarylist()
-    print("Start: ")
+        for i in range(len(clist)):
+            print(clist[i])
+            if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
+                os.makedirs(pwn_path.list[i]+f'/{modelName}')
 
-    for i in range(len(clist)):
-        if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
-            os.makedirs(pwn_path.list[i]+f'/{modelName}')
-
-        decfile = llmgraph.get_decompilefile(clist[i])[0]
+            decfile = llmgraph.get_decompilefile(clist[i])[0]
 
         
-        # limit 128k token
-        if len(decfile.page_content.split()) > 128000:
-            print(clist[i])
-            resultcode = constructInfo.static_analysis(decfile.page_content, llmgraph.expt_llm, llmgraph.base)
-            problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), resultcode)
-            # save problem
-            with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
-                f.write(problem)
-        else:
-            pass
+            # limit 128k token
+            if len(decfile.page_content.split()) > 128000:
+
+                resultcode = constructInfo.static_analysis(decfile.page_content, llmgraph.expt_llm, llmgraph.base)
+                problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), resultcode)
+                # save problem
+                with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
+                    f.write(problem)
+            else:
+                funclist=constructInfo.get_funclist(llmgraph.expt_llm, llmgraph.base, decfile.page_content)
+                problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), funclist)
+        
+                # save problem
+                with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
+                    f.write(problem)
+            
+                resultcode = llmgraph.run_graph(problem)
+            # save
+            with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
+                pprint(resultcode, stream=f)
+                if 'generation' in resultcode:
+                    f.write(resultcode["generation"].imports +
+                            "\n" + resultcode["generation"].code)
         
 
             
