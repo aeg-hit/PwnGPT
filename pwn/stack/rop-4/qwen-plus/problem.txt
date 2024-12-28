@@ -48,6 +48,32 @@ unsigned int __cdecl setresgid(int a1, int a2)
   return result;
 }
 
+//----- (08048EF4) --------------------------------------------------------
+int __cdecl call_me_with_cafebabe(int a1)
+{
+  int result; // eax
+
+  if ( a1 == -889275714 )
+  {
+    result = unk_80C5EC8;
+    exec_string = unk_80C5EC8;
+  }
+  return result;
+}
+
+//----- (08048F0E) --------------------------------------------------------
+int __cdecl call_me_with_two_args(int a1, int a2)
+{
+  int result; // eax
+
+  if ( a2 == -889275714 && a1 == -559038737 )
+  {
+    strcpy((char *)&exec_string, "/bin");
+    return (unsigned __int8)aBin[4];
+  }
+  return result;
+}
+
 
 
 2.Here is the file security infomation identified by 'checksec' command:

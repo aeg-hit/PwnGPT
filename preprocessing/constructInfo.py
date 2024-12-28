@@ -108,17 +108,53 @@ def get_plt(path):
     strs = result.stdout.split('\n\n')
     result = ''
     for section in strs:
-        if section.find("Relocation section '.rel.plt'") !=-1:
+        if section.find("Relocation section '.rel.plt'") != -1:
             result = section
     return result
 
 
-def static_analysis(code):
+def static_analysis(code, expt_llm, base):
     result = ''
     functions = analysis.find_functions(code)
     extracted_funcs = analysis.extract_main_and_calls(functions)
+
+    llm = ChatOpenAI(temperature=0, model=expt_llm, base_url=base)
+    structured_llm_claude = llm.with_structured_output(funclist)
+    prompt = ChatPromptTemplate.from_messages([("system", '''You are a expert on Capture the Flag (CTF) competition, and are good at Binary Exploitation (pwn) challenges. \n 
+                                                There is a pwn challenge in the CTF competition, we need to write code to solve the challenge and we get the C file decompiled from the challenge,
+                                                 here is a list of function names  from the decompiled C file:\n ------- \n  {context} \n ------- \n 
+                                                '''), ("placeholder", "{messages}")])
+    flist = (prompt | structured_llm_claude).invoke({"context": list(functions.keys()), "messages": [
+        ("human", "Please find functions appear to be named artificially and may be related to specific application logic, just give me a list of function names.")]})
+
+    print(flist.func_name)
+    # extlist = []
+    # for func_name in flist.func_name:
+    #     if func_name not in extracted_funcs.keys():
+    #         extlist.append(func_name)
+
+    prompt.append(("ai", str(flist.func_name)))
+    max_func=len(extracted_funcs)+2
+
+    if max_func < len(flist.func_name):
+        prompt.append(
+            ("human", f"For these function names you provide, which functions are important for our exploit code? Please select up to {max_func} function names from them."))
+        result2 = (prompt | structured_llm_claude).invoke(
+            {"context": list(functions.keys())})
+        print(result2.func_name)
+    else:
+        result2=flist
+
     for func_name, func_code in extracted_funcs.items():
         result += func_code+"\n\n"
+
+    for func_name in result2.func_name:
+        if func_name not in extracted_funcs.keys():
+            func = functions.get(func_name)
+            # sometime llm give fake function name
+            if func:
+                result += func['comment'] + "\n" + func['code'] + "\n\n"
+
     return result
 
 

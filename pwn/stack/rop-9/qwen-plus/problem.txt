@@ -175,6 +175,322 @@ _BYTE *__cdecl IO_getline(int *a1, _BYTE *a2, unsigned int a3, int a4, int a5)
   return IO_getline_info(a1, a2, a3, a4, a5, 0);
 }
 
+//----- (0804818C) --------------------------------------------------------
+int init_proc()
+{
+  return 0;
+}
+
+//----- (080483BC) --------------------------------------------------------
+void __noreturn detach_arena_part_2()
+{
+  _malloc_assert("detach_arena");
+}
+
+//----- (080483D8) --------------------------------------------------------
+void __noreturn oom()
+{
+  dl_dprintf(2, "cannot allocate memory for thread-local data: ABORT\n");
+  exit(127);
+}
+
+//----- (08048410) --------------------------------------------------------
+int init_cacheinfo()
+{
+  signed int v0; // edi
+  int result; // eax
+  int v2; // ebp
+  int v3; // edi
+  int v4; // ebx
+  int v5; // ecx
+  int v6; // ebp
+  int v7; // edi
+  int v8; // esi
+  int v14; // ecx
+  unsigned int v15; // ecx
+  int v16; // eax
+  int v17; // esi
+  unsigned int v28; // ebx
+  bool v34; // al
+  int v35; // ecx
+  int v36; // ebp
+  int v37; // esi
+  int v38; // edi
+  int v44; // ecx
+  unsigned int v45; // ecx
+  unsigned int v46; // ecx
+  int v47; // eax
+  unsigned int v48; // ecx
+  int v49; // [esp+4h] [ebp-38h]
+  int v50; // [esp+8h] [ebp-34h]
+  int v51; // [esp+Ch] [ebp-30h]
+  bool v52; // [esp+13h] [ebp-29h]
+  int v53; // [esp+14h] [ebp-28h]
+  int v54; // [esp+1Ch] [ebp-20h]
+
+  if ( dl_x86_cpu_features != 1 )
+  {
+    if ( dl_x86_cpu_features != 2 )
+      goto LABEL_3;
+    v2 = handle_amd(188);
+    v3 = handle_amd(191);
+    v17 = handle_amd(194);
+    _EAX = 0x80000000;
+    __asm { cpuid }
+    if ( v17 <= 0 )
+      goto LABEL_28;
+    if ( _EAX <= 0x80000007 )
+    {
+      _EAX = 1;
+      __asm { cpuid }
+      if ( (_EDX & 0x10000000) == 0 )
+        goto LABEL_36;
+      v28 = BYTE2(_EBX);
+      if ( !v28 )
+      {
+        v3 += v17;
+        goto LABEL_28;
+      }
+    }
+    else
+    {
+      _EAX = -2147483640;
+      __asm { cpuid }
+      v28 = 1 << ((unsigned __int16)_ECX >> 12);
+    }
+    v17 /= v28;
+LABEL_36:
+    v3 += v17;
+    goto LABEL_28;
+  }
+  v2 = handle_intel(188, dword_80EC564);
+  v49 = handle_intel(191, dword_80EC564);
+  v3 = handle_intel(194, dword_80EC564);
+  if ( v3 <= 0 )
+  {
+    v3 = v49;
+    v50 = -1;
+    v53 = 2;
+  }
+  else
+  {
+    v50 = 0;
+    v53 = 3;
+  }
+  if ( (byte_80EC577 & 0x10) == 0 )
+    goto LABEL_28;
+  if ( dword_80EC564 <= 3 )
+  {
+    v51 = 0;
+    v52 = 1;
+LABEL_20:
+    v15 = (unsigned __int8)byte_80EC56E;
+    goto LABEL_21;
+  }
+  v4 = 3;
+  if ( v50 )
+  {
+    v4 = 1;
+    v50 = -1;
+  }
+  v54 = v2;
+  v5 = 0;
+  v6 = v3;
+  v51 = 0;
+  v52 = 1;
+  v7 = v4;
+  while ( 1 )
+  {
+    v8 = v5 + 1;
+    _EAX = 4;
+    __asm { cpuid }
+    if ( (_EAX & 0x1F) == 0 )
+    {
+      v3 = v6;
+      v2 = v54;
+      goto LABEL_20;
+    }
+    v14 = (unsigned __int8)_EAX >> 5;
+    if ( v14 == 2 )
+      break;
+    if ( v14 == 3 && (v7 & 2) != 0 )
+    {
+      v7 &= ~2u;
+      v50 = (_EAX >> 14) & 0x3FF;
+      v52 = (_EDX & 2) != 0;
+      goto LABEL_17;
+    }
+LABEL_18:
+    v5 = v8;
+  }
+  if ( (v7 & 1) == 0 )
+    goto LABEL_18;
+  v7 &= ~1u;
+  v51 = (_EAX >> 14) & 0x3FF;
+LABEL_17:
+  if ( v7 )
+    goto LABEL_18;
+  v3 = v6;
+  v2 = v54;
+  if ( dword_80EC564 <= 10 )
+    goto LABEL_61;
+  v34 = 1;
+  if ( v50 <= 0 )
+    v34 = v51 > 0 && v53 == 2;
+  v35 = 0;
+  v36 = v3;
+  v37 = (v51 > 0 && v53 == 3) | (2 * v34);
+LABEL_44:
+  while ( v37 )
+  {
+    v38 = v35 + 1;
+    _EAX = 11;
+    __asm { cpuid }
+    v44 = _ECX & 0xFF00;
+    if ( !(_BYTE)_EBX || !v44 )
+      break;
+    if ( v44 == 256 )
+    {
+      if ( (v37 & 1) != 0 )
+      {
+        _BitScanReverse(&v46, v51);
+        v47 = -1 << (v46 + 1);
+        v37 &= ~1u;
+        v35 = v38;
+        v51 = ((unsigned __int8)_EBX - 1) & ~v47;
+        goto LABEL_44;
+      }
+LABEL_49:
+      v35 = v38;
+      goto LABEL_44;
+    }
+    if ( v44 != 512 || (v37 & 2) == 0 )
+      goto LABEL_49;
+    if ( v53 == 2 )
+    {
+      _BitScanReverse(&v48, v51);
+      v51 = ((unsigned __int8)_EBX - 1) & ~(-1 << (v48 + 1));
+    }
+    else
+    {
+      _BitScanReverse(&v45, v50);
+      v50 = ((unsigned __int8)_EBX - 1) & ~(-1 << (v45 + 1));
+    }
+    v37 &= ~2u;
+    v35 = v38;
+  }
+  v3 = v36;
+  v2 = v54;
+LABEL_61:
+  v51 -= (v51 == 0) - 1;
+  if ( v50 > 0 )
+  {
+    if ( v53 == 2 )
+      goto LABEL_63;
+    v15 = v50 + 1;
+    goto LABEL_21;
+  }
+  if ( v53 != 2 )
+  {
+    v15 = -1;
+    if ( v50 )
+      goto LABEL_21;
+    goto LABEL_24;
+  }
+LABEL_63:
+  if ( v51 )
+  {
+    v15 = v51;
+    if ( (unsigned int)v51 <= 2 || dword_80EC598 != 6 )
+      goto LABEL_21;
+    if ( dword_80EC59C != 77 )
+    {
+      if ( (unsigned int)dword_80EC59C > 0x4D )
+      {
+        if ( dword_80EC59C != 90 && dword_80EC59C != 93 )
+          goto LABEL_21;
+      }
+      else if ( dword_80EC59C != 55 && dword_80EC59C != 74 )
+      {
+        goto LABEL_21;
+      }
+    }
+    v15 = 2;
+LABEL_21:
+    if ( v3 > 0 && v15 )
+      v3 /= v15;
+LABEL_24:
+    if ( !v52 )
+    {
+      if ( v51 )
+        v49 /= v51;
+LABEL_27:
+      v3 += v49;
+    }
+  }
+  else if ( !v52 )
+  {
+    goto LABEL_27;
+  }
+LABEL_28:
+  if ( v2 > 0 )
+  {
+    _x86_raw_data_cache_size = v2;
+    _x86_data_cache_size = v2 & 0xFFFFFF00;
+    _x86_raw_data_cache_size_half = v2 >> 1;
+    _x86_data_cache_size_half = (int)(v2 & 0xFFFFFF00) >> 1;
+  }
+  if ( v3 > 0 )
+  {
+    v16 = v3;
+    _x86_raw_shared_cache_size = v3;
+    v0 = v3 & 0xFFFFFF00;
+    _x86_shared_cache_size = v0;
+    _x86_raw_shared_cache_size_half = v16 >> 1;
+    _x86_shared_cache_size_half = v0 >> 1;
+    goto LABEL_4;
+  }
+LABEL_3:
+  v0 = _x86_shared_cache_size;
+LABEL_4:
+  result = 6 * v0;
+  _x86_shared_non_temporal_threshold = 6 * v0;
+  return result;
+}
+
+//----- (080489A0) --------------------------------------------------------
+void __cdecl get_flag(int a1, int a2)
+{
+  int v2; // esi
+  unsigned __int8 v3; // al
+  int v4; // ecx
+  unsigned __int8 v5; // al
+
+  if ( a1 == 814536271 && a2 == 425138641 )
+  {
+    v2 = fopen("flag.txt", "rt");
+    v3 = getc(v2);
+    if ( v3 != 255 )
+    {
+      v4 = (char)v3;
+      do
+      {
+        putchar(v4);
+        v5 = getc(v2);
+        v4 = (char)v5;
+      }
+      while ( v5 != 255 );
+    }
+    fclose(v2);
+  }
+}
+
+//----- (080BC360) --------------------------------------------------------
+void term_proc()
+{
+  ;
+}
+
 
 
 2.Here is the file security infomation identified by 'checksec' command:

@@ -9,4 +9,3 @@ typing_extensions==4.12.2
 chromadb==0.5.15
 dashscope==1.20.11
 # pwntool
-# flawfinder
