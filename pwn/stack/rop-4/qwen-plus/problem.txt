@@ -734,5 +734,3 @@ Gadgets information
 
 Unique gadgets found: 672
 
-5.Here is information of the file's relocation section:
-

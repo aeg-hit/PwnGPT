@@ -830,5 +830,3 @@ Gadgets information
 
 Unique gadgets found: 644
 
-4.Here is information of the file's relocation section:
-

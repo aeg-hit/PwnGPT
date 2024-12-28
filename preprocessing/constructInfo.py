@@ -108,7 +108,7 @@ def get_plt(path):
     strs = result.stdout.split('\n\n')
     result = ''
     for section in strs:
-        if section.startswith("Relocation section '.rel.plt'"):
+        if section.find("Relocation section '.rel.plt'") !=-1:
             result = section
     return result
 
@@ -148,7 +148,7 @@ def get_problem(path, filename, funclist):
     info_num += 1
     problem += ROPgadget+'\n'
     # Relocation section (.plt is useful for read. When relro is full, .rel.plt (.got.plt) is unuseful)
-    if secinfo['relro'] != 'full':
+    if secinfo['relro'] != 'full' and 'dynamically linked' in baseinfo[3]:
         relplt = get_plt(path)
         problem += f"{info_num}.Here is information of the file's relocation section:\n"
         info_num += 1
