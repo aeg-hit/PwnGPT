@@ -7,12 +7,9 @@ ssize_t vulnerable_function()
   return read(0, buf, 0x100u);
 }
 
-int be_nice_to_people()
+int not_called()
 {
-  __gid_t v1; // [esp+1Ch] [ebp-Ch]
-
-  v1 = getegid();
-  return setresgid(v1, v1, v1);
+  return system("/bin/bash");
 }
 
 int __cdecl main(int argc, const char **argv, const char **envp)

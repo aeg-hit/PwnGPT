@@ -175,6 +175,31 @@ _BYTE *__cdecl IO_getline(int *a1, _BYTE *a2, unsigned int a3, int a4, int a5)
   return IO_getline_info(a1, a2, a3, a4, a5, 0);
 }
 
+//----- (0804818C) --------------------------------------------------------
+int init_proc()
+{
+  return 0;
+}
+
+//----- (080483D8) --------------------------------------------------------
+void __noreturn oom()
+{
+  dl_dprintf(2, "cannot allocate memory for thread-local data: ABORT\n");
+  exit(127);
+}
+
+// positive sp value has been detected, the output may be wrong!
+void __usercall __noreturn start(int a1@<eax>, void (*a2)(void)@<edx>)
+{
+  int v2; // esi
+  int v3; // [esp-4h] [ebp-4h] BYREF
+  char *retaddr; // [esp+0h] [ebp+0h] BYREF
+
+  v2 = v3;
+  v3 = a1;
+  _libc_start_main((int (__cdecl *)(int, char **, char **))main, v2, &retaddr, _libc_csu_init, _libc_csu_fini, a2, &v3);
+}
+
 //----- (080489A0) --------------------------------------------------------
 void __cdecl get_flag(int a1, int a2)
 {
@@ -202,203 +227,39 @@ void __cdecl get_flag(int a1, int a2)
   }
 }
 
-//----- (08058FF0) --------------------------------------------------------
-int __cdecl malloc_check(unsigned int a1)
+//----- (080498C0) --------------------------------------------------------
+int __cdecl transcmp(_DWORD *a1, _DWORD *a2)
 {
-  bool v2; // zf
-  int v3; // eax
-  int v4; // ecx
+  _DWORD *v2; // edx
+  _DWORD *v3; // eax
+  int result; // eax
 
-  if ( a1 == -1 )
-  {
-    __writegsdword(0xFFFFFFE8, 0xCu);
-    return 0;
-  }
+  if ( a2[4] )
+    v2 = a2 + 7;
   else
-  {
-    _ECX = 1;
-    v2 = __readgsdword(0xCu) == 0;
-    if ( !v2 )
-      __asm { lock }
-    __asm { cmpxchg main_arena, ecx }
-    if ( !v2 )
-      _lll_lock_wait_private(0, &main_arena);
-    v3 = top_check();
-    v4 = 0;
-    if ( v3 >= 0 )
-      v4 = int_malloc(&main_arena, a1 + 1);
-    if ( __readgsdword(0xCu) )
-      __asm { lock }
-    if ( --main_arena )
-      _lll_unlock_wake_private(&main_arena);
-    return mem2mem_check(v4, a1);
-  }
-}
-
-//----- (080591C0) --------------------------------------------------------
-void __cdecl free_check(unsigned int a1)
-{
-  bool v2; // zf
-  unsigned int v3; // eax
-  int v4; // ecx
-  unsigned int v5; // edx
-
-  if ( a1 )
-  {
-    _ECX = 1;
-    v2 = __readgsdword(0xCu) == 0;
-    if ( !v2 )
-      __asm { lock }
-    __asm { cmpxchg main_arena, ecx }
-    if ( !v2 )
-      _lll_lock_wait_private(0, &main_arena);
-    v3 = mem2chunk_check(a1, 0);
-    v5 = v3;
-    if ( v3 )
-    {
-      if ( (*(_BYTE *)(v3 + 4) & 2) != 0 )
-      {
-        if ( __readgsdword(0xCu) )
-          __asm { lock }
-        if ( --main_arena )
-          _lll_unlock_wake_private(&main_arena);
-        munmap_chunk(v4, v5);
-      }
-      else
-      {
-        int_free((int)&main_arena, v3, 1);
-        if ( __readgsdword(0xCu) )
-          __asm { lock }
-        if ( --main_arena )
-          _lll_unlock_wake_private(&main_arena);
-      }
-    }
-    else
-    {
-      if ( __readgsdword(0xCu) )
-        __asm { lock }
-      if ( --main_arena )
-        _lll_unlock_wake_private(&main_arena);
-      malloc_printerr(check_action, "free(): invalid pointer", a1, (int)&main_arena);
-    }
-  }
-}
-
-//----- (08059680) --------------------------------------------------------
-int __cdecl realloc_check(_BYTE *a1, unsigned int a2)
-{
-  int v2; // esi
-  bool v4; // zf
-  int *v5; // ebp
-  unsigned int v7; // eax
-  int v8; // edx
-  bool v9; // zf
-  int *v10; // eax
-  _BYTE *v12; // ebx
-  int v13; // edx
-  int v14; // ecx
-  unsigned int v15; // [esp+4h] [ebp-38h]
-  unsigned int v16; // [esp+8h] [ebp-34h]
-  char *v17; // [esp+1Ch] [ebp-20h] BYREF
-
-  v2 = (int)a1;
-  if ( a2 == -1 )
-    goto LABEL_32;
-  if ( !a1 )
-    return malloc_check(a2);
-  if ( !a2 )
-  {
-    free_check((unsigned int)a1);
-    return 0;
-  }
-  _ECX = 1;
-  v4 = __readgsdword(0xCu) == 0;
-  if ( !v4 )
-    __asm { lock }
-  __asm { cmpxchg main_arena, ecx }
-  if ( !v4 )
-    _lll_lock_wait_private(0, &main_arena);
-  v5 = (int *)mem2chunk_check((int)a1, &v17);
-  if ( __readgsdword(0xCu) )
-    __asm { lock }
-  if ( --main_arena )
-    _lll_unlock_wake_private(&main_arena);
-  if ( !v5 )
-  {
-    malloc_printerr(check_action, "realloc(): invalid pointer", (unsigned int)a1, (int)&main_arena);
-    return malloc_check(a2);
-  }
-  v15 = v5[1] & 0xFFFFFFF8;
-  if ( a2 + 1 > 0xFFFFFFDF )
-  {
-LABEL_32:
-    __writegsdword(0xFFFFFFE8, 0xCu);
-    return 0;
-  }
-  _ECX = 1;
-  v7 = 16;
-  if ( a2 + 12 >= 0x10 )
-    v7 = (a2 + 12) & 0xFFFFFFF8;
-  v8 = v7;
-  v16 = v7;
-  v9 = __readgsdword(0xCu) == 0;
-  if ( !v9 )
-    __asm { lock }
-  __asm { cmpxchg main_arena, ecx }
-  if ( !v9 )
-    _lll_lock_wait_private(0, &main_arena);
-  if ( (v5[1] & 2) != 0 )
-  {
-    v10 = mremap_chunk(v5, v8);
-    if ( !v10 )
-    {
-      if ( v16 <= v15 - 4 )
-        goto LABEL_24;
-      if ( top_check() >= 0 )
-      {
-        v12 = (_BYTE *)int_malloc(&main_arena, a2 + 1);
-        if ( v12 )
-        {
-          v2 = (int)v12;
-          memcpy(v12, a1, v15 - 8);
-          munmap_chunk(v14, v13);
-          goto LABEL_24;
-        }
-      }
-      goto LABEL_31;
-    }
-    v2 = (int)(v10 + 2);
-  }
+    v2 = (_DWORD *)a2[7];
+  if ( a1[4] )
+    v3 = a1 + 7;
   else
+    v3 = (_DWORD *)a1[7];
+  result = j_strcmp(v3, v2);
+  if ( !result )
   {
-    if ( top_check() < 0 )
-      goto LABEL_31;
-    v2 = int_realloc(&main_arena, (unsigned int)v5, v15, v16);
+    result = j_strcmp(*a1, *a2);
+    if ( !result )
+    {
+      result = j_strcmp(a1[2], a2[2]);
+      if ( !result )
+        return a1[1] - a2[1];
+    }
   }
-  if ( !v2 )
-  {
-LABEL_31:
-    v2 = 0;
-    *v17 = ~*v17;
-  }
-LABEL_24:
-  if ( __readgsdword(0xCu) )
-    __asm { lock }
-  if ( --main_arena )
-    _lll_unlock_wake_private(&main_arena);
-  return mem2mem_check(v2, a2);
+  return result;
 }
 
-// positive sp value has been detected, the output may be wrong!
-void __usercall __noreturn start(int a1@<eax>, void (*a2)(void)@<edx>)
+//----- (0804C3C0) --------------------------------------------------------
+int __cdecl alias_compare(_DWORD *a1, _DWORD *a2)
 {
-  int v2; // esi
-  int v3; // [esp-4h] [ebp-4h] BYREF
-  char *retaddr; // [esp+0h] [ebp+0h] BYREF
-
-  v2 = v3;
-  v3 = a1;
-  _libc_start_main((int (__cdecl *)(int, char **, char **))main, v2, &retaddr, _libc_csu_init, _libc_csu_fini, a2, &v3);
+  return j_strcasecmp_l(*a1, *a2, nl_C_locobj);
 }
 
 

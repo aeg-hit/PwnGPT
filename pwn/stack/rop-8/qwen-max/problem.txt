@@ -34,6 +34,47 @@ void term_proc()
   ;
 }
 
+FILE **_do_global_dtors_aux()
+{
+  FILE **result; // rax
+
+  if ( !completed_7698 )
+  {
+    result = deregister_tm_clones();
+    completed_7698 = 1;
+  }
+  return result;
+}
+
+FILE **deregister_tm_clones()
+{
+  return &_bss_start;
+}
+
+__int64 register_tm_clones()
+{
+  return 0LL;
+}
+
+__int64 frame_dummy()
+{
+  return register_tm_clones();
+}
+
+void __fastcall _libc_csu_init(unsigned int a1, __int64 a2, __int64 a3)
+{
+  signed __int64 v4; // rbp
+  __int64 i; // rbx
+
+  v4 = &_do_global_dtors_aux_fini_array_entry - &_frame_dummy_init_array_entry;
+  init_proc();
+  if ( v4 )
+  {
+    for ( i = 0LL; i != v4; ++i )
+      ((void (__fastcall *)(_QWORD, __int64, __int64))*(&_frame_dummy_init_array_entry + i))(a1, a2, a3);
+  }
+}
+
 void __fastcall __noreturn start(__int64 a1, __int64 a2, void (*a3)(void))
 {
   __int64 v3; // rax
@@ -52,47 +93,6 @@ void __fastcall __noreturn start(__int64 a1, __int64 a2, void (*a3)(void))
     a3,
     &v5);
   __halt();
-}
-
-void __fastcall _libc_csu_init(unsigned int a1, __int64 a2, __int64 a3)
-{
-  signed __int64 v4; // rbp
-  __int64 i; // rbx
-
-  v4 = &_do_global_dtors_aux_fini_array_entry - &_frame_dummy_init_array_entry;
-  init_proc();
-  if ( v4 )
-  {
-    for ( i = 0LL; i != v4; ++i )
-      ((void (__fastcall *)(_QWORD, __int64, __int64))*(&_frame_dummy_init_array_entry + i))(a1, a2, a3);
-  }
-}
-
-FILE **deregister_tm_clones()
-{
-  return &_bss_start;
-}
-
-__int64 register_tm_clones()
-{
-  return 0LL;
-}
-
-FILE **_do_global_dtors_aux()
-{
-  FILE **result; // rax
-
-  if ( !completed_7698 )
-  {
-    result = deregister_tm_clones();
-    completed_7698 = 1;
-  }
-  return result;
-}
-
-__int64 frame_dummy()
-{
-  return register_tm_clones();
 }
 
 2.Here is the file security infomation identified by 'checksec' command:
@@ -116,4 +116,10 @@ Gadgets information
 Unique gadgets found: 11
 
 4.Here is information of the file's relocation section:
+Relocation section '.rela.plt' at offset 0x450 contains 4 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000601018  000100000007 R_X86_64_JUMP_SLO 0000000000000000 puts@GLIBC_2.2.5 + 0
+000000601020  000200000007 R_X86_64_JUMP_SLO 0000000000000000 printf@GLIBC_2.2.5 + 0
+000000601028  000300000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
+000000601030  000600000007 R_X86_64_JUMP_SLO 0000000000000000 setvbuf@GLIBC_2.2.5 + 0
 

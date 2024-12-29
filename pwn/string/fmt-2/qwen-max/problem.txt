@@ -1,0 +1,136 @@
+Challenge is a ELF 64-bit LSB executable file and the file path is "./pwn/string/fmt-2/fmt2".
+1.Here is the key function for exploit in the C file decompiled from fmt2:
+void *init_proc()
+{
+  void *result; // rax
+
+  result = &__gmon_start__;
+  if ( &__gmon_start__ )
+    return (void *)_gmon_start__();
+  return result;
+}
+
+__int64 _do_global_dtors_aux()
+{
+  __int64 result; // rax
+
+  if ( !completed_7585 )
+  {
+    result = deregister_tm_clones();
+    completed_7585 = 1;
+  }
+  return result;
+}
+
+__int64 deregister_tm_clones()
+{
+  __int64 result; // rax
+
+  result = 6295671LL - (_QWORD)&_bss_start;
+  if ( (unsigned __int64)(6295671LL - (_QWORD)&_bss_start) > 0xE )
+    return 0LL;
+  return result;
+}
+
+__int64 register_tm_clones()
+{
+  return 0LL;
+}
+
+__int64 frame_dummy()
+{
+  return register_tm_clones();
+}
+
+void __fastcall _libc_csu_init(unsigned int a1, __int64 a2, __int64 a3)
+{
+  signed __int64 v4; // rbp
+  __int64 i; // rbx
+
+  v4 = &_do_global_dtors_aux_fini_array_entry - _frame_dummy_init_array_entry;
+  init_proc();
+  if ( v4 )
+  {
+    for ( i = 0LL; i != v4; ++i )
+      ((void (__fastcall *)(_QWORD, __int64, __int64))_frame_dummy_init_array_entry[i])(a1, a2, a3);
+  }
+}
+
+void term_proc()
+{
+  ;
+}
+
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  char v4; // [rsp+3h] [rbp-3Dh]
+  int i; // [rsp+4h] [rbp-3Ch]
+  int j; // [rsp+4h] [rbp-3Ch]
+  char *format; // [rsp+8h] [rbp-38h] BYREF
+  _IO_FILE *fp; // [rsp+10h] [rbp-30h]
+  char *v9; // [rsp+18h] [rbp-28h]
+  char v10[24]; // [rsp+20h] [rbp-20h] BYREF
+  unsigned __int64 v11; // [rsp+38h] [rbp-8h]
+
+  v11 = __readfsqword(0x28u);
+  fp = fopen("flag.txt", "r");
+  for ( i = 0; i <= 21; ++i )
+    v10[i] = _IO_getc(fp);
+  fclose(fp);
+  v9 = v10;
+  puts("what\'s the flag");
+  fflush(_bss_start);
+  format = 0LL;
+  __isoc99_scanf("%ms", &format);
+  for ( j = 0; j <= 21; ++j )
+  {
+    v4 = format[j];
+    if ( !v4 || v10[j] != v4 )
+    {
+      puts("You answered:");
+      printf(format);
+      puts("\nBut that was totally wrong lol get rekt");
+      fflush(_bss_start);
+      return 0;
+    }
+  }
+  printf("That\'s right, the flag is %s\n", v9);
+  fflush(_bss_start);
+  return 0;
+}
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "partial", "canary": "yes", "nx": "yes", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "1"}
+
+3.We use ROPgadget to search gadgets on fmt2:
+Gadgets information
+============================================================
+0x000000000040095c : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000040095e : pop r13 ; pop r14 ; pop r15 ; ret
+0x0000000000400960 : pop r14 ; pop r15 ; ret
+0x0000000000400962 : pop r15 ; ret
+0x000000000040095b : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x000000000040095f : pop rbp ; pop r14 ; pop r15 ; ret
+0x0000000000400710 : pop rbp ; ret
+0x0000000000400963 : pop rdi ; ret
+0x0000000000400961 : pop rsi ; pop r15 ; ret
+0x000000000040095d : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004005f9 : ret
+0x0000000000400692 : ret 0x2009
+0x00000000004007e6 : ret 0x458b
+
+Unique gadgets found: 13
+
+4.Here is information of the file's relocation section:
+Relocation section '.rela.plt' at offset 0x508 contains 9 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000601018  000100000007 R_X86_64_JUMP_SLO 0000000000000000 puts@GLIBC_2.2.5 + 0
+000000601020  000200000007 R_X86_64_JUMP_SLO 0000000000000000 fclose@GLIBC_2.2.5 + 0
+000000601028  000300000007 R_X86_64_JUMP_SLO 0000000000000000 __stack_chk_fail@GLIBC_2.4 + 0
+000000601030  000400000007 R_X86_64_JUMP_SLO 0000000000000000 printf@GLIBC_2.2.5 + 0
+000000601038  000500000007 R_X86_64_JUMP_SLO 0000000000000000 __libc_start_main@GLIBC_2.2.5 + 0
+000000601040  000700000007 R_X86_64_JUMP_SLO 0000000000000000 fflush@GLIBC_2.2.5 + 0
+000000601048  000800000007 R_X86_64_JUMP_SLO 0000000000000000 _IO_getc@GLIBC_2.2.5 + 0
+000000601050  000900000007 R_X86_64_JUMP_SLO 0000000000000000 fopen@GLIBC_2.2.5 + 0
+000000601058  000a00000007 R_X86_64_JUMP_SLO 0000000000000000 __isoc99_scanf@GLIBC_2.7 + 0
+

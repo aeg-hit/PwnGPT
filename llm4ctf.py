@@ -97,8 +97,7 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/stack/", "rop"), ("./pwn/string/", "fmt"),
-            ("./pwn/integer/", "int"), ("./pwn/heap/", "heap")]
+pathName = [("./pwn/string/", "fmt")]
 
 
 def sanitize_filename(filename):
@@ -124,7 +123,7 @@ if __name__ == "__main__":
         blist = pwn_path.get_binarylist()
         print("Start: ")
 
-        for i in range(len(clist)):
+        for i in range(4,len(clist)):
             print(clist[i])
             if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
                 os.makedirs(pwn_path.list[i]+f'/{modelName}')
@@ -148,13 +147,14 @@ if __name__ == "__main__":
                 with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
                     f.write(problem)
             
-                resultcode = llmgraph.run_graph(problem)
+            resultcode = llmgraph.run_graph(problem)
             # save
             with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
                 pprint(resultcode, stream=f)
                 if 'generation' in resultcode:
-                    f.write(resultcode["generation"].imports +
-                            "\n" + resultcode["generation"].code)
+                    if hasattr(resultcode["generation"],'imports'):
+                        f.write(resultcode["generation"].imports +
+                                "\n" + resultcode["generation"].code)
         
 
             

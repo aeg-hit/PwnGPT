@@ -184,7 +184,7 @@ class MainChain:
         self.code_gen_chain_retry = code_gen_chain_re_try | MainChain.parse_output
 
         # No re-try
-        self.code_gen_chain = MainChain.code_gen_prompt | self.structured_llm_claude | MainChain.parse_output
+        self.code_gen_chain = MainChain.code_gen_prompt | self.structured_llm_claude
         self.gen_chain = MainChain.code_gen_prompt | self.llm
 
     # Optional: Check for errors in case tool use is flaky
@@ -231,6 +231,7 @@ class MainChain:
         """When we add 'include_raw=True' to structured output,
         it will return a dict w 'raw', 'parsed', 'parsing_error'."""
 
+        #sometime JSONDecodeError. solution["parsed"]=None
         return solution["parsed"]
 
 
@@ -286,20 +287,32 @@ def generate(state: GraphState):
         ]
 
     # Solution
-    code_solution = mainllm.code_gen_chain.invoke(
-        {"context": info, "messages": messages}
-    )
+    code_solution=None
 
-    messages += [
-        (
-            "assistant",
-            f"{code_solution.prefix} \n Imports: {code_solution.imports} \n Code: {code_solution.code}",
+    solution= mainllm.code_gen_chain.invoke(
+            {"context": info, "messages": messages}
         )
-    ]
+    #sometime JSONDecodeError. solution["parsed"]=None
+    if solution["parsed"]:
+        code_solution=solution["parsed"]
+        messages += [
+            (
+                "assistant",
+                f"{code_solution.prefix} \n Imports: {code_solution.imports} \n Code: {code_solution.code}",
+            )
+        ]
+    else:
+        print('code solution parse error!')
+        code_solution=solution["raw"]
+        messages += [
+            solution["raw"]
+        ]
+        error = "yes"
+
 
     # Increment
     iterations = iterations + 1
-    return {"generation": code_solution, "messages": messages, "iterations": iterations}
+    return {"generation": code_solution, "messages": messages, "iterations": iterations, 'error':error}
 
 # check code in new process
 

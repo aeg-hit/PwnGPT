@@ -108,7 +108,8 @@ def get_plt(path):
     strs = result.stdout.split('\n\n')
     result = ''
     for section in strs:
-        if section.find("Relocation section '.rel.plt'") != -1:
+        #.rel.plt or .rela.plt
+        if section.find(".plt") != -1:
             result = section
     return result
 

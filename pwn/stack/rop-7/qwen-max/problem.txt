@@ -1,32 +1,15 @@
 Challenge is a ELF 64-bit LSB executable file and the file path is "./pwn/stack/rop-7/rop7".
 1.Here is the key function for exploit in the C file decompiled from rop7:
-void initial()
-{
-  setbuf(stdin, 0LL);
-  setbuf(stdout, 0LL);
-  setbuf(stderr, 0LL);
-}
-
-int __fastcall main(int argc, const char **argv, const char **envp)
-{
-  char buf[16]; // [rsp+10h] [rbp-10h] BYREF
-
-  initial();
-  puts("welcome to ROP");
-  puts("input your name plz");
-  read(0, buf, 0x200uLL);
-  puts("bye!");
-  return 0;
-}
-
 int __fastcall shell(const char *a1)
 {
   return system(a1);
 }
 
-void gadgets()
+void initial()
 {
-  ;
+  setbuf(stdin, 0LL);
+  setbuf(stdout, 0LL);
+  setbuf(stderr, 0LL);
 }
 
 __int64 __fastcall write_str(char a1, char a2, char a3, char a4, char a5, unsigned int a6)
@@ -41,6 +24,23 @@ __int64 __fastcall write_str(char a1, char a2, char a3, char a4, char a5, unsign
   result = a6;
   byte_404095 = a6;
   return result;
+}
+
+void gadgets()
+{
+  ;
+}
+
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  char buf[16]; // [rsp+10h] [rbp-10h] BYREF
+
+  initial();
+  puts("welcome to ROP");
+  puts("input your name plz");
+  read(0, buf, 0x200uLL);
+  puts("bye!");
+  return 0;
 }
 
 2.Here is the file security infomation identified by 'checksec' command:
@@ -66,4 +66,10 @@ Gadgets information
 Unique gadgets found: 13
 
 4.Here is information of the file's relocation section:
+Relocation section '.rela.plt' at offset 0x600 contains 4 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000404018  000200000007 R_X86_64_JUMP_SLO 0000000000000000 puts@GLIBC_2.2.5 + 0
+000000404020  000300000007 R_X86_64_JUMP_SLO 0000000000000000 setbuf@GLIBC_2.2.5 + 0
+000000404028  000400000007 R_X86_64_JUMP_SLO 0000000000000000 system@GLIBC_2.2.5 + 0
+000000404030  000500000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
 

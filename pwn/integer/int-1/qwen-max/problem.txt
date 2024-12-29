@@ -1,0 +1,105 @@
+Challenge is a ELF 32-bit LSB executable file and the file path is "./pwn/integer/int-1/int1".
+1.Here is the key function for exploit in the C file decompiled from int1:
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  int v4; // [esp+Ch] [ebp-Ch] BYREF
+
+  setbuf(stdin, 0);
+  setbuf(stdout, 0);
+  setbuf(stderr, 0);
+  puts("---------------------");
+  puts("~~ Welcome to CTF! ~~");
+  puts("       1.Login       ");
+  puts("       2.Exit        ");
+  puts("---------------------");
+  printf("Your choice:");
+  __isoc99_scanf("%d", &v4);
+  if ( v4 == 1 )
+  {
+    login();
+  }
+  else
+  {
+    if ( v4 == 2 )
+    {
+      puts("Bye~");
+      exit(0);
+    }
+    puts("Invalid Choice!");
+  }
+  return 0;
+}
+
+char *login()
+{
+  char buf[512]; // [esp+0h] [ebp-228h] BYREF
+  char s[40]; // [esp+200h] [ebp-28h] BYREF
+
+  memset(s, 0, 0x20u);
+  memset(buf, 0, sizeof(buf));
+  puts("Please input your username:");
+  read(0, s, 0x19u);
+  printf("Hello %s\n", s);
+  puts("Please input your passwd:");
+  read(0, buf, 0x199u);
+  return check_passwd(buf);
+}
+
+char *__cdecl check_passwd(char *s)
+{
+  char dest[11]; // [esp+4h] [ebp-14h] BYREF
+  unsigned __int8 v3; // [esp+Fh] [ebp-9h]
+
+  v3 = strlen(s);
+  if ( v3 <= 3u || v3 > 8u )
+  {
+    puts("Invalid Password");
+    return (char *)fflush(stdout);
+  }
+  else
+  {
+    puts("Success");
+    fflush(stdout);
+    return strcpy(dest, s);
+  }
+}
+
+int what_is_this()
+{
+  return system("cat flag");
+}
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "partial", "canary": "no", "nx": "yes", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "4"}
+
+3.We use ROPgadget to search gadgets on int1:
+Gadgets information
+============================================================
+0x0804893b : pop ebp ; ret
+0x08048938 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret
+0x080484a5 : pop ebx ; ret
+0x0804893a : pop edi ; pop ebp ; ret
+0x08048939 : pop esi ; pop edi ; pop ebp ; ret
+0x0804848e : ret
+0x08048818 : ret 0x489
+0x0804860e : ret 0xeac1
+0x080487fa : ret 0xfffc
+
+Unique gadgets found: 9
+
+4.Here is information of the file's relocation section:
+Relocation section '.rel.plt' at offset 0x424 contains 12 entries:
+ Offset     Info    Type            Sym.Value  Sym. Name
+0804a00c  00000107 R_386_JUMP_SLOT   00000000   setbuf@GLIBC_2.0
+0804a010  00000207 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0
+0804a014  00000307 R_386_JUMP_SLOT   00000000   printf@GLIBC_2.0
+0804a018  00000407 R_386_JUMP_SLOT   00000000   fflush@GLIBC_2.0
+0804a01c  00000507 R_386_JUMP_SLOT   00000000   strcpy@GLIBC_2.0
+0804a020  00000607 R_386_JUMP_SLOT   00000000   puts@GLIBC_2.0
+0804a024  00000707 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0
+0804a028  00000907 R_386_JUMP_SLOT   00000000   exit@GLIBC_2.0
+0804a02c  00000a07 R_386_JUMP_SLOT   00000000   strlen@GLIBC_2.0
+0804a030  00000b07 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
+0804a034  00000c07 R_386_JUMP_SLOT   00000000   memset@GLIBC_2.0
+0804a038  00000d07 R_386_JUMP_SLOT   00000000   __isoc99_scanf@GLIBC_2.7
+
