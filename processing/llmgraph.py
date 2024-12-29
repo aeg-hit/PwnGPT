@@ -302,7 +302,7 @@ def generate(state: GraphState):
             )
         ]
     else:
-        print('code solution parse error!')
+        print('Error:code solution parse fail!')
         code_solution=solution["raw"]
         messages += [
             solution["raw"]
@@ -360,7 +360,7 @@ def code_check(state: GraphState):
     Returns:
         state (dict): New key added to state, error
     """
-
+    
     print("---CHECKING CODE---")
 
     # State
@@ -368,6 +368,9 @@ def code_check(state: GraphState):
     code_solution = state["generation"]
     iterations = state["iterations"]
 
+    if not hasattr(code_solution,'imports'):
+        return {"error": "no"}
+        
     # Get solution components
     imports = code_solution.imports
     code = code_solution.code
