@@ -1,4 +1,4 @@
-# LLM4CTF
+# PwnGPT
 Caputre the flag with Large Language Models. Constructed by langgraph and chromadb, I learn from langgraph doument.
 
 # Workflow
