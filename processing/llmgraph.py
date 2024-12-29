@@ -161,7 +161,7 @@ class MainChain:
         There is a pwn challenge in the CTF competition, and here is information about the challenge to you for analysis:  \n ------- \n  {context} \n ------- \n
           Answer the user question based on the above provided information. Ensure any code you provide can be executed \n 
         with all required imports and variables defined. Structure your answer: 1) a prefix describing the code solution, 2) the imports, 3) the functioning code block. \n
-    Invoke the code tool to structure the output correctly. Here is the user question:""",
+     Here is the user question:""",
             ),
             ("placeholder", "{messages}"),
         ]
@@ -281,7 +281,7 @@ def generate(state: GraphState):
         messages += [
             (
                 "user",
-                "Now, try again. Invoke the code tool to structure the output with a prefix, imports, and code block:",
+                "Now, try again. Structure the output with a prefix, imports, and code block:",
             )
         ]
 
@@ -289,6 +289,7 @@ def generate(state: GraphState):
     code_solution = mainllm.code_gen_chain.invoke(
         {"context": info, "messages": messages}
     )
+
     messages += [
         (
             "assistant",
