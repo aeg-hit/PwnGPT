@@ -97,7 +97,7 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/stack/", "rop")]
+pathName = [("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
 
 
 def sanitize_filename(filename):
@@ -124,8 +124,6 @@ if __name__ == "__main__":
         print("Start: ")
 
         for i in range(len(clist)):
-            if i !=5:
-                continue
             print(clist[i])
             if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
                 os.makedirs(pwn_path.list[i]+f'/{modelName}')

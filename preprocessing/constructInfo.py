@@ -139,9 +139,10 @@ def static_analysis(code, expt_llm, base):
 
     if max_func < len(flist.func_name):
         prompt.append(
-            ("human", f"For these function names you provide, which functions are important for our exploit code? Please select up to {max_func} function names from them."))
+            ("human", f"For these function names you provide, which functions are important for our exploit code? Please select up to {max_func} function names from them and sort them by importance (placing important ones first)."))
         result2 = (prompt | structured_llm_claude).invoke(
             {"context": list(functions.keys())})
+        print('-------')
         print(result2.func_name)
     else:
         result2=flist
@@ -149,12 +150,14 @@ def static_analysis(code, expt_llm, base):
     for func_name, func_code in extracted_funcs.items():
         result += func_code+"\n\n"
 
+    add_num=0
     for func_name in result2.func_name:
-        if func_name not in extracted_funcs.keys():
+        if func_name not in extracted_funcs.keys() and add_num < max_func:
             func = functions.get(func_name)
             # sometime llm give fake function name
             if func:
                 result += func['comment'] + "\n" + func['code'] + "\n\n"
+                add_num+=1
 
     return result
 

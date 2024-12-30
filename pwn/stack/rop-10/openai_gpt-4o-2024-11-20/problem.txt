@@ -1,0 +1,154 @@
+Challenge is a ELF 64-bit LSB pie executable file and the file path is "./pwn/stack/rop-10/rop10".
+1.Here is the key function for exploit in the C file decompiled from rop10:
+/* Extracted key functions from the decompiled C file */
+
+// Function: init_proc
+__int64 (**init_proc())(void)
+{
+  __int64 (**result)(void); // rax
+
+  result = &_gmon_start__;
+  if ( &_gmon_start__ )
+    return (__int64 (**)(void))_gmon_start__();
+  return result;
+}
+
+// Function: sub_1020
+void sub_1020()
+{
+  JUMPOUT(0LL);
+}
+
+// Function: sub_1030
+void sub_1030()
+{
+  sub_1020();
+}
+
+// Function: sub_1040
+void sub_1040()
+{
+  sub_1020();
+}
+
+// Function: sub_1050
+void sub_1050()
+{
+  sub_1020();
+}
+
+// Function: sub_1060
+void sub_1060()
+{
+  sub_1020();
+}
+
+// Function: sub_1070
+void sub_1070()
+{
+  sub_1020();
+}
+
+// Function: sub_1080
+void sub_1080()
+{
+  sub_1020();
+}
+
+// Function: start
+void __fastcall __noreturn start(__int64 a1, __int64 a2, void (*a3)(void))
+{
+  __int64 v3; // rax
+  int v4; // esi
+  __int64 v5; // [rsp-8h] [rbp-8h] BYREF
+  char *retaddr; // [rsp+0h] [rbp+0h] BYREF
+
+  v4 = v5;
+  v5 = v3;
+  _libc_start_main((int (__fastcall *)(int, char **, char **))main, v4, &retaddr, 0LL, 0LL, a3, &v5);
+  __halt();
+}
+
+// Function: deregister_tm_clones
+void *deregister_tm_clones()
+{
+  return &_bss_start;
+}
+
+// Function: register_tm_clones
+__int64 register_tm_clones()
+{
+  return 0LL;
+}
+
+// Function: _do_global_dtors_aux
+void *_do_global_dtors_aux()
+{
+  void *result; // rax
+
+  if ( !completed_0 )
+  {
+    if ( &__cxa_finalize )
+      _cxa_finalize(_dso_handle);
+    result = deregister_tm_clones();
+    completed_0 = 1;
+  }
+  return result;
+}
+
+// Function: frame_dummy
+__int64 frame_dummy()
+{
+  return register_tm_clones();
+}
+
+// Function: init
+void init()
+{
+  setbuf(stdin, 0LL);
+  setbuf(stdout, 0LL);
+  setbuf(stderr, 0LL);
+}
+
+// Function: hello
+int hello()
+{
+  char s1[16]; // [rsp+0h] [rbp-30h] BYREF
+  char buf[24]; // [rsp+10h] [rbp-20h] BYREF
+  unsigned __int64 v3; // [rsp+28h] [rbp-8h]
+
+  v3 = __readfsqword(0x28u);
+  puts("Hello. What\'s your name?");
+  read(0, buf, 0x100uLL);
+  printf("Is your name \`%s\` correct (yes/no)?\n", buf);
+  read(0, s1, 0x100uLL);
+  return strncmp(s1, "yes", 3uLL);
+}
+
+// Function: main
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  init(argc, argv, envp);
+  while ( (unsigned int)hello() )
+    ;
+  puts("See you~");
+  return 0;
+}
+
+// Function: term_proc
+void term_proc()
+{
+  ;
+}
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "full", "canary": "yes", "nx": "yes", "pie": "yes", "rpath": "no", "runpath": "yes", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "2"}
+
+3.We use ROPgadget to search gadgets on rop10:
+Gadgets information
+============================================================
+0x00000000000011d3 : pop rbp ; ret
+0x000000000000101a : ret
+
+Unique gadgets found: 2
+

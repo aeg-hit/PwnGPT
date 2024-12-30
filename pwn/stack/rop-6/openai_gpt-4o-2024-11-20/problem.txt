@@ -1,0 +1,53 @@
+Challenge is a ELF 64-bit LSB executable file and the file path is "./pwn/stack/rop-6/rop6".
+1.Here is the key function for exploit in the C file decompiled from rop6:
+```c
+// Extracted functions: 'vulnerable_function', 'main'
+
+//----- (00000000004005F6) ----------------------------------------------------
+ssize_t vulnerable_function()
+{
+  char buf[128]; // [rsp+0h] [rbp-80h] BYREF
+
+  system("echo Input:");
+  return read(0, buf, 0x200uLL);
+}
+
+//----- (0000000000400620) ----------------------------------------------------
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  vulnerable_function();
+  return system("echo 'Hello World!'");
+}
+```
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "no", "canary": "no", "nx": "yes", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "1"}
+
+3.Here is some printable strings in the data sections of rop6:
+/bin/sh
+
+4.We use ROPgadget to search gadgets on rop6:
+Gadgets information
+============================================================
+0x00000000004006ac : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006ae : pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006b0 : pop r14 ; pop r15 ; ret
+0x00000000004006b2 : pop r15 ; ret
+0x00000000004006ab : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006af : pop rbp ; pop r14 ; pop r15 ; ret
+0x0000000000400560 : pop rbp ; ret
+0x00000000004006b3 : pop rdi ; ret
+0x00000000004006b1 : pop rsi ; pop r15 ; ret
+0x00000000004006ad : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004004a1 : ret
+
+Unique gadgets found: 11
+
+5.Here is information of the file's relocation section:
+Relocation section '.rela.plt' at offset 0x428 contains 4 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000600a60  000200000007 R_X86_64_JUMP_SLO 0000000000000000 system@GLIBC_2.2.5 + 0
+000000600a68  000300000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
+000000600a70  000400000007 R_X86_64_JUMP_SLO 0000000000000000 __libc_start_main@GLIBC_2.2.5 + 0
+000000600a78  000500000007 R_X86_64_JUMP_SLO 0000000000000000 __gmon_start__ + 0
+
