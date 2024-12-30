@@ -22,7 +22,7 @@ def _set_env(var: str):
 
 # OpenAI api with qwen
 _set_env("OPENAI_API_KEY")
-expt_llm = "qwen-max"
+expt_llm = "qwen-plus"
 # base="https://openrouter.ai/api/v1"
 base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 

