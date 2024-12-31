@@ -97,7 +97,7 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
+pathName = [("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
 
 
 def sanitize_filename(filename):
@@ -113,9 +113,7 @@ def sanitize_filename(filename):
 
 modelName = sanitize_filename(llmgraph.expt_llm)
 
-        
-
-if __name__ == "__main__":
+def evaluate_llm_structured_output():
     for name in pathName:
         pwn_path = file.PwnInfo(*name)
         # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
@@ -148,6 +146,31 @@ if __name__ == "__main__":
                     f.write(problem)
             
             resultcode = llmgraph.run_graph(problem)
+            # save
+            with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
+                pprint(resultcode, stream=f)
+                if 'generation' in resultcode:
+                    if hasattr(resultcode["generation"],'imports'):
+                        f.write(resultcode["generation"].imports +
+                                "\n" + resultcode["generation"].code)   
+
+if __name__ == "__main__":
+    #llm without structured output
+    for name in pathName:
+        pwn_path = file.PwnInfo(*name)
+        # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
+        clist = pwn_path.get_clist()
+        blist = pwn_path.get_binarylist()
+        print("Start: ")
+
+        for i in range(len(clist)):
+            print(clist[i])
+            if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
+                os.makedirs(pwn_path.list[i]+f'/{modelName}')
+        
+            problems=llmgraph.get_decompilefile(pwn_path.list[i]+'/openai_gpt-4o-2024-11-20'+"/problems.txt")[0]
+            
+            resultcode = llmgraph.run_graph(problems)
             # save
             with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
                 pprint(resultcode, stream=f)
