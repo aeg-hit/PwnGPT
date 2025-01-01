@@ -120,7 +120,7 @@ def static_analysis(code, expt_llm, base):
     extracted_funcs = analysis.extract_main_and_calls(functions)
 
     llm = ChatOpenAI(temperature=0, model=expt_llm, base_url=base)
-    structured_llm_claude = llm.with_structured_output(funclist)
+    structured_llm_claude = llm.with_structured_output(funclist, method='json_schema')
     prompt = ChatPromptTemplate.from_messages([("system", '''You are a expert on Capture the Flag (CTF) competition, and are good at Binary Exploitation (pwn) challenges. \n 
                                                 There is a pwn challenge in the CTF competition, we need to write code to solve the challenge and we get the C file decompiled from the challenge,
                                                  here is a list of function names  from the decompiled C file:\n ------- \n  {context} \n ------- \n 

