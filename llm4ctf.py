@@ -97,7 +97,7 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int")]
+pathName = [("./pwn/string/", "fmt")]
 
 
 def sanitize_filename(filename):
@@ -164,11 +164,13 @@ if __name__ == "__main__":
         print("Start: ")
 
         for i in range(len(clist)):
+            if i !=3:
+                continue
             print(clist[i])
             if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
                 os.makedirs(pwn_path.list[i]+f'/{modelName}')
         
-            problem=llmgraph.get_decompilefile(pwn_path.list[i]+'/openai_gpt-4o-2024-11-20'+"/problem.txt")[0]
+            problem=llmgraph.get_decompilefile(pwn_path.list[i]+'/qwen-plus'+"/problem.txt")[0]
             
             resultcode = llmgraph.run_direct(problem)
             # save

