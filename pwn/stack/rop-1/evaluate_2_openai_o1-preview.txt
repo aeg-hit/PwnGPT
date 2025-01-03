@@ -1,0 +1,106 @@
+The provided code contains a critical vulnerability in the `vulnerable_function()` function, which can be exploited to execute arbitrary code. Here's a detailed analysis of the vulnerabilities:
+
+---
+
+### **1. Stack-Based Buffer Overflow in `vulnerable_function()`**
+
+**Location:**
+
+```c
+ssize_t vulnerable_function()
+{
+  char buf[136]; // Buffer allocated on the stack with 136 bytes
+  return read(0, buf, 0x100u); // Reads 256 bytes from standard input into buf
+}
+```
+
+**Type of Vulnerability:**
+
+- **Stack-Based Buffer Overflow**
+
+**Explanation:**
+
+- **Buffer Size Mismatch:** The `buf` array is allocated with **136 bytes** (`char buf[136];`), but the `read()` function is called with a size of **256 bytes** (`0x100u`), which is **120 bytes larger** than the allocated buffer.
+  
+- **Overflow Possibility:** Since `read()` does not check the boundaries of `buf`, if an attacker provides more than 136 bytes of input (up to 256 bytes), the excess input will overflow the buffer and overwrite adjacent memory on the stack.
+
+**Potential Impact:**
+
+- **Return Address Overwrite:** The overflow can overwrite the function's return address or other control data on the stack. This allows an attacker to redirect the program's execution flow.
+
+- **Arbitrary Code Execution:** By carefully crafting the input, an attacker can control the overwritten return address to point to malicious code or other functions within the binary.
+
+---
+
+### **2. Presence of the `not_called()` Function**
+
+**Location:**
+
+```c
+int not_called()
+{
+  return system("/bin/bash");
+}
+```
+
+**Type of Vulnerability:**
+
+- **Potential for Unauthorized Shell Access via Code Reuse**
+
+**Explanation:**
+
+- **Not Normally Invoked:** The `not_called()` function is defined but never called during normal execution of the program.
+
+- **Contains Dangerous Functionality:** It calls `system("/bin/bash");`, which spawns a new shell. If an attacker can force the program to execute this function, they gain direct shell access to the system under the privileges of the running process.
+
+**Potential Exploit:**
+
+- **Control Flow Hijacking:** Using the buffer overflow in `vulnerable_function()`, an attacker can overwrite the return address to point to `not_called()`.
+
+- **Executing Unauthorized Commands:** Since `not_called()` executes `/bin/bash`, the attacker would obtain a shell, potentially leading to full system compromise.
+
+---
+
+### **Summary of Vulnerabilities**
+
+1. **Stack-Based Buffer Overflow in `vulnerable_function()`:**
+   - *Location:* `vulnerable_function()`, at the call to `read()`.
+   - *Description:* Reads more data into a buffer than it can hold, leading to memory corruption on the stack.
+   - *Impact:* Allows an attacker to overwrite control data (e.g., return addresses) and manipulate program execution.
+
+2. **Potential Code Execution via `not_called()` Function:**
+   - *Location:* `not_called()` function.
+   - *Description:* Provides functionality that can be exploited if the control flow is redirected to it.
+   - *Impact:* Grants an attacker the ability to execute arbitrary commands by spawning a shell.
+
+---
+
+### **Recommendations for Mitigation**
+
+- **Boundary Checks:** Modify `vulnerable_function()` to ensure that the amount of data read does not exceed the size of the buffer.
+  
+  ```c
+  ssize_t vulnerable_function()
+  {
+    char buf[136];
+    return read(0, buf, sizeof(buf)); // Use sizeof(buf) to prevent overflow
+  }
+  ```
+
+- **Remove or Secure Dangerous Functions:**
+  - **Option 1:** Remove the `not_called()` function if it's not needed.
+  - **Option 2:** If it must remain, implement access controls or obfuscate the function to prevent easy exploitation.
+
+- **Compiler Protections:**
+  - Recompile the code with stack protection mechanisms enabled (e.g., stack canaries).
+  - Enable executable space protection (e.g., NX bit) to prevent execution of injected code.
+
+- **Address Space Layout Randomization (ASLR):**
+  - Ensure ASLR is enabled to make it more difficult for an attacker to predict memory addresses, hindering exploitation.
+
+- **Input Validation:**
+  - Implement proper input validation and sanitation to prevent unintended behavior from malformed inputs.
+
+---
+
+By addressing these vulnerabilities, you can significantly enhance the security posture of the application and reduce the risk of exploitation during the CTF competition.

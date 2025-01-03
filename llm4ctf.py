@@ -171,11 +171,14 @@ if __name__ == "__main__":
                 os.makedirs(pwn_path.list[i]+f'/{modelName}')
         
             problem=llmgraph.get_decompilefile(pwn_path.list[i]+'/openai_gpt-4o-2024-11-20'+"/problem.txt")[0]
-            
+            # run_graph or run_direct
             resultcode = llmgraph.run_direct(problem)
             # save
             with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
-                pprint(resultcode.content, stream=f)
+                pprint(resultcode, stream=f)
+                # some llms without structured output (run_direct)
+                if hasattr(resultcode,'content'):
+                    pprint(resultcode.content, stream=f)
                 if 'generation' in resultcode:
                     if hasattr(resultcode["generation"],'imports'):
                         f.write(resultcode["generation"].imports +

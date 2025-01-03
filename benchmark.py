@@ -41,10 +41,14 @@ def evaluate_0():
                 print("Input words are more than 128k.")
             else:
                 c_infohead = "\nHere is the decompiled C file:\n"
-                resultcode = llmgraph.run_graph(c_infohead+decfile.page_content)
+                # run_graph or run_direct
+                resultcode = llmgraph.run_direct(c_infohead+decfile.page_content)
             # save
             with open(pwn_path.list[i]+f'/result_1_{modelName}.txt', 'w') as f:
                 pprint(resultcode, stream=f)
+                # some llms without structured output (run_direct)
+                if hasattr(resultcode,'content'):
+                    pprint(resultcode.content, stream=f)
                 if 'generation' in resultcode:
                     f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
 
@@ -145,10 +149,8 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
-
-    evaluate_0()
-    evaluate_2()
     evaluate_3()
+
     
 
 

