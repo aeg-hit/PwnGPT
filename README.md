@@ -6,7 +6,7 @@ Caputre the flag with Large Language Models. Constructed by langgraph and chroma
 Decompile binary file by the Hex-Rays decompiler.
 
 # Method
-RAG (Retrieval Augmented Generation) then check code and reflect.
+Run code and reflect.
 
 # Directory
 ## download/
