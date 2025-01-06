@@ -9,50 +9,53 @@ from langchain_openai import ChatOpenAI
 
 import re
 
-pathName=[("./pwn/stack/", "rop")]
-
+pathName = [("./pwn/stack/", "rop")]
 
 
 def sanitize_filename(filename):
 
     illegal_chars = r'[\\/:*?"<>|\r\n]+'
-    
+
     sanitized = re.sub(illegal_chars, '_', filename)
-    
+
     sanitized = sanitized.rstrip()
-    
+
     return sanitized
 
-modelName=sanitize_filename(llmgraph.expt_llm)
+
+modelName = sanitize_filename(llmgraph.expt_llm)
+
 
 def evaluate_0():
     # evaluate 0: pure llm without reflect (max_iterations=1 without reflect)
     llmgraph.max_iterations = 1
     for name in pathName:
-        pwn_path=file.PwnInfo(*name)
+        pwn_path = file.PwnInfo(*name)
         clist = pwn_path.get_clist()
         print("Start: ")
         for i in range(len(clist)):
-            if i !=2:
+            if i != 2:
                 continue
             pprint(clist[i])
             decfile = llmgraph.get_decompilefile(clist[i])[0]
             # limit 128k token
             if len(decfile.page_content.split()) > 128000:
-                resultcode="Invalid_request_error: Input is too big."
+                resultcode = "Invalid_request_error: Input is too big."
                 print("Input words are more than 128k.")
             else:
                 c_infohead = "\nHere is the decompiled C file:\n"
                 # run_graph or run_direct
-                resultcode = llmgraph.run_direct(c_infohead+decfile.page_content)
+                resultcode = llmgraph.run_direct(
+                    c_infohead+decfile.page_content)
             # save
             with open(pwn_path.list[i]+f'/result_1_{modelName}.txt', 'w') as f:
                 pprint(resultcode, stream=f)
                 # some llms without structured output (run_direct)
-                if hasattr(resultcode,'content'):
+                if hasattr(resultcode, 'content'):
                     print(resultcode.content, file=f)
                 if 'generation' in resultcode:
-                    f.write(resultcode["generation"].imports + "\n" + resultcode["generation"].code)
+                    f.write(resultcode["generation"].imports +
+                            "\n" + resultcode["generation"].code)
 
 
 llm = ChatOpenAI(temperature=0, model=llmgraph.expt_llm,
@@ -76,10 +79,11 @@ def evaluate_1():
     # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
     # pwn_path = file.PwnInfo("./pwn/integer/", "int")
     for name in pathName:
-        pwn_path=file.PwnInfo(*name)
+        pwn_path = file.PwnInfo(*name)
         blist = pwn_path.get_binarylist()
         for i in range(len(blist)):
-
+            if i != 1:
+                continue
             file_result = subprocess.run(['file', blist[i]],
                                          check=True, capture_output=True, text=True)
 
@@ -110,7 +114,7 @@ def evaluate_2():
             decfile = llmgraph.get_decompilefile(clist[i])[0]
             # limit 128k token
             if len(decfile.page_content.split()) > 128000:
-                resultcode="Invalid_request_error: Input is too big."
+                resultcode = "Invalid_request_error: Input is too big."
                 print("Input words are more than 128k.")
             else:
                 c_infohead = "\nHere is the decompiled C file:\n"
@@ -121,7 +125,7 @@ def evaluate_2():
                 )
             # save
             with open(pwn_path.list[i]+f'/evaluate_2_{modelName}.txt', 'w') as f:
-                if hasattr(resultcode,'content'): 
+                if hasattr(resultcode, 'content'):
                     print(resultcode.content, file=f)
                 else:
                     print(resultcode, file=f)
@@ -136,7 +140,7 @@ def evaluate_3():
         list = pwn_path.list
         print("Start: ")
         for i in range(len(list)):
-            if i !=0:
+            if i != 0:
                 continue
             print(list[i])
             decfile = llmgraph.get_decompilefile(list[i]+"/problems.txt")[0]
@@ -151,10 +155,5 @@ def evaluate_3():
                 print(resultcode.content, file=f)
 
 
-
 if __name__ == "__main__":
-    evaluate_0()
-
-    
-
-
+    evaluate_1()
