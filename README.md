@@ -21,7 +21,7 @@ llm application with langgraph.
 ## pwn/ 
 pwn challenges that are collected online. 
 rop1 and rop4 ret2text, rop2 and rop3 ret2libc, 
-rop5 ret2text(64bit), rop6 ret2text(64bit, gadget), rop7 ret2text(64bit, gadget, rop chain), rop8-9 ret2shellcode, rop10 canary.
+rop5 ret2text(64bit), rop6 ret2text(64bit, gadget), rop7 ret2text(64bit, gadget, rop chain), rop8-9 ret2shellcode, rop10 canary(ret2libc).
 fmt1 write, fmt2 read, fmt3 hijack retaddr, fmt4-5 hijack GOT.
 int1 Integer Overflow and ret2text, int1 Integer Overflow and ret2shellcode.
 heap1 UAF, heap2 heap overflow. (heap challenges with libc are too difficult to llm)
