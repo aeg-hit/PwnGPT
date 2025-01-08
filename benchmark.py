@@ -34,7 +34,7 @@ def evaluate_0():
         clist = pwn_path.get_clist()
         print("Start: ")
         for i in range(len(clist)):
-            if i != 2:
+            if i != 5:
                 continue
             pprint(clist[i])
             decfile = llmgraph.get_decompilefile(clist[i])[0]
@@ -140,7 +140,7 @@ def evaluate_3():
         list = pwn_path.list
         print("Start: ")
         for i in range(len(list)):
-            if i != 0:
+            if i != 7:
                 continue
             print(list[i])
             decfile = llmgraph.get_decompilefile(list[i]+"/problems.txt")[0]
@@ -152,8 +152,11 @@ def evaluate_3():
             )
             # save
             with open(pwn_path.list[i]+f'/evaluate_3_{modelName}.txt', 'w') as f:
-                print(resultcode.content, file=f)
+                if hasattr(resultcode, 'content'):
+                    print(resultcode.content, file=f)
+                else:
+                    print(resultcode, file=f)
 
 
 if __name__ == "__main__":
-    evaluate_1()
+    evaluate_3()

