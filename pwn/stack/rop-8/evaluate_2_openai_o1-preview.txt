@@ -17,7 +17,7 @@ buf[1] = 0LL;
 printf("What is it : [%p] ?\n", buf);
 puts("Input someting : ");
 read(0, buf, 0x400uLL);
-```
+```  
 
 ### **Detailed Explanation**
 

@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI
 
 import re
 
-pathName = [("./pwn/stack/", "rop")]
+pathName = [("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
 
 
 def sanitize_filename(filename):
@@ -34,8 +34,6 @@ def evaluate_0():
         clist = pwn_path.get_clist()
         print("Start: ")
         for i in range(len(clist)):
-            if i != 5:
-                continue
             pprint(clist[i])
             decfile = llmgraph.get_decompilefile(clist[i])[0]
             # limit 128k token
@@ -82,8 +80,6 @@ def evaluate_1():
         pwn_path = file.PwnInfo(*name)
         blist = pwn_path.get_binarylist()
         for i in range(len(blist)):
-            if i != 1:
-                continue
             file_result = subprocess.run(['file', blist[i]],
                                          check=True, capture_output=True, text=True)
 
@@ -140,8 +136,6 @@ def evaluate_3():
         list = pwn_path.list
         print("Start: ")
         for i in range(len(list)):
-            if i != 7:
-                continue
             print(list[i])
             decfile = llmgraph.get_decompilefile(list[i]+"/problems.txt")[0]
 
@@ -159,4 +153,6 @@ def evaluate_3():
 
 
 if __name__ == "__main__":
+    evaluate_1()
+    evaluate_2()
     evaluate_3()

