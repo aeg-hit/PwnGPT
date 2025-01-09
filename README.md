@@ -1,5 +1,5 @@
 # PwnGPT
-Caputre the flag with Large Language Models. Constructed by langgraph and chromadb, I learn from langgraph doument.
+Caputre the flag with Large Language Models. Constructed by langgraph and chromadb, and I learn a lot from langgraph doument, thanks for them.
 
 # Workflow
 ![workflow](./assert/workflow.png)
