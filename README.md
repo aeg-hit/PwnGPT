@@ -5,8 +5,8 @@ Caputre the flag with Large Language Models. Constructed by langgraph and chroma
 ![workflow](./assert/workflow.png)
 Decompile binary file by the Hex-Rays decompiler.
 
-# Method
-Run code and reflect.
+# Run
+Test LLMs by benchmark.py, run PwnGPT in llm4ctf.py.
 
 # Directory
 ## download/
