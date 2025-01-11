@@ -22,10 +22,10 @@ def _set_env(var: str):
 
 # OpenAI api with qwen
 _set_env("OPENAI_API_KEY")
-expt_llm = "openai/gpt-4o-2024-11-20"
-# expt_llm = "qwen-max"
-base="https://openrouter.ai/api/v1"
-# base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+# expt_llm = "openai/gpt-4o-2024-11-20"
+expt_llm = "qwen-plus"
+# base="https://openrouter.ai/api/v1"
+base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 
 def get_decompilefile(path):
