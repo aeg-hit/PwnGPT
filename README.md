@@ -3,7 +3,7 @@ Caputre the flag with Large Language Models. Constructed by langgraph and chroma
 
 # Workflow
 ![workflow](./assert/workflow.png)
-Decompile binary file by the Hex-Rays decompiler.
+Decompile binary file by the Hex-Rays decompiler (version 8.3.0.230608) in this project.
 
 # Run
 Test LLMs by benchmark.py, run PwnGPT in llm4ctf.py.
