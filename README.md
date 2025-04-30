@@ -9,9 +9,6 @@ Decompile binary file by the Hex-Rays decompiler (version 8.3.0.230608) in this 
 Test LLMs by benchmark.py, run PwnGPT in llm4ctf.py.
 
 # Directory
-## download/
-some data document about ctf (datasets).
-
 ## preprocessing/ 
 load file, analysis, embedding and save.
 
