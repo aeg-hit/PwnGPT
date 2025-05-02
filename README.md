@@ -26,9 +26,9 @@ heap1 UAF, heap2 heap overflow. (heap challenges with libc are too difficult to 
 (1) file info (2) decompile (3) readelf -r  (get plt: objdump -d ./pwn/stack/rop-2/rop2 | grep @plt) (4) strings -d (5) ROPgadget --binary rop --only "pop|ret" > g.txt (6) checksec --format=json --file=
 
 ## cve/
-collect cve vulnerable Docker environments from github.
+Collect cve vulnerable Docker environments and exploit code from github. For more information, see [here](./cve/README.md).
 ### CVE-2011-2523 : vsftpd 2.3.4 - Backdoor Command Execution (cve-1)
-run [docker image](https://github.com/Anon-Exploiter/vulnerable-packages) and run [exp.py](https://github.com/padsalatushal/CVE-2011-2523), you can get a shell on the port '6200' from the docker container.
+
 
 # attention
 some LLMs do not support ["json_schema"](https://platform.openai.com/docs/guides/structured-outputs), such as o1-preview. When we use qwen, we use OpenAI's tool-calling (formerly called function calling) for 'with_structured_output'.
