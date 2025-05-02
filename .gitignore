@@ -1,3 +1,4 @@
 chroma_langchain_qwen_db/
 core.*
 __pycache__/
+response.md
