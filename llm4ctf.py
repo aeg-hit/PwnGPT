@@ -97,7 +97,8 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
+pathName = [("./pwn/stack/", "rop"), ("./pwn/string/", "fmt"),
+            ("./pwn/integer/", "int"), ("./pwn/heap/", "heap")]
 
 
 def sanitize_filename(filename):
@@ -112,6 +113,7 @@ def sanitize_filename(filename):
 
 
 modelName = sanitize_filename(llmgraph.expt_llm)
+
 
 def evaluate_llm_structured_output():
     for name in pathName:
@@ -128,34 +130,38 @@ def evaluate_llm_structured_output():
 
             decfile = llmgraph.get_decompilefile(clist[i])[0]
 
-        
             # limit 128k token
             if len(decfile.page_content.split()) > 128000:
 
-                resultcode = constructInfo.static_analysis(decfile.page_content, llmgraph.expt_llm, llmgraph.base)
-                problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), resultcode)
+                resultcode = constructInfo.static_analysis(
+                    decfile.page_content, llmgraph.expt_llm, llmgraph.base)
+                problem = constructInfo.get_problem(
+                    blist[i], pwn_path.filename+str(i+1), resultcode)
                 # save problem
                 with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
                     f.write(problem)
             else:
-                funclist=constructInfo.get_funclist(llmgraph.expt_llm, llmgraph.base, decfile.page_content)
-                problem = constructInfo.get_problem(blist[i], pwn_path.filename+str(i+1), funclist)
-        
+                funclist = constructInfo.get_funclist(
+                    llmgraph.expt_llm, llmgraph.base, decfile.page_content)
+                problem = constructInfo.get_problem(
+                    blist[i], pwn_path.filename+str(i+1), funclist)
+
                 # save problem
                 with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
                     f.write(problem)
-            
+
             resultcode = llmgraph.run_graph(problem)
             # save
             with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
                 pprint(resultcode, stream=f)
                 if 'generation' in resultcode:
-                    if hasattr(resultcode["generation"],'imports'):
+                    if hasattr(resultcode["generation"], 'imports'):
                         f.write(resultcode["generation"].imports +
-                                "\n" + resultcode["generation"].code)   
+                                "\n" + resultcode["generation"].code)
 
-if __name__ == "__main__":
-    #llm without structured output
+
+def evaluate_llm_without_structured_output():
+    # llm without structured output
     for name in pathName:
         pwn_path = file.PwnInfo(*name)
         # pwn_path = file.PwnInfo("./pwn/stack/", "rop")
@@ -164,27 +170,67 @@ if __name__ == "__main__":
         print("Start: ")
 
         for i in range(len(clist)):
-            
+
             print(clist[i])
             if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
                 os.makedirs(pwn_path.list[i]+f'/{modelName}')
-        
-            problem=llmgraph.get_decompilefile(pwn_path.list[i]+'/openai_gpt-4o-2024-11-20'+"/problem.txt")[0]
+
+            problem = llmgraph.get_decompilefile(
+                pwn_path.list[i]+'/openai_gpt-4o-2024-11-20'+"/problem.txt")[0]
             # run_graph or run_direct
             resultcode = llmgraph.run_direct(problem)
             # save
             with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
                 pprint(resultcode, stream=f)
                 # some llms without structured output (run_direct)
-                if hasattr(resultcode,'content'):
+                if hasattr(resultcode, 'content'):
                     print(resultcode.content, file=f)
                 if 'generation' in resultcode:
-                    if hasattr(resultcode["generation"],'imports'):
+                    if hasattr(resultcode["generation"], 'imports'):
                         f.write(resultcode["generation"].imports +
                                 "\n" + resultcode["generation"].code)
-        
 
-            
+def evaluate_cve():
+        pwn_path = file.PwnInfo("./cve/", "cve")
+        clist = pwn_path.get_clist()
+        blist = pwn_path.get_binarylist()
+        print("Start: ")
 
-            
+        for i in range(len(clist)):
+            print(clist[i])
+            if not os.path.exists(pwn_path.list[i]+f'/{modelName}'):
+                os.makedirs(pwn_path.list[i]+f'/{modelName}')
 
+            decfile = llmgraph.get_decompilefile(clist[i])[0]
+
+            # limit 128k token
+            if len(decfile.page_content.split()) > 128000:
+
+                resultcode = constructInfo.static_analysis(
+                    decfile.page_content, llmgraph.expt_llm, llmgraph.base)
+                problem = constructInfo.get_problem(
+                    blist[i], pwn_path.filename+str(i+1), resultcode)
+                # save problem
+                with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
+                    f.write(problem)
+            else:
+                funclist = constructInfo.get_funclist(
+                    llmgraph.expt_llm, llmgraph.base, decfile.page_content)
+                problem = constructInfo.get_problem(
+                    blist[i], pwn_path.filename+str(i+1), funclist)
+
+                # save problem
+                with open(pwn_path.list[i]+f'/{modelName}/problem.txt', 'w') as f:
+                    f.write(problem)
+
+            resultcode = llmgraph.run_graph(problem)
+            # save
+            with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
+                pprint(resultcode, stream=f)
+                if 'generation' in resultcode:
+                    if hasattr(resultcode["generation"], 'imports'):
+                        f.write(resultcode["generation"].imports +
+                                "\n" + resultcode["generation"].code)
+
+if __name__ == "__main__":
+    evaluate_cve()
