@@ -1,4 +1,4 @@
-# CVE-2011-2523 : vsftpd 2.3.4 - Backdoor Command Execution (cve-1)
+# CVE-2011-2523 : vsftpd Backdoor Command Execution (cve-1)
 Run [docker image](https://github.com/Anon-Exploiter/vulnerable-packages) and run [exp.py](https://github.com/padsalatushal/CVE-2011-2523), you can get a shell on the port '6200' from the docker container.
 We decompile vsftpd and get the decompiled file: cve1de.c. We can find the backdoor:
 ```c
@@ -61,3 +61,20 @@ __int64 __fastcall sub_CF10(__int64 a1)
 }
 // 16100: using guessed type void __noreturn sub_16100(void);
 ```
+
+# CVE-2018-10933 : libssh Authentication Bypass Vulnerability (cve-2)
+[Setup and exploit](https://github.com/vulhub/vulhub/tree/master/libssh/CVE-2018-10933):
+
+```
+docker compose up -d
+```
+
+```
+python .\exp.py 127.0.0.1 2222 "ps aux"
+```
+
+In the container, the target SSH server run by:
+```
+/usr/src/build/examples/ssh_server_fork --hostkey=/etc/ssh/ssh_host_rsa_key --ecdsakey=/etc/ssh/ssh_host_ecdsa_key --dsakey=/etc/ssh/ssh_host_dsa_key --rsakey=/etc/ssh/ssh_host_rsa_key -p 22 0.0.0.0
+```
+But the core bug is not in `ssh_server_fork`, it is in libssh. So we statically link libssh into `ssh_server_fork_static` by [CMakeLists_static.txt](./cve-2/libssh-0.8/static/CMakeLists_static.txt), and we use `ssh_server_fork_static` as Pwn Challenge file.
