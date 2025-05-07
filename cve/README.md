@@ -63,18 +63,24 @@ __int64 __fastcall sub_CF10(__int64 a1)
 ```
 
 # CVE-2018-10933 : libssh Authentication Bypass Vulnerability (cve-2)
-[Setup and exploit](https://github.com/vulhub/vulhub/tree/master/libssh/CVE-2018-10933):
+[Setup](https://github.com/vulhub/vulhub/tree/master/libssh/CVE-2018-10933):
 
 ```
 docker compose up -d
 ```
+Vulnerable file `ssh_server_fork` is running on port 22 (maps to port 2222). Exploit:
+```
+python exp.py 127.0.0.1 2222 "ps aux"
+```
 
-```
-python .\exp.py 127.0.0.1 2222 "ps aux"
-```
 
-In the container, the target SSH server run by:
-```
-/usr/src/build/examples/ssh_server_fork --hostkey=/etc/ssh/ssh_host_rsa_key --ecdsakey=/etc/ssh/ssh_host_ecdsa_key --dsakey=/etc/ssh/ssh_host_dsa_key --rsakey=/etc/ssh/ssh_host_rsa_key -p 22 0.0.0.0
-```
 But the core bug is not in `ssh_server_fork`, it is in libssh. So we statically link libssh into `ssh_server_fork_static` by [CMakeLists_static.txt](./cve-2/libssh-0.8/static/CMakeLists_static.txt), and we use `ssh_server_fork_static` as Pwn Challenge file.
+If you want to compile `ssh_server_fork_static`, you need to replace the content of `CMakeLists.txt` with `/cve-2/libssh-0.8/static/CMakeLists_static.txt`, which is in `/usr/src/examples/` of the container.
+In the container, the target SSH server runs by:
+```
+ssh_server_fork_static --hostkey=/etc/ssh/ssh_host_rsa_key --ecdsakey=/etc/ssh/ssh_host_ecdsa_key --dsakey=/etc/ssh/ssh_host_dsa_key --rsakey=/etc/ssh/ssh_host_rsa_key -p 21 0.0.0.0
+```
+Exploit:
+```
+python exp.py 127.0.0.1 2221 "ps aux"
+```
