@@ -1,5 +1,7 @@
 Challenge is a ELF 32-bit LSB executable file and the file path is "./pwn/stack/rop-1/rop1".
 1.Here is the key function for exploit in the C file decompiled from rop1:
+```c
+//----- (080484B8) --------------------------------------------------------
 ssize_t vulnerable_function()
 {
   char buf[136]; // [esp+10h] [ebp-88h] BYREF
@@ -7,6 +9,7 @@ ssize_t vulnerable_function()
   return read(0, buf, 0x100u);
 }
 
+//----- (080484E1) --------------------------------------------------------
 int be_nice_to_people()
 {
   __gid_t v1; // [esp+1Ch] [ebp-Ch]
@@ -15,12 +18,20 @@ int be_nice_to_people()
   return setresgid(v1, v1, v1);
 }
 
+//----- (080484A4) --------------------------------------------------------
+int not_called()
+{
+  return system("/bin/bash");
+}
+
+//----- (0804850A) --------------------------------------------------------
 int __cdecl main(int argc, const char **argv, const char **envp)
 {
   be_nice_to_people();
   vulnerable_function();
   return write(1, "Hello, World\n", 0xDu);
 }
+```
 
 2.Here is the file security infomation identified by 'checksec' command:
 {"relro": "partial", "canary": "no", "nx": "yes", "pie": "no", "rpath": "no", "runpath": "no", "symbols": "yes", "fortify_source": "no", "fortified": "0", "fortify-able": "1"}

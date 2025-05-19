@@ -4,7 +4,7 @@ from preprocessing import constructInfo, file, retrieval
 import re
 import os
 from pprint import pprint
-
+import dashscope, tiktoken
 
 def test1():
     # test base invoke
@@ -97,8 +97,7 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/stack/", "rop"), ("./pwn/string/", "fmt"),
-            ("./pwn/integer/", "int"), ("./pwn/heap/", "heap")]
+pathName = [("./pwn/stack/", "rop")]
 
 
 def sanitize_filename(filename):
@@ -131,8 +130,13 @@ def evaluate_llm_structured_output():
             decfile = llmgraph.get_decompilefile(clist[i])[0]
 
             # limit 128k token
-            if len(decfile.page_content.split()) > 128000:
-
+            if modelName.startswith('qwen'):
+                token_encoding = dashscope.tokenizers.get_tokenizer(modelName)
+            else:
+                token_encoding = tiktoken.encoding_for_model(modelName)
+            # print(len(token_encoding.encode(decfile.page_content)))
+            if len(token_encoding.encode(decfile.page_content)) > 128000:
+                print('static analysis')
                 resultcode = constructInfo.static_analysis(
                     decfile.page_content, llmgraph.expt_llm, llmgraph.base)
                 problem = constructInfo.get_problem(
@@ -152,7 +156,7 @@ def evaluate_llm_structured_output():
 
             resultcode = llmgraph.run_graph(problem)
             # save
-            with open(pwn_path.list[i]+f'/{modelName}/result_2_raw.txt', 'w') as f:
+            with open(pwn_path.list[i]+f'/{modelName}/result_3_raw.txt', 'w') as f:
                 pprint(resultcode, stream=f)
                 if 'generation' in resultcode:
                     if hasattr(resultcode["generation"], 'imports'):
@@ -204,7 +208,11 @@ def evaluate_cve():
             decfile = llmgraph.get_decompilefile(clist[i])[0]
 
             # limit 128k token
-            if len(decfile.page_content.split()) > 128000:
+            if modelName.startswith('qwen'):
+                token_encoding = dashscope.tokenizers.get_tokenizer(modelName)
+            else:
+                token_encoding = tiktoken.encoding_for_model(modelName)
+            if len(token_encoding.encode(decfile.page_content)) > 128000:
 
                 resultcode = constructInfo.static_analysis(
                     decfile.page_content, llmgraph.expt_llm, llmgraph.base)
@@ -233,4 +241,4 @@ def evaluate_cve():
                                 "\n" + resultcode["generation"].code)
 
 if __name__ == "__main__":
-    evaluate_cve()
+    evaluate_llm_structured_output()
