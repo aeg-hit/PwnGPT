@@ -118,13 +118,15 @@ def static_analysis(code, expt_llm, base):
     result = ''
     functions = analysis.find_functions(code)
     extracted_funcs = analysis.extract_main_and_calls(functions)
-
     llm = ChatOpenAI(temperature=0, model=expt_llm, base_url=base)
-    structured_llm_claude = llm.with_structured_output(funclist, method='json_schema')
+    # with_structured_output(funclist, method='json_schema') for OpenAI models
+    structured_llm_claude = llm.with_structured_output(funclist)
     prompt = ChatPromptTemplate.from_messages([("system", '''You are a expert on Capture the Flag (CTF) competition, and are good at Binary Exploitation (pwn) challenges. \n 
                                                 There is a pwn challenge in the CTF competition, we need to write code to solve the challenge and we get the C file decompiled from the challenge,
                                                  here is a list of function names  from the decompiled C file:\n ------- \n  {context} \n ------- \n 
                                                 '''), ("placeholder", "{messages}")])
+    # for json_mode, ask:
+    #  "Please find functions appear to be named artificially and may be related to specific application logic, just give me a list of function names (key: 'func_name') in JSON format."
     flist = (prompt | structured_llm_claude).invoke({"context": list(functions.keys()), "messages": [
         ("human", "Please find functions appear to be named artificially and may be related to specific application logic, just give me a list of function names.")]})
 
@@ -138,6 +140,8 @@ def static_analysis(code, expt_llm, base):
     max_func=len(extracted_funcs)+2
 
     if max_func < len(flist.func_name):
+        # for json_mode, ask:
+        #  "For these function names you provide, which functions are important for our exploit code? Please select up to {max_func} function names (key: 'func_name') in JSON format from them and sort them by importance (placing important ones first)."
         prompt.append(
             ("human", f"For these function names you provide, which functions are important for our exploit code? Please select up to {max_func} function names from them and sort them by importance (placing important ones first)."))
         result2 = (prompt | structured_llm_claude).invoke(

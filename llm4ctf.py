@@ -97,7 +97,7 @@ def evaluate_fmtstr():
         pprint(resultcode, stream=f)
 
 
-pathName = [("./pwn/stack/", "rop")]
+pathName = [("./pwn/stack/", "rop"),("./pwn/string/", "fmt"),("./pwn/integer/", "int"),("./pwn/heap/", "heap")]
 
 
 def sanitize_filename(filename):
@@ -132,8 +132,8 @@ def evaluate_llm_structured_output():
             # limit 128k token
             if modelName.startswith('qwen'):
                 token_encoding = dashscope.tokenizers.get_tokenizer(modelName)
-            else:
-                token_encoding = tiktoken.encoding_for_model(modelName)
+            elif 'openai' in modelName:
+                token_encoding = tiktoken.encoding_for_model(modelName.split('_')[1])
             # print(len(token_encoding.encode(decfile.page_content)))
             if len(token_encoding.encode(decfile.page_content)) > 128000:
                 print('static analysis')
@@ -210,8 +210,8 @@ def evaluate_cve():
             # limit 128k token
             if modelName.startswith('qwen'):
                 token_encoding = dashscope.tokenizers.get_tokenizer(modelName)
-            else:
-                token_encoding = tiktoken.encoding_for_model(modelName)
+            elif 'openai' in modelName:
+                token_encoding = tiktoken.encoding_for_model(modelName.split('_')[1])
             if len(token_encoding.encode(decfile.page_content)) > 128000:
 
                 resultcode = constructInfo.static_analysis(
@@ -241,4 +241,4 @@ def evaluate_cve():
                                 "\n" + resultcode["generation"].code)
 
 if __name__ == "__main__":
-    evaluate_llm_structured_output()
+    evaluate_cve()
